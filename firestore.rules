@@ -1,0 +1,171 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net: Default Deny All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Core Primitives and Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'techgadgetsk@gmail.com' || 
+        request.auth.token.email == 'admin@techgadgetskenya.co.ke' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Validation Rules for Entities ---
+
+    function isValidProduct(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 200
+        && data.brand is string && data.brand.size() > 0 && data.brand.size() <= 100
+        && data.category is string && data.category.size() > 0 && data.category.size() <= 100
+        && data.price is number && data.price >= 0
+        && data.stock is int && data.stock >= 0
+        && data.description is string && data.description.size() <= 3000
+        && data.image is string && data.image.size() <= 15000000;
+    }
+
+    function isValidOrder(data) {
+      return data.userId is string && data.userId.size() <= 128
+        && data.customerName is string && data.customerName.size() > 0 && data.customerName.size() <= 200
+        && data.customerEmail is string && data.customerEmail.size() > 0 && data.customerEmail.size() <= 300
+        && data.shippingAddress is string && data.shippingAddress.size() > 0 && data.shippingAddress.size() <= 2000
+        && data.totalAmount is number && data.totalAmount >= 0
+        && data.mpesaPhone is string && data.mpesaPhone.size() <= 30
+        && data.paymentStatus is string && (data.paymentStatus == 'Pending' || data.paymentStatus == 'Paid' || data.paymentStatus == 'Failed')
+        && data.shippingStatus is string && (data.shippingStatus == 'Processing' || data.shippingStatus == 'Shipped' || data.shippingStatus == 'Delivered')
+        && data.items is list && data.items.size() > 0 && data.items.size() <= 100;
+    }
+
+    function isValidUser(data) {
+      return data.email is string && data.email.size() > 0 && data.email.size() <= 300
+        && data.name is string && data.name.size() <= 200
+        && data.role is string && (data.role == 'customer' || data.role == 'admin');
+    }
+
+    function isValidNewsletter(data) {
+      return data.email is string && data.email.size() > 0 && data.email.size() <= 300
+        && data.subscribedAt is string && data.subscribedAt.size() <= 100;
+    }
+
+    function isValidPriceAlert(data) {
+      return data.productId is string && data.productId.size() > 0 && data.productId.size() <= 128
+        && data.productName is string && data.productName.size() > 0 && data.productName.size() <= 300
+        && data.email is string && data.email.size() > 0 && data.email.size() <= 300
+        && data.targetPrice is number && data.targetPrice > 0
+        && data.currentPrice is number && data.currentPrice > 0
+        && data.createdAt is string && data.createdAt.size() <= 100;
+    }
+
+    function isValidTrash(data) {
+      return data.originalId is string && data.originalId.size() > 0
+        && data.deletedAt is string && data.deletedAt.size() <= 100
+        && data.productData is map;
+    }
+
+    // --- Collection Routes ---
+
+    // Products collection: anybody can browse (read/list), only admins can edit products
+    match /products/{productId} {
+      allow read, list: if true;
+      allow create: if isAdmin() && isValidProduct(incoming());
+      allow update: if isAdmin() && isValidProduct(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // Orders collection:
+    // - Create: Must be signed in, and order userId must be request.auth.uid
+    // - Get/Read: Must be owner of the order or Admin
+    // - List: Must be Admin OR query filtered with where("userId", "==", request.auth.uid)
+    // - Update: Admins can update any field. Customers can ONLY submit M-Pesa tracking codes if paymentStatus is Pending.
+    match /orders/{orderId} {
+      allow create: if isSignedIn() && isValidOrder(incoming()) && incoming().userId == request.auth.uid;
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isSignedIn() && (
+        isAdmin() && isValidOrder(incoming())
+      ) || (
+        // Client-side self checkout updates (e.g. entering transaction receipt reference)
+        resource.data.userId == request.auth.uid && 
+        isValidOrder(incoming()) &&
+        existing().paymentStatus == 'Pending' &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['receiptNo', 'mpesaPhone', 'updatedAt'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Users collection:
+    // - Users can read and write their own documents.
+    // - Prevent escalating own privileges to "admin" on create.
+    match /users/{userId} {
+      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) && (
+        incoming().role == 'customer' || isAdmin()
+      );
+      allow update: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) && (
+        (incoming().role == existing().role) || isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Newsletters collection:
+    // - Anyone can subscribe to newsletters (create).
+    // - Only admins can read/list/update/delete the entire collection tracking.
+    match /newsletters/{newsletterId} {
+      allow create: if isValidNewsletter(incoming());
+      allow read, list, update, delete: if isAdmin();
+    }
+
+    // Price Alerts collection:
+    // - Anyone can request a price alert (create).
+    // - Only admins can read/list/update/delete the price alerts.
+    match /price_alerts/{alertId} {
+      allow create: if isValidPriceAlert(incoming());
+      allow read, list, update, delete: if isAdmin();
+    }
+
+    // Trash collection:
+    // - Only admins can read, list, create, update, or delete soft-deleted records.
+    match /trash/{trashId} {
+      allow create: if isAdmin() && isValidTrash(incoming());
+      allow read, list, update, delete: if isAdmin();
+    }
+
+    // Affiliates collection:
+    // - Anyone can read/list affiliate codes to validate them.
+    // - Only admins can create, update, or delete them.
+    match /affiliates/{affiliateId} {
+      allow read, list, get: if true;
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}

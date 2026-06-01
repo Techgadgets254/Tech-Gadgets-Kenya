@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Tech Gadgets Kenya",
+  "description": "Premium electronics store with live inventory management, user authentication, M-Pesa tracking, and a client dashboard with downloadable invoices.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
