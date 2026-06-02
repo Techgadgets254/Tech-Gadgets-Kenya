@@ -57,5 +57,8 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path
   };
   console.error("Firestore Error Logged: ", JSON.stringify(errInfo));
+  if (operationType === OperationType.LIST || operationType === OperationType.GET) {
+    return;
+  }
   throw new Error(JSON.stringify(errInfo));
 }

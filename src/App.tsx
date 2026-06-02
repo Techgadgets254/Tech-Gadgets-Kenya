@@ -16,6 +16,7 @@ import ClientDashboard from "./components/ClientDashboard";
 import NewsView from "./components/NewsView";
 import NotificationCenter from "./components/NotificationCenter";
 import AIAdvisor from "./components/AIAdvisor";
+import ErrorBoundary from "./components/ErrorBoundary";
 import { Loader2 } from "lucide-react";
 
 function StoreLayout() {
@@ -51,7 +52,11 @@ function StoreLayout() {
         {activeView === "product-details" && <ProductDetailsView />}
         {activeView === "checkout" && <CheckoutView />}
         {activeView === "client-dashboard" && <ClientDashboard />}
-        {activeView === "admin-dashboard" && <AdminDashboard />}
+        {activeView === "admin-dashboard" && (
+          <ErrorBoundary fallbackName="Operations Management Portal">
+            <AdminDashboard />
+          </ErrorBoundary>
+        )}
         {activeView === "news" && <NewsView />}
       </main>
 
