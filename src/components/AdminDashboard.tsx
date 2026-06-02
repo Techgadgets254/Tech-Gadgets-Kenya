@@ -578,7 +578,7 @@ Return a strictly valid JSON object structured exactly like this:
     });
 
     setActionSuccessNotification(`Ingested ${list.length} images into product form slots!`);
-    setTimeout(() => setActionSuccessNotification(""), 4000);
+    setTimeout(() => setActionSuccessNotification(""), 2000);
     e.target.value = ""; // Clear
   };
 
@@ -591,7 +591,7 @@ Return a strictly valid JSON object structured exactly like this:
         setSelectedProductIds([]); // Clear early
         await Promise.all(pids.map(id => removeProduct(id)));
         setActionSuccessNotification("Bulk deletion completed! Items moved to Trash.");
-        setTimeout(() => setActionSuccessNotification(""), 5000);
+        setTimeout(() => setActionSuccessNotification(""), 2000);
       } catch (err: any) {
         console.error(err);
         alert("Bulk deletion failed: " + err.message);
@@ -627,7 +627,7 @@ Return a strictly valid JSON object structured exactly like this:
       await deleteDoc(doc(db, "trash", trashId));
       
       setActionSuccessNotification(`Product "${pName}" restored successfully!`);
-      setTimeout(() => setActionSuccessNotification(""), 5000);
+      setTimeout(() => setActionSuccessNotification(""), 2000);
     } catch (err: any) {
       console.error(err);
       alert("Restore failed: " + err.message);
@@ -640,7 +640,7 @@ Return a strictly valid JSON object structured exactly like this:
         setActionSuccessNotification(`Purging "${productName}"...`);
         await deleteDoc(doc(db, "trash", trashId));
         setActionSuccessNotification(`Product "${productName}" permanently destroyed.`);
-        setTimeout(() => setActionSuccessNotification(""), 5000);
+        setTimeout(() => setActionSuccessNotification(""), 2000);
       } catch (err: any) {
         console.error(err);
         alert("Purge failed: " + err.message);
@@ -656,7 +656,7 @@ Return a strictly valid JSON object structured exactly like this:
         await Promise.all(trashItems.map(item => deleteDoc(doc(db, "trash", item.id))));
         setActionSuccessNotification("Trash Bin emptied successfully!");
         setSelectedProductIds([]);
-        setTimeout(() => setActionSuccessNotification(""), 5000);
+        setTimeout(() => setActionSuccessNotification(""), 2000);
       } catch (err: any) {
         console.error(err);
         alert("Failed to empty trash: " + err.message);
@@ -990,7 +990,7 @@ Return a strictly valid JSON object structured exactly like this:
         await addProduct(payload);
         setActionSuccessNotification(`✓ Commodity "${payload.name}" added to live storefront catalog!`);
       }
-      setTimeout(() => setActionSuccessNotification(""), 6000);
+      setTimeout(() => setActionSuccessNotification(""), 2000);
       setShowAddForm(false);
       setIsEditing(null);
     } catch (err) {
@@ -1017,9 +1017,18 @@ Return a strictly valid JSON object structured exactly like this:
     <div id="admin-operations-container" className="animate-fadeIn relative">
       {/* Floating Success Toast notification */}
       {actionSuccessNotification && (
-        <div className="fixed top-6 right-6 z-55 flex items-center gap-2.5 bg-[#C5A059] text-black px-5 py-4 rounded-xl shadow-2xl border border-[#C5A059]/40 font-sans font-bold text-xs">
-          <CheckSquare className="w-4 h-4 text-black shrink-0" />
-          <span>{actionSuccessNotification}</span>
+        <div className="fixed top-6 right-6 z-55 flex items-center justify-between gap-3 bg-[#C5A059] text-black px-5 py-4 rounded-xl shadow-2xl border border-[#C5A059]/40 font-sans font-bold text-xs max-w-sm animate-fadeIn">
+          <div className="flex items-center gap-2.5">
+            <CheckSquare className="w-4 h-4 text-black shrink-0" />
+            <span>{actionSuccessNotification}</span>
+          </div>
+          <button 
+            onClick={() => setActionSuccessNotification("")}
+            className="text-black/60 hover:text-black hover:bg-black/10 p-1 rounded-md transition-colors cursor-pointer shrink-0"
+            title="Dismiss notification"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
@@ -1850,11 +1859,11 @@ Return a strictly valid JSON object structured exactly like this:
                                       await removeProduct(p.id);
                                       setSelectedProductIds(prev => prev.filter(id => id !== p.id));
                                       setActionSuccessNotification(`Product "${p.name}" removed and moved to Trash.`);
-                                      setTimeout(() => setActionSuccessNotification(""), 4000);
+                                      setTimeout(() => setActionSuccessNotification(""), 2000);
                                     } catch (e: any) {
                                       console.error(e);
                                       setActionSuccessNotification(`Error: Could not remove product.`);
-                                      setTimeout(() => setActionSuccessNotification(""), 4000);
+                                      setTimeout(() => setActionSuccessNotification(""), 2000);
                                     }
                                   }
                                 }}

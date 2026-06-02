@@ -217,7 +217,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        setAuthLoading(true);
         try {
           const userDocRef = doc(db, "users", currentUser.uid);
           const userDocSnap = await getDoc(userDocRef);
@@ -301,8 +300,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           handleFirestoreError(e, OperationType.WRITE, "products");
         }
       } else {
-        // Sort products by date created
-        setProducts(items);
+        // Sort products by date created (newest first)
+        const sorted = [...items].sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
+        setProducts(sorted);
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, "products");
