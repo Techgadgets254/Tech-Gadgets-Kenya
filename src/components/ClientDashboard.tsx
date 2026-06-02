@@ -43,8 +43,13 @@ export default function ClientDashboard() {
 
   // Save/bookmark specific order receipts locally
   const [savedReceiptIds, setSavedReceiptIds] = useState<string[]>(() => {
-    const saved = localStorage.getItem("tgk_saved_receipts");
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem("tgk_saved_receipts");
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
   });
 
   const toggleSaveReceipt = (id: string) => {
@@ -83,7 +88,7 @@ export default function ClientDashboard() {
       ord.customerPhone.toLowerCase().includes(q) ||
       ord.mpesaPhone.toLowerCase().includes(q) ||
       ord.receiptNo?.toLowerCase().includes(q) ||
-      ord.items.some(item => item.name.toLowerCase().includes(q) || item.brand.toLowerCase().includes(q))
+      (ord.items || []).some(item => item.name.toLowerCase().includes(q) || item.brand.toLowerCase().includes(q))
     );
   }, [orders, orderSearchQuery]);
 
@@ -706,7 +711,7 @@ export default function ClientDashboard() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5 font-sans text-white/80">
-                          {activeOrder.items.map((item, index) => (
+                          {(activeOrder.items || []).map((item, index) => (
                             <tr key={index}>
                               <td className="p-3 font-medium">
                                 <span className="text-[10px] font-mono text-[#C5A059] block uppercase font-bold">{item.brand}</span>

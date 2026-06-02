@@ -347,6 +347,7 @@ export default function AdminDashboard() {
     category: "Laptops" as Product["category"],
     price: 0,
     stock: 0,
+    sku: "",
     description: "",
     image: "",
     gallery1: "",
@@ -666,7 +667,7 @@ export default function AdminDashboard() {
   };
 
   // Security Gate: Ensure user email matches our target permission setup in the rules
-  const userIsAdmin = user?.email === "techgadgetsk@gmail.com" || userProfile?.role === "admin";
+  const userIsAdmin = user?.email === "techgadgetsk@gmail.com" || user?.email === "admin@techgadgetskenya.co.ke" || userProfile?.role === "admin";
   const canAccess = userIsAdmin || adminPasscodePassed;
 
   if (!canAccess) {
@@ -738,7 +739,7 @@ export default function AdminDashboard() {
 
     const brandSalesValues: { [brand: string]: number } = {};
     orders.forEach((or) => {
-      or.items.forEach((item) => {
+      (or.items || []).forEach((item) => {
         const brand = item.brand || "Generics";
         brandSalesValues[brand] = (brandSalesValues[brand] || 0) + (item.price * item.quantity);
       });
@@ -762,7 +763,7 @@ export default function AdminDashboard() {
     // Aggregate by Category - First Pass: Paid orders
     orders.forEach((or) => {
       if (or.paymentStatus === "Paid") {
-        or.items.forEach((item) => {
+        (or.items || []).forEach((item) => {
           const prod = products.find(p => p.id === item.productId);
           const fullCat = prod ? prod.category : "Accessories";
           const baseCat = getBaseCategory(fullCat);
@@ -775,7 +776,7 @@ export default function AdminDashboard() {
     // Fallback Pass: If no Paid orders yet, scan all orders to create initial graphs
     if (totalPaidValue === 0) {
       orders.forEach((or) => {
-        or.items.forEach((item) => {
+        (or.items || []).forEach((item) => {
           const prod = products.find(p => p.id === item.productId);
           const fullCat = prod ? prod.category : "Accessories";
           const baseCat = getBaseCategory(fullCat);
@@ -832,6 +833,7 @@ export default function AdminDashboard() {
       category: prod.category,
       price: prod.price,
       stock: prod.stock,
+      sku: prod.sku || "",
       description: prod.description,
       image: prod.image,
       gallery1: prod.gallery?.[0] || "",
@@ -853,6 +855,7 @@ export default function AdminDashboard() {
       category: "New Laptops",
       price: 0,
       stock: 10,
+      sku: "",
       description: "",
       image: "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=600", // generic nice layout placeholder
       gallery1: "",
@@ -902,6 +905,7 @@ export default function AdminDashboard() {
       category: productForm.category,
       price: Number(productForm.price),
       stock: Math.floor(Number(productForm.stock)),
+      sku: productForm.sku?.trim().toUpperCase() || "",
       description: productForm.description,
       image: productForm.image,
       gallery: galleryArr,
@@ -1117,7 +1121,7 @@ export default function AdminDashboard() {
                       <div>
                         <span className="font-mono text-white/40 block font-bold">ORDER #{ord.id.substring(0,8).toUpperCase()}</span>
                         <span className="font-sans font-bold text-white text-[13px] block mt-0.5">{ord.customerName}</span>
-                        <span className="text-white/40 block text-[11px] font-medium truncate max-w-sm">Items: {ord.items.map(i => `${i.quantity}x ${i.name}`).join(", ")}</span>
+                        <span className="text-white/40 block text-[11px] font-medium truncate max-w-sm">Items: {(ord.items || []).map(i => `${i.quantity}x ${i.name}`).join(", ")}</span>
                       </div>
                       
                       <div className="text-left sm:text-right shrink-0">
@@ -1312,7 +1316,7 @@ export default function AdminDashboard() {
               </h2>
 
               <form onSubmit={handleProductSubmit} className="space-y-4 text-xs">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="font-mono text-[10px] font-bold text-white/30 block mb-1 uppercase">PRODUCT HEADLINE NAME</label>
                     <input
@@ -1333,6 +1337,16 @@ export default function AdminDashboard() {
                       onChange={(e) => setProductForm({ ...productForm, brand: e.target.value })}
                       className="w-full bg-[#0A0A0A] border border-white/10 py-2.5 px-3 rounded-lg focus:outline-hidden focus:border-[#C5A059] text-white"
                       placeholder="e.g. Epson"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-mono text-[10px] font-bold text-white/30 block mb-1 uppercase">WAREHOUSE SKU CODE</label>
+                    <input
+                      type="text"
+                      value={productForm.sku}
+                      onChange={(e) => setProductForm({ ...productForm, sku: e.target.value.toUpperCase() })}
+                      className="w-full bg-[#0A0A0A] border border-white/10 py-2.5 px-3 rounded-lg focus:outline-hidden focus:border-[#C5A059] text-white font-mono"
+                      placeholder="e.g. EPSON-L3250-WH"
                     />
                   </div>
                 </div>
@@ -1701,70 +1715,89 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5 font-sans text-white/85">
-                      {sortedProducts.map((p) => (
-                        <tr key={p.id} className="hover:bg-white/[0.01] transition-colors">
-                          <td className="p-4 w-12 text-center">
-                            <input
-                              type="checkbox"
-                              checked={selectedProductIds.includes(p.id)}
-                              onChange={() => {
-                                setSelectedProductIds(prev =>
-                                  prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id]
-                                );
-                              }}
-                              className="w-4 h-4 rounded border-white/20 bg-black text-[#C5A059] focus:ring-[#C5A059] focus:ring-offset-0 cursor-pointer"
-                            />
-                          </td>
-                          <td className="p-4 flex gap-3 items-center font-bold">
-                            <img src={p.image} alt="" className="w-10 h-10 object-cover rounded-lg shrink-0 bg-[#0A0A0A] border border-white/10" referrerPolicy="no-referrer" />
-                            <span className="truncate max-w-xs text-white">{p.name}</span>
-                          </td>
-                          <td className="p-4 text-white/70">{p.brand}</td>
-                          <td className="p-4">
-                            <span className="bg-white/5 border border-white/10 text-white/70 px-1.5 py-0.5 rounded-sm font-semibold uppercase text-[9px] font-mono">
-                              {p.category}
-                            </span>
-                          </td>
-                          <td className="p-4 font-mono font-bold text-white">KES {p.price.toLocaleString()}</td>
-                          <td className="p-4">
-                            <span className={`font-mono font-bold ${p.stock <= 5 ? "text-red-400" : "text-white/50"}`}>
-                              {p.stock} units
-                            </span>
-                          </td>
-                          <td className="p-4 text-right space-x-1 shrink-0">
-                            <button
-                              onClick={() => handleEditTrigger(p)}
-                              className="p-1 px-2 border border-white/5 hover:border-[#C5A059] text-[#C5A059] rounded-lg transition-colors inline-flex items-center gap-1.5 hover:bg-[#C5A059]/10 cursor-pointer"
-                              title="Edit product parameters"
-                            >
-                              <Edit className="w-3.5 h-3.5" />
-                              <span className="hidden md:inline">Edit</span>
-                            </button>
-                            <button
-                              onClick={async () => {
-                                if (confirm(`Confirm deletion of product profile for ${p.name}?`)) {
-                                  try {
-                                    setActionSuccessNotification(`Removing "${p.name}"...`);
-                                    await removeProduct(p.id);
-                                    setSelectedProductIds(prev => prev.filter(id => id !== p.id));
-                                    setActionSuccessNotification(`Product "${p.name}" removed and moved to Trash.`);
-                                    setTimeout(() => setActionSuccessNotification(""), 4000);
-                                  } catch (e: any) {
-                                    console.error(e);
-                                    setActionSuccessNotification(`Error: Could not remove product.`);
-                                    setTimeout(() => setActionSuccessNotification(""), 4000);
-                                  }
-                                }
-                              }}
-                              className="p-1 px-2 border border-white/5 hover:border-red-500 text-red-400 rounded-lg transition-colors inline-flex items-center gap-1.5 hover:bg-red-500/10 cursor-pointer"
-                              title="Delete product"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span className="hidden md:inline">Delete</span>
-                            </button>
+                      {sortedProducts.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="p-8 text-center text-white/30 font-mono text-[11px] uppercase tracking-wider bg-black/10">
+                            No warehouse assets registered under the current filter selection
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        sortedProducts.map((p) => (
+                          <tr key={p.id} className="hover:bg-white/[0.01] transition-colors">
+                            <td className="p-4 w-12 text-center">
+                              <input
+                                type="checkbox"
+                                checked={selectedProductIds.includes(p.id)}
+                                onChange={() => {
+                                  setSelectedProductIds(prev =>
+                                    prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id]
+                                  );
+                                }}
+                                className="w-4 h-4 rounded border-white/20 bg-black text-[#C5A059] focus:ring-[#C5A059] focus:ring-offset-0 cursor-pointer"
+                              />
+                            </td>
+                            <td className="p-4 flex gap-3 items-center">
+                              <img src={p.image} alt="" className="w-10 h-10 object-cover rounded-lg shrink-0 bg-[#0A0A0A] border border-white/10" referrerPolicy="no-referrer" />
+                              <div className="flex flex-col min-w-0">
+                                <span className="truncate max-w-xs text-white font-bold">{p.name}</span>
+                                {p.sku ? (
+                                  <span className="font-mono text-[9px] text-[#C5A059] font-semibold mt-0.5" title="Warehouse SKU Code">
+                                    SKU: {p.sku}
+                                  </span>
+                                ) : (
+                                  <span className="font-mono text-[9px] text-white/20 mt-0.5">
+                                    SKU: —
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-4 text-white/70">{p.brand}</td>
+                            <td className="p-4">
+                              <span className="bg-white/5 border border-white/10 text-white/70 px-1.5 py-0.5 rounded-sm font-semibold uppercase text-[9px] font-mono">
+                                {p.category}
+                              </span>
+                            </td>
+                            <td className="p-4 font-mono font-bold text-white">KES {p.price.toLocaleString()}</td>
+                            <td className="p-4">
+                              <span className={`font-mono font-bold ${p.stock <= 5 ? "text-red-400" : "text-white/50"}`}>
+                                {p.stock} units
+                              </span>
+                            </td>
+                            <td className="p-4 text-right space-x-1 shrink-0">
+                              <button
+                                onClick={() => handleEditTrigger(p)}
+                                className="p-1 px-2 border border-white/5 hover:border-[#C5A059] text-[#C5A059] rounded-lg transition-colors inline-flex items-center gap-1.5 hover:bg-[#C5A059]/10 cursor-pointer"
+                                title="Edit product parameters"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                                <span className="hidden md:inline">Edit</span>
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (confirm(`Confirm deletion of product profile for ${p.name}?`)) {
+                                    try {
+                                      setActionSuccessNotification(`Removing "${p.name}"...`);
+                                      await removeProduct(p.id);
+                                      setSelectedProductIds(prev => prev.filter(id => id !== p.id));
+                                      setActionSuccessNotification(`Product "${p.name}" removed and moved to Trash.`);
+                                      setTimeout(() => setActionSuccessNotification(""), 4000);
+                                    } catch (e: any) {
+                                      console.error(e);
+                                      setActionSuccessNotification(`Error: Could not remove product.`);
+                                      setTimeout(() => setActionSuccessNotification(""), 4000);
+                                    }
+                                  }
+                                }}
+                                className="p-1 px-2 border border-white/5 hover:border-red-500 text-red-400 rounded-lg transition-colors inline-flex items-center gap-1.5 hover:bg-red-500/10 cursor-pointer"
+                                title="Delete product"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span className="hidden md:inline">Delete</span>
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1848,69 +1881,77 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5 font-sans text-white/80">
-                    {sortedOrders.map((ord) => (
-                      <tr key={ord.id} className="hover:bg-white/[0.01] transition-colors">
-                        <td className="p-4 font-mono font-bold">
-                          <span className="block text-white">#{ord.id.substring(0,8).toUpperCase()}</span>
-                          <span className="text-[10px] text-white/35 block mt-1">
-                            {ord.createdAt ? new Date(ord.createdAt).toLocaleDateString() : "Pending"}
-                          </span>
-                        </td>
-                        <td className="p-4 space-y-1">
-                          <span className="font-bold text-white block text-[13px]">{ord.customerName}</span>
-                          <span className="text-white/40 text-[10px] block font-mono">{ord.customerEmail}</span>
-                          <span className="text-white/40 text-[10px] block font-mono">{ord.customerPhone}</span>
-                        </td>
-                        <td className="p-4 truncate max-w-xs font-medium text-white/80">
-                          {ord.items.map((i, idx) => (
-                            <div key={idx}>
-                              {i.quantity}x <span className="font-bold text-white">{i.name}</span>
-                            </div>
-                          ))}
-                        </td>
-                        <td className="p-4 font-mono font-bold text-[#C5A059]">KES {ord.totalAmount.toLocaleString()}</td>
-                        <td className="p-4 space-y-1.5">
-                          <select
-                            value={ord.paymentStatus}
-                            onChange={(e) => handleOrderStatusToggle(ord.id, ord, "payment", e.target.value)}
-                            className={`font-sans text-[10px] uppercase font-mono font-bold border rounded-lg px-2 py-1 cursor-pointer outline-hidden bg-[#0A0A0A] ${
-                              ord.paymentStatus === "Paid"
-                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                : ord.paymentStatus === "Failed"
-                                ? "bg-red-500/10 text-red-400 border-red-500/20"
-                                : "bg-[#C5A059]/10 text-[#C5A059] border-[#C5A059]/20"
-                            }`}
-                          >
-                            <option value="Pending">Pending</option>
-                            <option value="Paid">Paid</option>
-                            <option value="Failed">Failed</option>
-                          </select>
-                          
-                          <div className="text-[10px] font-mono text-white/35 block font-bold leading-normal">
-                            STK Phone: {ord.mpesaPhone}
-                          </div>
-                          {ord.receiptNo && (
-                            <div className="text-[10px] font-mono text-emerald-400 font-bold block leading-normal">
-                              PayCode: {ord.receiptNo}
-                            </div>
-                          )}
-                        </td>
-                        <td className="p-4">
-                          <select
-                            value={ord.shippingStatus}
-                            onChange={(e) => handleOrderStatusToggle(ord.id, ord, "shipping", e.target.value)}
-                            className="font-sans text-[10px] uppercase font-mono font-bold border border-white/10 bg-[#0A0A0A] rounded-lg px-2 py-1 text-white cursor-pointer outline-hidden"
-                          >
-                            <option value="Processing">Processing</option>
-                            <option value="Shipped">Shipped</option>
-                            <option value="Delivered">Delivered</option>
-                          </select>
-                          <span className="text-[10px] text-white/40 block font-mono font-bold mt-1.5 leading-none">
-                            LOC: {ord.shippingAddress.split(", ").slice(-2)[0] || "Default Dispatch"}
-                          </span>
+                    {sortedOrders.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-white/30 font-mono text-[11px] uppercase tracking-wider bg-black/10">
+                          No customer orders recorded in the terminal database matching active conditions
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      sortedOrders.map((ord) => (
+                        <tr key={ord.id} className="hover:bg-white/[0.01] transition-colors">
+                          <td className="p-4 font-mono font-bold">
+                            <span className="block text-white">#{ord.id.substring(0,8).toUpperCase()}</span>
+                            <span className="text-[10px] text-white/35 block mt-1">
+                              {ord.createdAt ? new Date(ord.createdAt).toLocaleDateString() : "Pending"}
+                            </span>
+                          </td>
+                          <td className="p-4 space-y-1">
+                            <span className="font-bold text-white block text-[13px]">{ord.customerName}</span>
+                            <span className="text-white/40 text-[10px] block font-mono">{ord.customerEmail}</span>
+                            <span className="text-white/40 text-[10px] block font-mono">{ord.customerPhone}</span>
+                          </td>
+                          <td className="p-4 truncate max-w-xs font-medium text-white/80">
+                            {(ord.items || []).map((i, idx) => (
+                              <div key={idx}>
+                                {i.quantity}x <span className="font-bold text-white">{i.name}</span>
+                              </div>
+                            ))}
+                          </td>
+                          <td className="p-4 font-mono font-bold text-[#C5A059]">KES {ord.totalAmount.toLocaleString()}</td>
+                          <td className="p-4 space-y-1.5">
+                            <select
+                              value={ord.paymentStatus}
+                              onChange={(e) => handleOrderStatusToggle(ord.id, ord, "payment", e.target.value)}
+                              className={`font-sans text-[10px] uppercase font-mono font-bold border rounded-lg px-2 py-1 cursor-pointer outline-hidden bg-[#0A0A0A] ${
+                                ord.paymentStatus === "Paid"
+                                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                  : ord.paymentStatus === "Failed"
+                                  ? "bg-red-500/10 text-red-400 border-red-500/20"
+                                  : "bg-[#C5A059]/10 text-[#C5A059] border-[#C5A059]/20"
+                              }`}
+                            >
+                              <option value="Pending">Pending</option>
+                              <option value="Paid">Paid</option>
+                              <option value="Failed">Failed</option>
+                            </select>
+                            
+                            <div className="text-[10px] font-mono text-white/35 block font-bold leading-normal">
+                              STK Phone: {ord.mpesaPhone}
+                            </div>
+                            {ord.receiptNo && (
+                              <div className="text-[10px] font-mono text-emerald-400 font-bold block leading-normal">
+                                PayCode: {ord.receiptNo}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-4">
+                            <select
+                              value={ord.shippingStatus}
+                              onChange={(e) => handleOrderStatusToggle(ord.id, ord, "shipping", e.target.value)}
+                              className="font-sans text-[10px] uppercase font-mono font-bold border border-white/10 bg-[#0A0A0A] rounded-lg px-2 py-1 text-white cursor-pointer outline-hidden"
+                            >
+                              <option value="Processing">Processing</option>
+                              <option value="Shipped">Shipped</option>
+                              <option value="Delivered">Delivered</option>
+                            </select>
+                            <span className="text-[10px] text-white/40 block font-mono font-bold mt-1.5 leading-none">
+                              LOC: {ord.shippingAddress.split(", ").slice(-2)[0] || "Default Dispatch"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -2437,7 +2478,7 @@ export default function AdminDashboard() {
                   </thead>
                   <tbody className="divide-y divide-white/5 text-xs text-white/70">
                     {affiliates.map((aff) => {
-                      const matchedOrders = orders.filter(o => o.referralCode?.trim().toUpperCase() === aff.code.toUpperCase());
+                      const matchedOrders = orders.filter(o => typeof o.referralCode === "string" && o.referralCode.trim().toUpperCase() === aff.code.toUpperCase());
                       const conversionCount = matchedOrders.length;
                       const salesYield = matchedOrders.reduce((acc, current) => acc + (current.totalAmount || 0), 0);
 

@@ -401,8 +401,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const loginWithGoogle = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Sign in failed:", e);
+      if (e?.code === "auth/unauthorized-domain") {
+        alert(
+          "Firebase Authentication Domain Restriction:\n\n" +
+          "Your live domain (tech-gadgets-kenya.vercel.app / Netlify) has not been authorized in your Firebase Project Console.\n\n" +
+          "To enable logging in:\n" +
+          "1. Go to Firebase Console -> Biometrics/Authentication -> Settings -> Authorized Domains\n" +
+          "2. Add your live URL (e.g., 'tech-gadgets-kenya.vercel.app' or netlify domain)\n" +
+          "3. Try logging in again! It takes a few seconds to take effect."
+        );
+      } else if (e?.code === "auth/popup-blocked") {
+        alert("The sign-in popup was blocked by your browser settings. Please allow popups for this domain and try again.");
+      } else if (e?.code === "auth/popup-closed-by-user") {
+        // Silent transition or small debug log
+        console.warn("User closed the login popup.");
+      } else {
+        alert(`Google Authentication Failed: ${e?.message || e || "Unknown Error"}`);
+      }
     }
   };
 

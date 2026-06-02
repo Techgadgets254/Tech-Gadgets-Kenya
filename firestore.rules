@@ -50,7 +50,8 @@ service cloud.firestore {
         && data.price is number && data.price >= 0
         && data.stock is int && data.stock >= 0
         && data.description is string && data.description.size() <= 3000
-        && data.image is string && data.image.size() <= 15000000;
+        && data.image is string && data.image.size() <= 15000000
+        && (!data.keys().hasAll(['sku']) || (data.sku is string && data.sku.size() <= 100));
     }
 
     function isValidOrder(data) {

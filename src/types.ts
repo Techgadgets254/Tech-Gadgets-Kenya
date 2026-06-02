@@ -12,6 +12,7 @@ export interface Product {
   stock: number;
   description: string;
   image: string;
+  sku?: string;
   gallery?: string[]; // Up to 5 images total (image + 4 extra gallery images)
   specifications: Record<string, string>;
   tags?: string[];

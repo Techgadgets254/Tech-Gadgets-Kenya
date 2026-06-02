@@ -278,7 +278,7 @@ export default function Header() {
                             {user.displayName}
                           </p>
                           <p className="text-[10px] font-mono text-white/40 truncate">{user.email}</p>
-                          {userProfile && (
+                          {userProfile?.role && (
                             <span className="inline-block mt-1 px-1.5 py-0.5 text-[9px] font-mono rounded-md bg-[#C5A059]/15 text-[#C55010] border border-[#C5A059]/30 font-bold">
                               {userProfile.role.toUpperCase()}
                             </span>
@@ -399,7 +399,7 @@ export default function Header() {
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-black text-white leading-tight truncate">{user.displayName}</p>
                     <p className="text-[10px] font-mono text-white/40 truncate">{user.email}</p>
-                    {userProfile && (
+                    {userProfile?.role && (
                       <span className="inline-block mt-1 px-1.5 py-0.5 text-[8px] font-mono rounded bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/20">
                         {userProfile.role.toUpperCase()}
                       </span>

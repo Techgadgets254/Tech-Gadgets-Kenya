@@ -12,6 +12,7 @@
         "stock": { "type": "integer", "description": "Inventory stock level" },
         "description": { "type": "string", "description": "Detailed description of the specifications and selling points" },
         "image": { "type": "string", "description": "Product placeholder image or dynamic visual URL" },
+        "sku": { "type": "string", "description": "Unique Stock Keeping Unit code for granular warehouse inventory management" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
