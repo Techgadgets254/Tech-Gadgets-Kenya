@@ -736,66 +736,6 @@ Return a strictly valid JSON object structured exactly like this:
     );
   };
 
-  // Security Gate: Ensure user email matches our target permission setup in the rules
-  const userIsAdmin = user?.email === "techgadgetsk@gmail.com" || user?.email === "admin@techgadgetskenya.co.ke" || userProfile?.role === "admin";
-  const canAccess = userIsAdmin || adminPasscodePassed;
-
-  if (!canAccess) {
-    return (
-      <div id="admin-security-login-gate" className="bg-[#0F0F0F] border border-white/10 text-[#E0E0E0] p-8 rounded-3xl max-w-md mx-auto text-center font-sans animate-fadeIn my-12 shadow-2xl">
-        <div className="w-14 h-14 rounded-full bg-[#C5A059]/10 border border-[#C5A059]/20 flex items-center justify-center mx-auto mb-4">
-          <ShieldAlert className="w-6 h-6 text-[#C5A059]" />
-        </div>
-        <h2 className="font-serif italic text-xl font-semibold text-white tracking-wide">SECURE ADM TERMINAL</h2>
-        <p className="text-[11px] text-[#C5A059] font-mono mt-1 mb-6 uppercase tracking-widest">Administrative Verification Gate</p>
-        
-        {adminAuthErr && (
-          <div className="bg-red-950/40 border border-red-500/20 text-red-400 p-3 rounded-xl text-xs mb-4 text-center leading-relaxed font-mono">
-            {adminAuthErr}
-          </div>
-        )}
-
-        <form onSubmit={handleSecureTerminalSubmit} className="space-y-4 text-left">
-          <div>
-            <label className="font-mono text-[9px] font-bold text-white/40 block mb-1 uppercase tracking-wider">ADMIN EMAIL</label>
-            <input 
-              type="email"
-              required
-              value={adminUsername}
-              onChange={(e) => setAdminUsername(e.target.value)}
-              className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-hidden focus:border-[#C5A059] text-white font-mono placeholder-white/20"
-              placeholder="e.g. techgadgetsk@gmail.com"
-            />
-          </div>
-          <div>
-            <label className="font-mono text-[9px] font-bold text-white/40 block mb-1 uppercase tracking-wider">SECURE TERMINAL PASSPHRASE</label>
-            <input 
-              type="password"
-              required
-              value={adminSecurityPassword}
-              onChange={(e) => setAdminSecurityPassword(e.target.value)}
-              className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-hidden focus:border-[#C5A059] text-white font-mono placeholder-white/20"
-              placeholder="••••••••"
-            />
-          </div>
-
-          <button 
-            type="submit"
-            className="w-full bg-[#C5A059] hover:bg-[#C5A059]/90 text-black py-2.5 rounded-xl font-sans text-xs font-bold transition-all mt-6 shadow-lg shadow-[#C5A059]/15 cursor-pointer text-center block"
-          >
-            Authenticate Terminal Session
-          </button>
-        </form>
-
-        <p className="text-[10px] text-white/35 font-mono mt-6 leading-relaxed border-t border-white/5 pt-4">
-          Default administrative credentials:<br/>
-          Email: <span className="text-[#C5A059]">techgadgetsk@gmail.com</span><br/>
-          Passphrase: <span className="text-[#C5A059]">admin123</span>
-        </p>
-      </div>
-    );
-  }
-
   // 1. Calculations & Metrics
   const metrics = useMemo(() => {
     const paidOrders = orders.filter(o => o.paymentStatus === "Paid");
@@ -885,6 +825,66 @@ Return a strictly valid JSON object structured exactly like this:
       categorySalesData
     };
   }, [products, orders]);
+
+  // Security Gate: Ensure user email matches our target permission setup in the rules
+  const userIsAdmin = user?.email === "techgadgetsk@gmail.com" || user?.email === "admin@techgadgetskenya.co.ke" || userProfile?.role === "admin";
+  const canAccess = userIsAdmin || adminPasscodePassed;
+
+  if (!canAccess) {
+    return (
+      <div id="admin-security-login-gate" className="bg-[#0F0F0F] border border-white/10 text-[#E0E0E0] p-8 rounded-3xl max-w-md mx-auto text-center font-sans animate-fadeIn my-12 shadow-2xl">
+        <div className="w-14 h-14 rounded-full bg-[#C5A059]/10 border border-[#C5A059]/20 flex items-center justify-center mx-auto mb-4">
+          <ShieldAlert className="w-6 h-6 text-[#C5A059]" />
+        </div>
+        <h2 className="font-serif italic text-xl font-semibold text-white tracking-wide">SECURE ADM TERMINAL</h2>
+        <p className="text-[11px] text-[#C5A059] font-mono mt-1 mb-6 uppercase tracking-widest">Administrative Verification Gate</p>
+        
+        {adminAuthErr && (
+          <div className="bg-red-950/40 border border-red-500/20 text-red-400 p-3 rounded-xl text-xs mb-4 text-center leading-relaxed font-mono">
+            {adminAuthErr}
+          </div>
+        )}
+
+        <form onSubmit={handleSecureTerminalSubmit} className="space-y-4 text-left">
+          <div>
+            <label className="font-mono text-[9px] font-bold text-white/40 block mb-1 uppercase tracking-wider">ADMIN EMAIL</label>
+            <input 
+              type="email"
+              required
+              value={adminUsername}
+              onChange={(e) => setAdminUsername(e.target.value)}
+              className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-hidden focus:border-[#C5A059] text-white font-mono placeholder-white/20"
+              placeholder="e.g. techgadgetsk@gmail.com"
+            />
+          </div>
+          <div>
+            <label className="font-mono text-[9px] font-bold text-white/40 block mb-1 uppercase tracking-wider">SECURE TERMINAL PASSPHRASE</label>
+            <input 
+              type="password"
+              required
+              value={adminSecurityPassword}
+              onChange={(e) => setAdminSecurityPassword(e.target.value)}
+              className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-hidden focus:border-[#C5A059] text-white font-mono placeholder-white/20"
+              placeholder="••••••••"
+            />
+          </div>
+
+          <button 
+            type="submit"
+            className="w-full bg-[#C5A059] hover:bg-[#C5A059]/90 text-black py-2.5 rounded-xl font-sans text-xs font-bold transition-all mt-6 shadow-lg shadow-[#C5A059]/15 cursor-pointer text-center block"
+          >
+            Authenticate Terminal Session
+          </button>
+        </form>
+
+        <p className="text-[10px] text-white/35 font-mono mt-6 leading-relaxed border-t border-white/5 pt-4">
+          Default administrative credentials:<br/>
+          Email: <span className="text-[#C5A059]">techgadgetsk@gmail.com</span><br/>
+          Passphrase: <span className="text-[#C5A059]">admin123</span>
+        </p>
+      </div>
+    );
+  }
 
   // Handle setting edit product state
   const handleEditTrigger = (prod: Product) => {
