@@ -1859,11 +1859,11 @@ Return a strictly valid JSON object structured exactly like this:
                                       await removeProduct(p.id);
                                       setSelectedProductIds(prev => prev.filter(id => id !== p.id));
                                       setActionSuccessNotification(`Product "${p.name}" removed and moved to Trash.`);
-                                      setTimeout(() => setActionSuccessNotification(""), 2000);
+                                      setTimeout(() => setActionSuccessNotification(""), 5000);
                                     } catch (e: any) {
                                       console.error(e);
                                       setActionSuccessNotification(`Error: Could not remove product.`);
-                                      setTimeout(() => setActionSuccessNotification(""), 2000);
+                                      setTimeout(() => setActionSuccessNotification(""), 5000);
                                     }
                                   }
                                 }}

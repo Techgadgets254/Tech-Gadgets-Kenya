@@ -48,7 +48,7 @@ service cloud.firestore {
         && data.brand is string && data.brand.size() > 0 && data.brand.size() <= 100
         && data.category is string && data.category.size() > 0 && data.category.size() <= 100
         && data.price is number && data.price >= 0
-        && data.stock is int && data.stock >= 0
+        && (data.stock is int || data.stock is number) && data.stock >= 0
         && data.description is string && data.description.size() <= 3000
         && data.image is string && data.image.size() <= 15000000
         && (!data.keys().hasAll(['sku']) || (data.sku is string && data.sku.size() <= 100));

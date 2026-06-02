@@ -293,68 +293,73 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const productsColRef = collection(db, "products");
     setProductsLoading(true);
 
-    // Build the query. Standard auto-indexing supports orderBy and limit
-    let productsQuery;
-    try {
-      productsQuery = query(productsColRef, orderBy("createdAt", "desc"), limit(productsLimit));
-    } catch (e) {
-      console.warn("Could not form sorted query, using fallback:", e);
-      productsQuery = query(productsColRef, limit(productsLimit));
-    }
+    let activeUnsubscribe: (() => void) | null = null;
 
-    const unsubscribe = onSnapshot(productsQuery, async (snapshot) => {
-      const items: Product[] = [];
-      snapshot.forEach((d) => {
-        items.push({ id: d.id, ...d.data() } as Product);
-      });
-      
-      // Seed if zero products exist (Dynamic Store Self-Seeding)
-      if (items.length === 0) {
-        console.log("No products found in Firestore. Seeding premium selection...");
+    const setupListener = (useOrdering: boolean) => {
+      let productsQuery;
+      if (useOrdering) {
         try {
-          for (const item of DEFAULT_PRODUCTS) {
-            await addDoc(productsColRef, {
-              ...item,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            });
-          }
+          productsQuery = query(productsColRef, orderBy("createdAt", "desc"), limit(productsLimit));
         } catch (e) {
-          handleFirestoreError(e, OperationType.WRITE, "products");
+          console.warn("Could not form sorted query, reverting to unordered:", e);
+          productsQuery = query(productsColRef, limit(productsLimit));
         }
       } else {
-        // Since we ordered the query, items are already sorted, but let's ensure order
-        const sorted = [...items].sort((a, b) => {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return dateB - dateA;
-        });
-        setProducts(sorted);
-        setHasMoreProducts(snapshot.docs.length >= productsLimit);
-        setProductsLoading(false);
+        productsQuery = query(productsColRef, limit(productsLimit));
       }
-    }, (error) => {
-      console.warn("Products ordered snapshot failed, trying unordered fallback:", error);
-      const fallbackQuery = query(productsColRef, limit(productsLimit));
-      return onSnapshot(fallbackQuery, (snapshot) => {
+
+      const unsubscribe = onSnapshot(productsQuery, async (snapshot) => {
         const items: Product[] = [];
         snapshot.forEach((d) => {
           items.push({ id: d.id, ...d.data() } as Product);
         });
-        const sorted = [...items].sort((a, b) => {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return dateB - dateA;
-        });
-        setProducts(sorted);
-        setHasMoreProducts(snapshot.docs.length >= productsLimit);
-        setProductsLoading(false);
-      }, (err2) => {
-        handleFirestoreError(err2, OperationType.LIST, "products");
+        
+        // Seed if zero products exist (Dynamic Store Self-Seeding)
+        if (items.length === 0) {
+          console.log("No products found in Firestore. Seeding premium selection...");
+          try {
+            for (const item of DEFAULT_PRODUCTS) {
+              await addDoc(productsColRef, {
+                ...item,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              });
+            }
+          } catch (e) {
+            handleFirestoreError(e, OperationType.WRITE, "products");
+          }
+        } else {
+          // Since we ordered the query, items are already sorted, but let's ensure order
+          const sorted = [...items].sort((a, b) => {
+            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return dateB - dateA;
+          });
+          setProducts(sorted);
+          setHasMoreProducts(snapshot.docs.length >= productsLimit);
+          setProductsLoading(false);
+        }
+      }, (error) => {
+        console.warn("Products onSnapshot failed on ordering:", error);
+        if (useOrdering) {
+          if (activeUnsubscribe) activeUnsubscribe();
+          setupListener(false);
+        } else {
+          handleFirestoreError(error, OperationType.LIST, "products");
+          setProductsLoading(false);
+        }
       });
-    });
 
-    return unsubscribe;
+      activeUnsubscribe = unsubscribe;
+    };
+
+    setupListener(true);
+
+    return () => {
+      if (activeUnsubscribe) {
+        activeUnsubscribe();
+      }
+    };
   }, [productsLimit]);
 
   // Sync shared links of specific products dynamically to local state on page launch
