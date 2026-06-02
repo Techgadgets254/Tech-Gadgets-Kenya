@@ -50,22 +50,94 @@ export default function AIAdvisor() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: textToSend,
-          history: updatedHistory.slice(0, -1), // Send previous history
-          productsContext: products // Dynamically ground in live catalog
-        })
-      });
+      let replyText = "";
+      let handledByServer = false;
 
-      if (!response.ok) {
-        throw new Error("Unable to contact hardware specialist server feed.");
+      // 1. First choice: Secure full-stack Server Proxy
+      try {
+        const response = await fetch("/api/ai/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: textToSend,
+            history: updatedHistory.slice(0, -1), // Send previous history
+            productsContext: products // Dynamically ground in live catalog
+          })
+        });
+
+        if (response.ok) {
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            const data = await response.json();
+            if (data.reply) {
+              replyText = data.reply;
+              handledByServer = true;
+            }
+          }
+        }
+      } catch (srvErr) {
+        console.warn("Express backend endpoint uncontactable, attempting VITE client-side fallback if key is present:", srvErr);
       }
 
-      const data = await response.json();
-      setChatHistory((prev) => [...prev, { role: "assistant", content: data.reply }]);
+      // 2. Second choice: Dual-mode fallback for static deployments (like Vercel)
+      if (!handledByServer) {
+        const clientApiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        if (clientApiKey) {
+          // Dynamically import the Gemini library on-demand to optimize bundle and avoid side-effects
+          const { GoogleGenAI } = await import("@google/genai");
+          const clientAi = new GoogleGenAI({ apiKey: clientApiKey });
+
+          const productsInfo = Array.isArray(products) 
+            ? products.map(p => `- [${p.brand}] ${p.name} (${p.category}): KES ${p.price.toLocaleString()}. Stock: ${p.stock}. Description: ${p.description}. Specs: ${JSON.stringify(p.specifications || {})}`).join("\n")
+            : "No products context available";
+
+          const systemInstruction = `
+You are the AI Hardware Specialist for "Tech Gadgets Kenya", an elite authorized electronics distributor in Nairobi, Kenya.
+Your job is to assist clients professionally by answering queries about electronics, making product recommendations, comparing hardware side-by-side, and providing technical support.
+
+Guidelines:
+1. Always be professional, helpful, and objective.
+2. Rely strictly on the following actual live stock database context to answer product, stock, price, and spec queries. Do not make up fake products if they aren't here unless recommending general tech types, but prioritize recommending what we sell:
+=== LIVE STOCK CATALOG ===
+${productsInfo}
+=== END CATALOG ===
+
+3. If users ask to compare products, build a beautifully formatted Markdown table matching their specifications, prices, and suggest the absolute best choice based on their budget and requirements.
+4. Keep in mind: Customers pay securely with Safaricom M-Pesa. Standard delivery is immediate to Nairobi and within 24 hours to the rest of Kenya.
+5. Do not share raw internal project configurations. Refer to the store pricing in Kenyan Shillings (KES).
+`;
+
+          // Format chat history properly standard
+          const formattedContents = updatedHistory.map(msg => ({
+            role: msg.role === "user" ? "user" : "model",
+            parts: [{ text: msg.content }]
+          }));
+
+          const response = await clientAi.models.generateContent({
+            model: "gemini-3.5-flash",
+            contents: formattedContents,
+            config: {
+              systemInstruction,
+              temperature: 0.7,
+            }
+          });
+
+          replyText = response.text || "I couldn't process that recommendation. Please try again!";
+        } else {
+          // If neither works, produce a descriptive and positive direction card
+          throw new Error(
+            "Hardware specialist server feed is uncontactable because this application is hosted as a static client on Vercel/Netlify without active server relays.\n\n" +
+            "To enable the AI Specialist on your live hosting site in 60 seconds:\n" +
+            "1. Access your Vercel Dashboard -> Your Project -> Settings -> Environment Variables\n" +
+            "2. Add a new variable with:\n" +
+            "   • Key: VITE_GEMINI_API_KEY\n" +
+            "   • Value: [Your Gemini API Key]\n" +
+            "3. Re-deploy your project on Vercel! Your static client will automatically leverage direct direct browser-to-cloud access to Gemini with your secure key."
+          );
+        }
+      }
+
+      setChatHistory((prev) => [...prev, { role: "assistant", content: replyText }]);
     } catch (err: any) {
       setChatHistory((prev) => [
         ...prev,

@@ -373,29 +373,99 @@ export default function AdminDashboard() {
     setAiGeneratingDescription(true);
     setAiError("");
     try {
-      const response = await fetch("/api/ai/describe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: productForm.name,
-          brand: productForm.brand,
-          category: productForm.category,
-          commodityDescription: productForm.description,
-          specifications: productForm.specificationsStr
-        })
-      });
-      if (!response.ok) {
-        throw new Error("Failed to contact server description service.");
+      let data: { description?: string; specifications?: string } = {};
+      let handledByServer = false;
+
+      // 1. First choice: Use full-stack express server proxy
+      try {
+        const response = await fetch("/api/ai/describe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: productForm.name,
+            brand: productForm.brand,
+            category: productForm.category,
+            commodityDescription: productForm.description,
+            specifications: productForm.specificationsStr
+          })
+        });
+        if (response.ok) {
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            data = await response.json();
+            if (data.description) {
+              handledByServer = true;
+            }
+          }
+        }
+      } catch (srvErr) {
+        console.warn("Server-side describe endpoint unreachable, attempting client-side fallback if key is present:", srvErr);
       }
-      const data = await response.json();
+
+      // 2. Second choice: Dual-mode fallback for Vercel/Netlify static deployments
+      if (!handledByServer) {
+        const clientApiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        if (clientApiKey) {
+          // Dynamic import on-demand
+          const { GoogleGenAI } = await import("@google/genai");
+          const clientAi = new GoogleGenAI({ apiKey: clientApiKey });
+
+          const prompt = `
+Generate a highly polished, professional product description and its corresponding technical specifications for the product "${productForm.name || "Generic Product"}".
+
+Product Context:
+- Brand: ${productForm.brand || "General Hardware"}
+- Category: ${productForm.category || "Electronics"}
+- Outline Idea: ${productForm.description}
+- Specifications: ${productForm.specificationsStr || "none"}
+
+Return a strictly valid JSON object structured exactly like this:
+{
+  "description": "A refined, narrative description paragraph highlighting the hardware's capabilities, target user group (developers, designers, enterprise), and value. This MUST NOT contain any markdown bold characters, asterisks (*), or formatting stars.",
+  "specifications": "A clean newline-separated list of technical specifications. Format each item on a new line as 'Key: Value' (e.g. 'Processor: Core i7 13th Gen\\nMemory: 16GB LPDDR5\\nStorage: 512GB PCIe NVMe SSD\\nGraphics: Intel Iris Xe'). This must contain standard key/value fields appropriate for the defined Category. Do NOT include any asterisks (*) or star bullet points."
+}
+`;
+
+          const response = await clientAi.models.generateContent({
+            model: "gemini-3.5-flash",
+            contents: prompt,
+            config: {
+              temperature: 0.2,
+              responseMimeType: "application/json",
+            },
+          });
+
+          const resultText = response.text || "{}";
+          let parsedResult;
+          try {
+            parsedResult = JSON.parse(resultText);
+          } catch (e) {
+            parsedResult = {
+              description: resultText.replace(/\*/g, ""),
+              specifications: "Processor: Premium Specs\nGraphics: High Performance"
+            };
+          }
+
+          data = {
+            description: (parsedResult.description || "").replace(/\*/g, ""),
+            specifications: (parsedResult.specifications || "").replace(/\*/g, "")
+          };
+        } else {
+          throw new Error(
+            "Gemini spec generator is uncontactable. If your site is hosted on Vercel as a static build, " +
+            "please configure your Vercel Environment Variables. Set the key VITE_GEMINI_API_KEY to your Gemini API Key and re-deploy!"
+          );
+        }
+      }
+
       if (data.description) {
         setProductForm(prev => ({
           ...prev,
-          description: data.description,
+          description: data.description!,
           specificationsStr: data.specifications || prev.specificationsStr
         }));
       } else {
-        throw new Error(data.error || "Invalid response format from generator.");
+        throw new Error("Invalid response format from generator.");
       }
     } catch (err: any) {
       console.error(err);
