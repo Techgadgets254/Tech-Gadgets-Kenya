@@ -17,7 +17,8 @@ import {
   Heart,
   Scale,
   Star,
-  Tag
+  Tag,
+  Loader2
 } from "lucide-react";
 import { Product } from "../types";
 
@@ -58,7 +59,10 @@ export default function ShopView() {
     wishlist,
     toggleWishlist,
     compareList,
-    toggleCompare
+    toggleCompare,
+    productsLoading,
+    hasMoreProducts,
+    loadMoreProducts
   } = useStore();
 
   const [selectedMainCategory, setSelectedMainCategory] = useState<string>("All");
@@ -383,7 +387,31 @@ export default function ShopView() {
         {/* PRODUCTS DIRECT GRID VIEW */}
         <div className="lg:col-span-3">
           
-          {filteredProducts.length === 0 ? (
+          {productsLoading && products.length === 0 ? (
+            <div>
+              <div className="flex justify-between items-center mb-4 text-[10px] font-mono text-white/30 font-bold tracking-wider">
+                <span>INDEX LIVE REVEALS: RETRIEVING COGNITIVE BATCH...</span>
+                <span>FETCHING SECURE STOCKS</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div key={i} className="bg-[#0F0F0F] border border-white/5 rounded-2xl p-4 animate-pulse space-y-4">
+                    <div className="w-full h-44 bg-white/5 rounded-xl animate-pulse"></div>
+                    <div className="h-3.5 bg-white/5 rounded w-1/4 animate-pulse"></div>
+                    <div className="h-4.5 bg-white/5 rounded w-3/4 animate-pulse"></div>
+                    <div className="h-3 bg-white/5 rounded w-1/2 animate-pulse"></div>
+                    <div className="pt-4 border-t border-white/5 space-y-3 animate-pulse col-span-1">
+                      <div className="h-3 bg-white/5 rounded w-2/3 animate-pulse"></div>
+                      <div className="flex justify-between items-center pt-2">
+                        <div className="h-5 bg-white/5 rounded w-1/3 animate-pulse"></div>
+                        <div className="h-8 bg-white/5 rounded-xl w-1/3 animate-pulse"></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : filteredProducts.length === 0 ? (
             <div className="bg-[#0F0F0F] border border-white/10 rounded-2xl p-12 text-center max-w-md mx-auto">
               <AlertCircle className="w-12 h-12 text-white/20 mx-auto mb-4" />
               <h3 className="font-sans font-semibold text-lg text-white">No products matching filters</h3>
@@ -573,6 +601,19 @@ export default function ShopView() {
                   );
                 })}
               </div>
+
+              {hasMoreProducts && (
+                <div className="flex justify-center mt-12 pb-6">
+                  <button
+                    disabled={productsLoading}
+                    onClick={loadMoreProducts}
+                    className="bg-transparent border border-white/20 hover:border-[#C5A059]/60 text-white hover:text-[#C5A059] px-6 py-2.5 rounded-xl text-xs font-mono font-bold tracking-wider uppercase transition-all cursor-pointer shadow-md hover:shadow-[#C5A059]/10 hover:scale-102 active:scale-98 flex items-center gap-2"
+                  >
+                    {productsLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#C5A059]" />}
+                    {productsLoading ? "Inventory Syncing..." : "Load More Premium Commodities"}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

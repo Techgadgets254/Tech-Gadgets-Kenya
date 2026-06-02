@@ -26,17 +26,6 @@ function StoreLayout() {
     window.scrollTo(0, 0);
   }, [activeView]);
 
-  if (authLoading) {
-    return (
-      <div id="loader-wrapper" className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center font-sans px-4 text-[#E0E0E0]">
-        <Loader2 className="w-8 h-8 text-[#C5A059] animate-spin mb-4" />
-        <span className="font-mono text-xs text-white/50 max-w-xs text-center leading-relaxed">
-          Verifying secure credentials and checking live warehouse inventory database...
-        </span>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-[#0A0A0A] flex flex-col text-[#E0E0E0] font-sans selection:bg-[#C5A059]/20 selection:text-[#C5A059]">
       {/* Real-time Order Status Notifications overlay */}
@@ -51,11 +40,27 @@ function StoreLayout() {
         {activeView === "shop" && <ShopView />}
         {activeView === "product-details" && <ProductDetailsView />}
         {activeView === "checkout" && <CheckoutView />}
-        {activeView === "client-dashboard" && <ClientDashboard />}
+        {activeView === "client-dashboard" && (
+          authLoading ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <Loader2 className="w-6 h-6 text-[#C5A059] animate-spin mb-3" />
+              <p className="text-[11px] font-mono text-white/40">Securing your workspace profile...</p>
+            </div>
+          ) : (
+            <ClientDashboard />
+          )
+        )}
         {activeView === "admin-dashboard" && (
-          <ErrorBoundary fallbackName="Operations Management Portal">
-            <AdminDashboard />
-          </ErrorBoundary>
+          authLoading ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <Loader2 className="w-6 h-6 text-[#C5A059] animate-spin mb-3" />
+              <p className="text-[11px] font-mono text-white/40">Verifying secure administrator registry state...</p>
+            </div>
+          ) : (
+            <ErrorBoundary fallbackName="Operations Management Portal">
+              <AdminDashboard />
+            </ErrorBoundary>
+          )
         )}
         {activeView === "news" && <NewsView />}
       </main>

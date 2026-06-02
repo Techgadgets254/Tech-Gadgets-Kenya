@@ -578,7 +578,7 @@ Return a strictly valid JSON object structured exactly like this:
     });
 
     setActionSuccessNotification(`Ingested ${list.length} images into product form slots!`);
-    setTimeout(() => setActionSuccessNotification(""), 2000);
+    setTimeout(() => setActionSuccessNotification(""), 5000);
     e.target.value = ""; // Clear
   };
 
@@ -591,7 +591,7 @@ Return a strictly valid JSON object structured exactly like this:
         setSelectedProductIds([]); // Clear early
         await Promise.all(pids.map(id => removeProduct(id)));
         setActionSuccessNotification("Bulk deletion completed! Items moved to Trash.");
-        setTimeout(() => setActionSuccessNotification(""), 2000);
+        setTimeout(() => setActionSuccessNotification(""), 5000);
       } catch (err: any) {
         console.error(err);
         alert("Bulk deletion failed: " + err.message);
@@ -627,7 +627,7 @@ Return a strictly valid JSON object structured exactly like this:
       await deleteDoc(doc(db, "trash", trashId));
       
       setActionSuccessNotification(`Product "${pName}" restored successfully!`);
-      setTimeout(() => setActionSuccessNotification(""), 2000);
+      setTimeout(() => setActionSuccessNotification(""), 5000);
     } catch (err: any) {
       console.error(err);
       alert("Restore failed: " + err.message);
@@ -640,7 +640,7 @@ Return a strictly valid JSON object structured exactly like this:
         setActionSuccessNotification(`Purging "${productName}"...`);
         await deleteDoc(doc(db, "trash", trashId));
         setActionSuccessNotification(`Product "${productName}" permanently destroyed.`);
-        setTimeout(() => setActionSuccessNotification(""), 2000);
+        setTimeout(() => setActionSuccessNotification(""), 5000);
       } catch (err: any) {
         console.error(err);
         alert("Purge failed: " + err.message);
@@ -656,7 +656,7 @@ Return a strictly valid JSON object structured exactly like this:
         await Promise.all(trashItems.map(item => deleteDoc(doc(db, "trash", item.id))));
         setActionSuccessNotification("Trash Bin emptied successfully!");
         setSelectedProductIds([]);
-        setTimeout(() => setActionSuccessNotification(""), 2000);
+        setTimeout(() => setActionSuccessNotification(""), 5000);
       } catch (err: any) {
         console.error(err);
         alert("Failed to empty trash: " + err.message);
@@ -985,12 +985,12 @@ Return a strictly valid JSON object structured exactly like this:
     try {
       if (isEditing) {
         await editProduct(isEditing, payload);
-        setActionSuccessNotification(`✓ Commodity "${payload.name}" updated successfully!`);
+        setActionSuccessNotification(`✓ Product updated successfully! "${payload.name}" has been refreshed.`);
       } else {
         await addProduct(payload);
-        setActionSuccessNotification(`✓ Commodity "${payload.name}" added to live storefront catalog!`);
+        setActionSuccessNotification(`✓ Product added successfully! "${payload.name}" is now live on the storefront.`);
       }
-      setTimeout(() => setActionSuccessNotification(""), 2000);
+      setTimeout(() => setActionSuccessNotification(""), 5000);
       setShowAddForm(false);
       setIsEditing(null);
     } catch (err) {

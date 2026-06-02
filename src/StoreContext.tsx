@@ -22,7 +22,9 @@ import {
   updateDoc, 
   serverTimestamp,
   query,
-  where
+  where,
+  limit,
+  orderBy
 } from "firebase/firestore";
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from "./firebase";
 import { Product, Order, OrderItem, UserProfile, Affiliate } from "./types";
@@ -111,6 +113,10 @@ interface StoreContextType {
   submitProductReview: (productId: string, rating: number, comment: string, name: string) => Promise<void>;
   importProductsCSV: (csvContent: string) => Promise<{ addedCount: number; error?: string }>;
   registerPriceAlert: (productId: string, productName: string, email: string, targetPrice: number, currentPrice: number) => Promise<boolean>;
+  productsLoading: boolean;
+  productsLimit: number;
+  hasMoreProducts: boolean;
+  loadMoreProducts: () => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -120,6 +126,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsLimit, setProductsLimit] = useState(12);
+  const [hasMoreProducts, setHasMoreProducts] = useState(true);
+
+  const loadMoreProducts = () => {
+    setProductsLimit((prev) => prev + 12);
+  };
   const [orders, setOrders] = useState<Order[]>([]);
   const [affiliates, setAffiliates] = useState<Affiliate[]>([]);
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
@@ -278,8 +291,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // 2. Load Products and Real-time Snapshot with Auto-Seeding
   useEffect(() => {
     const productsColRef = collection(db, "products");
-    
-    const unsubscribe = onSnapshot(productsColRef, async (snapshot) => {
+    setProductsLoading(true);
+
+    // Build the query. Standard auto-indexing supports orderBy and limit
+    let productsQuery;
+    try {
+      productsQuery = query(productsColRef, orderBy("createdAt", "desc"), limit(productsLimit));
+    } catch (e) {
+      console.warn("Could not form sorted query, using fallback:", e);
+      productsQuery = query(productsColRef, limit(productsLimit));
+    }
+
+    const unsubscribe = onSnapshot(productsQuery, async (snapshot) => {
       const items: Product[] = [];
       snapshot.forEach((d) => {
         items.push({ id: d.id, ...d.data() } as Product);
@@ -300,20 +323,39 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           handleFirestoreError(e, OperationType.WRITE, "products");
         }
       } else {
-        // Sort products by date created (newest first)
+        // Since we ordered the query, items are already sorted, but let's ensure order
         const sorted = [...items].sort((a, b) => {
           const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
           const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
           return dateB - dateA;
         });
         setProducts(sorted);
+        setHasMoreProducts(snapshot.docs.length >= productsLimit);
+        setProductsLoading(false);
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, "products");
+      console.warn("Products ordered snapshot failed, trying unordered fallback:", error);
+      const fallbackQuery = query(productsColRef, limit(productsLimit));
+      return onSnapshot(fallbackQuery, (snapshot) => {
+        const items: Product[] = [];
+        snapshot.forEach((d) => {
+          items.push({ id: d.id, ...d.data() } as Product);
+        });
+        const sorted = [...items].sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
+        setProducts(sorted);
+        setHasMoreProducts(snapshot.docs.length >= productsLimit);
+        setProductsLoading(false);
+      }, (err2) => {
+        handleFirestoreError(err2, OperationType.LIST, "products");
+      });
     });
 
     return unsubscribe;
-  }, []);
+  }, [productsLimit]);
 
   // Sync shared links of specific products dynamically to local state on page launch
   useEffect(() => {
@@ -1088,6 +1130,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         addAffiliate,
         toggleAffiliate,
         deleteAffiliate,
+        productsLoading,
+        productsLimit,
+        hasMoreProducts,
+        loadMoreProducts,
       }}
     >
       {children}
