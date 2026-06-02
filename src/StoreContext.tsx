@@ -20,7 +20,9 @@ import {
   addDoc, 
   deleteDoc, 
   updateDoc, 
-  serverTimestamp 
+  serverTimestamp,
+  query,
+  where
 } from "firebase/firestore";
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from "./firebase";
 import { Product, Order, OrderItem, UserProfile, Affiliate } from "./types";
@@ -333,8 +335,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const ordersColRef = collection(db, "orders");
-    const unsubscribe = onSnapshot(ordersColRef, (snapshot) => {
+    const userIsAdmin = user.email === "techgadgetsk@gmail.com" || userProfile?.role === "admin";
+    
+    // Non-admin customer accounts must only retrieve their own orders to conform with security rules
+    const targetRef = userIsAdmin
+      ? collection(db, "orders")
+      : query(collection(db, "orders"), where("userId", "==", user.uid));
+
+    const unsubscribe = onSnapshot(targetRef, (snapshot) => {
       const allOrders: Order[] = [];
       const changedAlerts: ToastNotification[] = [];
 
@@ -374,22 +382,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setNotifications((prev) => [...changedAlerts, ...prev]);
       }
 
-      // If they are admin, they can see ALL orders
-      // If customer, we filter by their UID (handled securely in rules, but client state should matching to avoid permission warnings)
-      const userIsAdmin = user.email === "techgadgetsk@gmail.com" || userProfile?.role === "admin";
-      
-      const filtered = allOrders.filter(
-        (order) => userIsAdmin || order.userId === user.uid
-      );
-      
       // Sort newest order first
-      filtered.sort((a, b) => {
+      allOrders.sort((a, b) => {
         const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return timeB - timeA;
       });
 
-      setOrders(filtered);
+      setOrders(allOrders);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, "orders");
     });
