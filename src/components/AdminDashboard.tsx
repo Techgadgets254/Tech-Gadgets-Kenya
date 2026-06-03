@@ -57,8 +57,11 @@ export default function AdminDashboard() {
     affiliates,
     addAffiliate,
     toggleAffiliate,
-    deleteAffiliate
+    deleteAffiliate,
+    theme
   } = useStore();
+
+  const [showCreds, setShowCreds] = useState(false);
 
   const stockChartData = useMemo(() => {
     return products.map(p => ({
@@ -68,6 +71,14 @@ export default function AdminDashboard() {
       brand: p.brand
     })).sort((a, b) => a.stock - b.stock);
   }, [products]);
+
+  const isLight = theme === "light";
+  const axisColor = isLight ? "#797167" : "rgba(255,255,255,0.3)";
+  const gridColor = isLight ? "#E7E2D8" : "rgba(255,255,255,0.05)";
+  const tooltipBg = isLight ? "#FFFFFF" : "#151515";
+  const tooltipBorder = isLight ? "#E7E2D8" : "rgba(255,255,255,0.1)";
+  const cursorFill = isLight ? "rgba(44,40,36,0.03)" : "rgba(255,255,255,0.02)";
+  const tooltipTextColor = isLight ? "#1c1917" : "#ffffff";
 
   // Sort states for Products / Commodities
   const [productSortField, setProductSortField] = useState<"name" | "brand" | "category" | "price" | "stock">("name");
@@ -962,11 +973,23 @@ Return a strictly valid JSON object structured exactly like this:
           </button>
         </form>
 
-        <p className="text-[10px] text-white/35 font-mono mt-6 leading-relaxed border-t border-white/5 pt-4">
-          Default administrative credentials:<br/>
-          Email: <span className="text-[#C5A059]">techgadgetsk@gmail.com</span><br/>
-          Passphrase: <span className="text-[#C5A059]">admin123</span>
-        </p>
+        <div className="mt-6 border-t border-white/5 pt-4">
+          <button
+            type="button"
+            onClick={() => setShowCreds(prev => !prev)}
+            className="text-[10px] font-mono text-[#C5A059] hover:underline cursor-pointer flex items-center gap-1 uppercase tracking-wider text-left bg-transparent border-0 p-0"
+          >
+            <span>{showCreds ? "Hide" : "Show"} sandbox admin credentials</span>
+          </button>
+          
+          {showCreds && (
+            <p className="text-[10px] text-white/35 font-mono mt-2.5 leading-relaxed bg-black/40 p-3 rounded-xl border border-white/5 animate-fadeIn">
+              Default administrative credentials:<br/>
+              Email: <span className="text-[#C5A059] font-bold">techgadgetsk@gmail.com</span><br/>
+              Passphrase: <span className="text-[#C5A059] font-bold">admin123</span>
+            </p>
+          )}
+        </div>
       </div>
     );
   }
@@ -1254,32 +1277,35 @@ Return a strictly valid JSON object structured exactly like this:
             <div className="w-full h-80 pt-2 font-mono">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={stockChartData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
                   <XAxis 
                     dataKey="name" 
-                    stroke="rgba(255,255,255,0.3)" 
+                    stroke={axisColor} 
                     fontSize={9} 
                     tickLine={false} 
                     angle={-15}
                     textAnchor="end"
                   />
                   <YAxis 
-                    stroke="rgba(255,255,255,0.3)" 
+                    stroke={axisColor} 
                     fontSize={10} 
                     tickLine={false} 
                     allowDecimals={false}
                   />
                   <Tooltip
-                    cursor={{ fill: "rgba(255,255,255,0.02)" }}
+                    cursor={{ fill: cursorFill }}
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
                         const isLow = data.stock <= 5;
                         return (
-                          <div className="bg-[#151515] border border-white/10 p-3.5 rounded-xl shadow-xl text-xs space-y-1 font-sans">
-                            <p className="text-white font-bold">{data.fullName}</p>
-                            <p className="text-white/40 text-[10px] font-mono">Brand: {data.brand}</p>
-                            <p className={`font-mono text-xs font-bold ${isLow ? "text-red-400" : "text-[#C5A059]"}`}>
+                          <div 
+                            style={{ backgroundColor: tooltipBg, borderColor: tooltipBorder }}
+                            className="border p-3.5 rounded-xl shadow-xl text-xs space-y-1 font-sans text-left"
+                          >
+                            <p style={{ color: tooltipTextColor }} className="font-bold">{data.fullName}</p>
+                            <p className="text-stone-400 text-[10px] font-mono">Brand: {data.brand}</p>
+                            <p className={`font-mono text-xs font-bold ${isLow ? "text-red-500" : "text-[#a0782c]"}`}>
                               Stock Remaining: {data.stock} units
                             </p>
                             {isLow && (
@@ -1436,13 +1462,14 @@ Return a strictly valid JSON object structured exactly like this:
                         </Pie>
                         <Tooltip
                           contentStyle={{
-                            backgroundColor: "#111",
-                            border: "1px solid rgba(255,255,255,0.1)",
+                            backgroundColor: tooltipBg,
+                            border: `1px solid ${tooltipBorder}`,
                             borderRadius: "12px",
                             fontSize: "11px",
                             fontFamily: "var(--font-sans)",
-                            color: "#fff"
+                            color: tooltipTextColor
                           }}
+                          itemStyle={{ color: tooltipTextColor }}
                           formatter={(value: any) => [`KES ${Number(value).toLocaleString()}`, "Revenue"]}
                         />
                       </PieChart>
@@ -1894,7 +1921,7 @@ Return a strictly valid JSON object structured exactly like this:
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
                       <tr className="bg-white/[0.02] border-b border-white/10 font-mono font-bold text-white/30">
-                        <th className="p-4 w-12 text-center select-none">
+                        <th className="p-2.5 sm:p-4 w-12 text-center select-none">
                           <input
                             type="checkbox"
                             checked={sortedProducts.length > 0 && sortedProducts.every(p => selectedProductIds.includes(p.id))}
@@ -1909,7 +1936,7 @@ Return a strictly valid JSON object structured exactly like this:
                             className="w-4 h-4 rounded border-white/20 bg-black text-[#C5A059] focus:ring-[#C5A059] focus:ring-offset-0 cursor-pointer"
                           />
                         </th>
-                        <th className="p-4 cursor-pointer hover:text-[#C5A059] transition-colors selection:bg-transparent" onClick={() => handleProductSort("name")}>
+                        <th className="p-2.5 sm:p-4 cursor-pointer hover:text-[#C5A059] transition-colors selection:bg-transparent" onClick={() => handleProductSort("name")}>
                           <div className="flex items-center gap-1">
                             <span>Commodity Item</span>
                             {productSortField === "name" ? (
@@ -1919,7 +1946,7 @@ Return a strictly valid JSON object structured exactly like this:
                             )}
                           </div>
                         </th>
-                        <th className="p-4 cursor-pointer hover:text-[#C5A059] transition-colors selection:bg-transparent" onClick={() => handleProductSort("brand")}>
+                        <th className="p-2.5 sm:p-4 cursor-pointer hover:text-[#C5A059] transition-colors selection:bg-transparent" onClick={() => handleProductSort("brand")}>
                           <div className="flex items-center gap-1">
                             <span>Brand</span>
                             {productSortField === "brand" ? (
@@ -1929,7 +1956,7 @@ Return a strictly valid JSON object structured exactly like this:
                             )}
                           </div>
                         </th>
-                        <th className="p-4 cursor-pointer hover:text-[#C5A059] transition-colors selection:bg-transparent" onClick={() => handleProductSort("category")}>
+                        <th className="p-2.5 sm:p-4 cursor-pointer hover:text-[#C5A059] transition-colors selection:bg-transparent" onClick={() => handleProductSort("category")}>
                           <div className="flex items-center gap-1">
                             <span>Category</span>
                             {productSortField === "category" ? (
@@ -1939,7 +1966,7 @@ Return a strictly valid JSON object structured exactly like this:
                             )}
                           </div>
                         </th>
-                        <th className="p-4 cursor-pointer hover:text-[#C5A059] transition-colors selection:bg-transparent" onClick={() => handleProductSort("price")}>
+                        <th className="p-2.5 sm:p-4 cursor-pointer hover:text-[#C5A059] transition-colors selection:bg-transparent" onClick={() => handleProductSort("price")}>
                           <div className="flex items-center gap-1">
                             <span>Price</span>
                             {productSortField === "price" ? (
@@ -1949,7 +1976,7 @@ Return a strictly valid JSON object structured exactly like this:
                             )}
                           </div>
                         </th>
-                        <th className="p-4 cursor-pointer hover:text-[#C5A059] transition-colors selection:bg-transparent" onClick={() => handleProductSort("stock")}>
+                        <th className="p-2.5 sm:p-4 cursor-pointer hover:text-[#C5A059] transition-colors selection:bg-transparent" onClick={() => handleProductSort("stock")}>
                           <div className="flex items-center gap-1">
                             <span>Stock</span>
                             {productSortField === "stock" ? (
@@ -1959,20 +1986,20 @@ Return a strictly valid JSON object structured exactly like this:
                             )}
                           </div>
                         </th>
-                        <th className="p-4 text-right">Actions</th>
+                        <th className="p-2.5 sm:p-4 text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5 font-sans text-white/85">
+                    <tbody className="divide-y divide-white/5 font-sans text-white/85 text-[11px] sm:text-xs">
                       {sortedProducts.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="p-8 text-center text-white/30 font-mono text-[11px] uppercase tracking-wider bg-black/10">
+                          <td colSpan={7} className="p-8 text-center text-white/30 font-mono uppercase tracking-wider bg-black/10">
                             No warehouse assets registered under the current filter selection
                           </td>
                         </tr>
                       ) : (
                         sortedProducts.map((p) => (
                           <tr key={p.id} className="hover:bg-white/[0.01] transition-colors">
-                            <td className="p-4 w-12 text-center">
+                            <td className="p-2.5 sm:p-4 w-12 text-center">
                               <input
                                 type="checkbox"
                                 checked={selectedProductIds.includes(p.id)}
@@ -1984,10 +2011,10 @@ Return a strictly valid JSON object structured exactly like this:
                                 className="w-4 h-4 rounded border-white/20 bg-black text-[#C5A059] focus:ring-[#C5A059] focus:ring-offset-0 cursor-pointer"
                               />
                             </td>
-                            <td className="p-4 flex gap-3 items-center">
-                              <img src={p.image} alt="" className="w-10 h-10 object-cover rounded-lg shrink-0 bg-[#0A0A0A] border border-white/10" referrerPolicy="no-referrer" />
+                            <td className="p-2.5 sm:p-4 flex gap-2.5 items-center">
+                              <img src={p.image} alt="" className="w-9 h-9 object-cover rounded-md shrink-0 bg-[#0A0A0A] border border-white/10" referrerPolicy="no-referrer" />
                               <div className="flex flex-col min-w-0">
-                                <span className="truncate max-w-xs text-white font-bold">{p.name}</span>
+                                <span className="truncate max-w-[140px] sm:max-w-xs text-white font-bold">{p.name}</span>
                                 {p.sku ? (
                                   <span className="font-mono text-[9px] text-[#C5A059] font-semibold mt-0.5" title="Warehouse SKU Code">
                                     SKU: {p.sku}
@@ -1999,26 +2026,26 @@ Return a strictly valid JSON object structured exactly like this:
                                 )}
                               </div>
                             </td>
-                            <td className="p-4 text-white/70">{p.brand}</td>
-                            <td className="p-4">
+                            <td className="p-2.5 sm:p-4 text-white/70">{p.brand}</td>
+                            <td className="p-2.5 sm:p-4">
                               <span className="bg-white/5 border border-white/10 text-white/70 px-1.5 py-0.5 rounded-sm font-semibold uppercase text-[9px] font-mono">
                                 {p.category}
                               </span>
                             </td>
-                            <td className="p-4 font-mono font-bold text-white">KES {p.price.toLocaleString()}</td>
-                            <td className="p-4">
+                            <td className="p-2.5 sm:p-4 font-mono font-bold text-white">KES {p.price.toLocaleString()}</td>
+                            <td className="p-2.5 sm:p-4">
                               <span className={`font-mono font-bold ${p.stock <= 5 ? "text-red-400" : "text-white/50"}`}>
                                 {p.stock} units
                               </span>
                             </td>
-                            <td className="p-4 text-right space-x-1 shrink-0">
+                            <td className="p-2.5 sm:p-4 text-right space-x-1 shrink-0 whitespace-nowrap">
                               <button
                                 onClick={() => handleEditTrigger(p)}
-                                className="p-1 px-2 border border-white/5 hover:border-[#C5A059] text-[#C5A059] rounded-lg transition-colors inline-flex items-center gap-1.5 hover:bg-[#C5A059]/10 cursor-pointer"
+                                className="p-1 px-1.5 border border-white/5 hover:border-[#C5A059] text-[#C5A059] rounded-lg transition-colors inline-flex items-center gap-1 hover:bg-[#C5A059]/10 cursor-pointer text-[10px]"
                                 title="Edit product parameters"
                               >
-                                <Edit className="w-3.5 h-3.5" />
-                                <span className="hidden md:inline">Edit</span>
+                                <Edit className="w-3 h-3" />
+                                <span className="hidden sm:inline">Edit</span>
                               </button>
                               <button
                                 onClick={async () => {
@@ -2036,11 +2063,11 @@ Return a strictly valid JSON object structured exactly like this:
                                     }
                                   }
                                 }}
-                                className="p-1 px-2 border border-white/5 hover:border-red-500 text-red-400 rounded-lg transition-colors inline-flex items-center gap-1.5 hover:bg-red-500/10 cursor-pointer"
+                                className="p-1 px-1.5 border border-white/5 hover:border-red-500 text-red-400 rounded-lg transition-colors inline-flex items-center gap-1 hover:bg-red-500/10 cursor-pointer text-[10px]"
                                 title="Delete product"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                <span className="hidden md:inline">Delete</span>
+                                <Trash2 className="w-3 h-3" />
+                                <span className="hidden sm:inline">Delete</span>
                               </button>
                             </td>
                           </tr>
@@ -2074,8 +2101,8 @@ Return a strictly valid JSON object structured exactly like this:
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="bg-white/[0.02] border-b border-white/10 font-mono font-bold text-white/30">
-                      <th className="p-4 cursor-pointer hover:text-[#C5A059] transition-colors selection:bg-transparent" onClick={() => handleOrderSort("createdAt")}>
+                    <tr className="bg-white/[0.02] border-b border-white/10 font-mono font-bold text-white/30 text-[11px] sm:text-xs">
+                      <th className="p-2.5 sm:p-4 cursor-pointer hover:text-[#C5A059] transition-colors selection:bg-transparent" onClick={() => handleOrderSort("createdAt")}>
                         <div className="flex items-center gap-1">
                           <span>Order Record/Code</span>
                           {orderSortField === "createdAt" ? (
@@ -2085,7 +2112,7 @@ Return a strictly valid JSON object structured exactly like this:
                           )}
                         </div>
                       </th>
-                      <th className="p-4 cursor-pointer hover:text-[#C5A059] transition-colors selection:bg-transparent" onClick={() => handleOrderSort("customerName")}>
+                      <th className="p-2.5 sm:p-4 cursor-pointer hover:text-[#C5A059] transition-colors selection:bg-transparent" onClick={() => handleOrderSort("customerName")}>
                         <div className="flex items-center gap-1">
                           <span>Client Contact</span>
                           {orderSortField === "customerName" ? (
@@ -2095,8 +2122,8 @@ Return a strictly valid JSON object structured exactly like this:
                           )}
                         </div>
                       </th>
-                      <th className="p-4">Items Summary</th>
-                      <th className="p-4 cursor-pointer hover:text-[#C5A059] transition-colors selection:bg-transparent" onClick={() => handleOrderSort("totalAmount")}>
+                      <th className="p-2.5 sm:p-4">Items Summary</th>
+                      <th className="p-2.5 sm:p-4 cursor-pointer hover:text-[#C5A059] transition-colors selection:bg-transparent" onClick={() => handleOrderSort("totalAmount")}>
                         <div className="flex items-center gap-1">
                           <span>Billed amount</span>
                           {orderSortField === "totalAmount" ? (
@@ -2106,7 +2133,7 @@ Return a strictly valid JSON object structured exactly like this:
                           )}
                         </div>
                       </th>
-                      <th className="p-4 cursor-pointer hover:text-[#C5A059] transition-colors selection:bg-transparent" onClick={() => handleOrderSort("paymentStatus")}>
+                      <th className="p-2.5 sm:p-4 cursor-pointer hover:text-[#C5A059] transition-colors selection:bg-transparent" onClick={() => handleOrderSort("paymentStatus")}>
                         <div className="flex items-center gap-1">
                           <span>M-Pesa validation</span>
                           {orderSortField === "paymentStatus" ? (
@@ -2116,7 +2143,7 @@ Return a strictly valid JSON object structured exactly like this:
                           )}
                         </div>
                       </th>
-                      <th className="p-4 cursor-pointer hover:text-[#C5A059] transition-colors selection:bg-transparent" onClick={() => handleOrderSort("status")}>
+                      <th className="p-2.5 sm:p-4 cursor-pointer hover:text-[#C5A059] transition-colors selection:bg-transparent" onClick={() => handleOrderSort("status")}>
                         <div className="flex items-center gap-1">
                           <span>Fulfillment Status</span>
                           {orderSortField === "status" ? (
@@ -2128,36 +2155,36 @@ Return a strictly valid JSON object structured exactly like this:
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5 font-sans text-white/80">
+                  <tbody className="divide-y divide-white/5 font-sans text-white/80 text-[11px] sm:text-xs">
                     {sortedOrders.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-white/30 font-mono text-[11px] uppercase tracking-wider bg-black/10">
+                        <td colSpan={6} className="p-8 text-center text-white/30 font-mono uppercase tracking-wider bg-black/10">
                           No customer orders recorded in the terminal database matching active conditions
                         </td>
                       </tr>
                     ) : (
                       sortedOrders.map((ord) => (
                         <tr key={ord.id} className="hover:bg-white/[0.01] transition-colors">
-                          <td className="p-4 font-mono font-bold">
+                          <td className="p-2.5 sm:p-4 font-mono font-bold">
                             <span className="block text-white">#{ord.id.substring(0,8).toUpperCase()}</span>
                             <span className="text-[10px] text-white/35 block mt-1">
                               {ord.createdAt ? new Date(ord.createdAt).toLocaleDateString() : "Pending"}
                             </span>
                           </td>
-                          <td className="p-4 space-y-1">
-                            <span className="font-bold text-white block text-[13px]">{ord.customerName}</span>
+                          <td className="p-2.5 sm:p-4 space-y-1">
+                            <span className="font-bold text-white block text-xs sm:text-[13px]">{ord.customerName}</span>
                             <span className="text-white/40 text-[10px] block font-mono">{ord.customerEmail}</span>
                             <span className="text-white/40 text-[10px] block font-mono">{ord.customerPhone}</span>
                           </td>
-                          <td className="p-4 truncate max-w-xs font-medium text-white/80">
+                          <td className="p-2.5 sm:p-4 truncate max-w-xs font-medium text-white/80">
                             {(ord.items || []).map((i, idx) => (
                               <div key={idx}>
-                                {i.quantity}x <span className="font-bold text-white">{i.name}</span>
+                                {i.quantity}x <span className="font-bold text-white font-sans">{i.name}</span>
                               </div>
                             ))}
                           </td>
-                          <td className="p-4 font-mono font-bold text-[#C5A059]">KES {ord.totalAmount.toLocaleString()}</td>
-                          <td className="p-4 space-y-1.5">
+                          <td className="p-2.5 sm:p-4 font-mono font-bold text-[#C5A059]">KES {ord.totalAmount.toLocaleString()}</td>
+                          <td className="p-2.5 sm:p-4 space-y-1.5 whitespace-nowrap">
                             <select
                               value={ord.paymentStatus}
                               onChange={(e) => handleOrderStatusToggle(ord.id, ord, "payment", e.target.value)}
@@ -2165,7 +2192,7 @@ Return a strictly valid JSON object structured exactly like this:
                                 ord.paymentStatus === "Paid"
                                   ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                                   : ord.paymentStatus === "Failed"
-                                  ? "bg-red-500/10 text-red-400 border-red-500/20"
+                                  ? "bg-red-500/10 text-red-500 border-red-500/20"
                                   : "bg-[#C5A059]/10 text-[#C5A059] border-[#C5A059]/20"
                               }`}
                             >
@@ -2183,7 +2210,7 @@ Return a strictly valid JSON object structured exactly like this:
                               </div>
                             )}
                           </td>
-                          <td className="p-4">
+                          <td className="p-2.5 sm:p-4 whitespace-nowrap">
                             <select
                               value={ord.shippingStatus}
                               onChange={(e) => handleOrderStatusToggle(ord.id, ord, "shipping", e.target.value)}
@@ -2823,7 +2850,7 @@ Return a strictly valid JSON object structured exactly like this:
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-white/10 text-white/40 font-mono font-bold uppercase tracking-wider bg-white/[0.01]">
-                      <th className="p-3">Client details</th>
+                      <th className="p-3">Client Contact</th>
                       <th className="p-3">Product Name</th>
                       <th className="p-3 text-right">Target Price</th>
                       <th className="p-3 text-right">Live / Initial Price</th>
@@ -2840,8 +2867,8 @@ Return a strictly valid JSON object structured exactly like this:
                       return (
                         <tr key={alert.id || alert.createdAt} className="hover:bg-white/[0.01] transition-all">
                           <td className="p-3">
-                            <span className="font-bold text-white block">{alert.email || "No Email"}</span>
-                            <span className="font-mono text-[10px] text-[#C5A059] block mt-0.5">WhatsApp: {alert.whatsapp || "No Number"}</span>
+                            <span className="font-bold text-white block">WhatsApp Contact</span>
+                            <span className="font-mono text-xs text-[#C5A059] block mt-0.5 font-bold">{alert.whatsapp || "No Number"}</span>
                           </td>
                           <td className="p-3">
                             <span className="font-mono text-[10px] text-white/40 block">PRODUCT ID: {alert.productId?.substring(0, 8).toUpperCase()}</span>

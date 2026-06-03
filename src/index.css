@@ -99,17 +99,35 @@ html.light-theme .text-zinc-200 {
   color: #1c1917 !important;
 }
 
+html.light-theme .text-white\/10,
+html.light-theme .text-white\/20,
 html.light-theme .text-white\/30,
+html.light-theme .text-white\/35,
 html.light-theme .text-white\/40,
+html.light-theme .text-white\/45,
 html.light-theme .text-white\/50,
+html.light-theme .text-white\/60,
+html.light-theme .text-white\/70,
+html.light-theme .text-white\/80,
+html.light-theme .text-white\/90,
+html.light-theme .text-zinc-300,
 html.light-theme .text-zinc-400,
 html.light-theme .text-zinc-500 {
-  color: #797167 !important;
+  color: #5a544d !important; /* Premium Readable Warm Charcoal grey */
 }
 
-html.light-theme .text-white\/70,
-html.light-theme .text-zinc-300 {
-  color: #4a453e !important;
+/* Dividers & Borders Compatibility */
+html.light-theme .divide-white\/5,
+html.light-theme .divide-white\/10,
+html.light-theme .divide-zinc-800,
+html.light-theme .divide-zinc-700 {
+  border-color: #E7E2D8 !important;
+}
+
+/* Hover highlights to match Light Sandpaper Warmth */
+html.light-theme .hover\:bg-white\/\[0\.01\]:hover,
+html.light-theme .hover\:bg-white\/5:hover {
+  background-color: #EFECE6 !important;
 }
 
 html.light-theme input,
