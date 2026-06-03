@@ -85,6 +85,32 @@
         "deletedAt": { "type": "string", "format": "date-time", "description": "The exact time the product was deleted" }
       },
       "required": ["originalId", "productData", "deletedAt"]
+    },
+    "activity_log": {
+      "title": "Activity Log",
+      "description": "Logs of user page views and search terms for store intelligence",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "description": "Type of activity: page_view or search" },
+        "target": { "type": "string", "description": "The specific page name or search keyword" },
+        "userId": { "type": "string", "description": "UID of the user if logged in" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "target", "createdAt"]
+    },
+    "review": {
+      "title": "Product Review",
+      "description": "Customer ratings and reviews for individual commodities",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string", "description": "ID of the target product" },
+        "userId": { "type": "string", "description": "Auth UID of the reviewer" },
+        "userName": { "type": "string", "description": "Display name of reviewer" },
+        "rating": { "type": "number", "description": "Star rating out of 5" },
+        "comment": { "type": "string", "description": "Review comment text" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["productId", "userId", "userName", "rating", "comment", "createdAt"]
     }
   },
   "firestore": {
@@ -111,6 +137,14 @@
     "/trash/{trashId}": {
       "schema": "trash",
       "description": "Soft-deleted products stored for a 60-day automatic deletion window"
+    },
+    "/activity_logs/{logId}": {
+      "schema": "activity_log",
+      "description": "Granular activity events tracking pages and search terms"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "review",
+      "description": "Product reviews and ratings submitted by store customers"
     }
   }
 }

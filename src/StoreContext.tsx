@@ -27,7 +27,7 @@ import {
   orderBy
 } from "firebase/firestore";
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from "./firebase";
-import { Product, Order, OrderItem, UserProfile, Affiliate } from "./types";
+import { Product, Order, OrderItem, UserProfile, Affiliate, ProductReview } from "./types";
 import { DEFAULT_PRODUCTS } from "./data";
 
 interface ToastNotification {
@@ -117,6 +117,7 @@ interface StoreContextType {
   productsLimit: number;
   hasMoreProducts: boolean;
   loadMoreProducts: () => void;
+  productReviews: ProductReview[];
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -141,6 +142,63 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [invoiceOrderId, setInvoiceOrderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [productReviews, setProductReviews] = useState<ProductReview[]>([]);
+
+  // Real-time live-sync for the new Product Reviews collection
+  useEffect(() => {
+    const reviewsColRef = collection(db, "reviews");
+    const unsubscribe = onSnapshot(reviewsColRef, (snapshot) => {
+      const items: ProductReview[] = [];
+      snapshot.forEach((d) => {
+        items.push({ id: d.id, ...d.data() } as ProductReview);
+      });
+      // Sort by createdAt descending (newest reviews first)
+      items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setProductReviews(items);
+    }, (error) => {
+      console.error("Error loading reviews collection:", error);
+    });
+    return unsubscribe;
+  }, []);
+
+  // Lightweight activity logger that tracks page view counts in Firestore
+  useEffect(() => {
+    const logPageView = async () => {
+      try {
+        const activityCol = collection(db, "activity_logs");
+        await addDoc(activityCol, {
+          type: "page_view",
+          target: activeView,
+          userId: auth.currentUser?.uid || null,
+          createdAt: new Date().toISOString()
+        });
+      } catch (err) {
+        console.warn("Soft non-blocking warning logging page view:", err);
+      }
+    };
+    logPageView();
+  }, [activeView]);
+
+  // Lightweight activity logger that tracks popular search terms (debounced)
+  useEffect(() => {
+    if (!searchQuery || searchQuery.trim().length < 3) return;
+    
+    const handler = setTimeout(async () => {
+      try {
+        const activityCol = collection(db, "activity_logs");
+        await addDoc(activityCol, {
+          type: "search",
+          target: searchQuery.trim(),
+          userId: auth.currentUser?.uid || null,
+          createdAt: new Date().toISOString()
+        });
+      } catch (err) {
+        console.warn("Soft non-blocking warning logging search query:", err);
+      }
+    }, 1200);
+
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
   // Theme state with localstorage sync toggling
   const [theme, setTheme] = useState<"light" | "dark">(() => {
@@ -913,43 +971,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Submit Product Review
+  // Submit Product Review directly to the hard-separated 'reviews' collection
   const submitProductReview = async (productId: string, rating: number, comment: string, name: string) => {
-    const product = products.find(p => p.id === productId);
-    if (!product) return;
-
-    const newReview = {
-      id: `${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      userName: name || "Anonymous Client",
-      rating: rating,
-      comment: comment,
-      createdAt: new Date().toISOString()
-    };
-
-    const updatedReviews = product.reviews ? [...product.reviews, newReview] : [newReview];
-    const totalRating = updatedReviews.reduce((sum, r) => sum + r.rating, 0);
-    const avgRating = Number((totalRating / updatedReviews.length).toFixed(1));
+    const userId = auth.currentUser?.uid || "anonymous";
+    const userName = name.trim() || auth.currentUser?.displayName || "Anonymous Client";
+    const ratingVal = Number(rating);
+    const commentVal = comment.trim();
 
     try {
-      const productRef = doc(db, "products", productId);
-      await updateDoc(productRef, {
-        reviews: updatedReviews,
-        rating: avgRating,
-        updatedAt: new Date().toISOString()
+      const reviewsCol = collection(db, "reviews");
+      await addDoc(reviewsCol, {
+        productId,
+        userId,
+        userName,
+        rating: ratingVal,
+        comment: commentVal,
+        createdAt: new Date().toISOString()
       });
     } catch (e) {
-      console.error("Error writing product review in Firestore:", e);
-      // Fallback local memory update
-      setProducts(prev => prev.map(p => {
-        if (p.id === productId) {
-          return {
-            ...p,
-            reviews: updatedReviews,
-            rating: avgRating
-          };
-        }
-        return p;
-      }));
+      handleFirestoreError(e, OperationType.CREATE, "reviews");
     }
   };
 
@@ -1152,6 +1192,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         productsLimit,
         hasMoreProducts,
         loadMoreProducts,
+        productReviews,
       }}
     >
       {children}

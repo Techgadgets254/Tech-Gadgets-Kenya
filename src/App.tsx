@@ -19,6 +19,7 @@ import AIAdvisor from "./components/AIAdvisor";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { Helmet } from "./components/Helmet";
 import { Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 
 function StoreLayout() {
   const { activeView, authLoading } = useStore();
@@ -91,34 +92,45 @@ function StoreLayout() {
       <Header />
       
       {/* 2. Main Tabbed Layout viewports */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        {activeView === "home" && <HomeView />}
-        {activeView === "shop" && <ShopView />}
-        {activeView === "product-details" && <ProductDetailsView />}
-        {activeView === "checkout" && <CheckoutView />}
-        {activeView === "client-dashboard" && (
-          authLoading ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <Loader2 className="w-6 h-6 text-[#C5A059] animate-spin mb-3" />
-              <p className="text-[11px] font-mono text-white/40">Securing your workspace profile...</p>
-            </div>
-          ) : (
-            <ClientDashboard />
-          )
-        )}
-        {activeView === "admin-dashboard" && (
-          authLoading ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <Loader2 className="w-6 h-6 text-[#C5A059] animate-spin mb-3" />
-              <p className="text-[11px] font-mono text-white/40">Verifying secure administrator registry state...</p>
-            </div>
-          ) : (
-            <ErrorBoundary fallbackName="Operations Management Portal">
-              <AdminDashboard />
-            </ErrorBoundary>
-          )
-        )}
-        {activeView === "news" && <NewsView />}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 overflow-x-hidden">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeView}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+            className="w-full h-full"
+          >
+            {activeView === "home" && <HomeView />}
+            {activeView === "shop" && <ShopView />}
+            {activeView === "product-details" && <ProductDetailsView />}
+            {activeView === "checkout" && <CheckoutView />}
+            {activeView === "client-dashboard" && (
+              authLoading ? (
+                <div className="flex flex-col items-center justify-center py-20">
+                  <Loader2 className="w-6 h-6 text-[#C5A059] animate-spin mb-3" />
+                  <p className="text-[11px] font-mono text-white/40">Securing your workspace profile...</p>
+                </div>
+              ) : (
+                <ClientDashboard />
+              )
+            )}
+            {activeView === "admin-dashboard" && (
+              authLoading ? (
+                <div className="flex flex-col items-center justify-center py-20">
+                  <Loader2 className="w-6 h-6 text-[#C5A059] animate-spin mb-3" />
+                  <p className="text-[11px] font-mono text-white/40">Verifying secure administrator registry state...</p>
+                </div>
+              ) : (
+                <ErrorBoundary fallbackName="Operations Management Portal">
+                  <AdminDashboard />
+                </ErrorBoundary>
+              )
+            )}
+            {activeView === "news" && <NewsView />}
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       {/* Floating Grounded AI Advisor and Product Comparison matrix */}

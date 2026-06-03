@@ -93,6 +93,22 @@ service cloud.firestore {
         && data.productData is map;
     }
 
+    function isValidActivityLog(data) {
+      return data.type is string && (data.type == 'page_view' || data.type == 'search')
+        && data.target is string && data.target.size() > 0 && data.target.size() <= 300
+        && (!data.keys().hasAll(['userId']) || (data.userId is string && data.userId.size() <= 128))
+        && data.createdAt is string && data.createdAt.size() <= 100;
+    }
+
+    function isValidReview(data) {
+      return data.productId is string && data.productId.size() > 0 && data.productId.size() <= 128
+        && data.userId is string && data.userId.size() <= 128
+        && data.userName is string && data.userName.size() > 0 && data.userName.size() <= 200
+        && data.rating is number && data.rating >= 1 && data.rating <= 5
+        && data.comment is string && data.comment.size() >= 5 && data.comment.size() <= 1000
+        && data.createdAt is string && data.createdAt.size() <= 100;
+    }
+
     // --- Collection Routes ---
 
     // Products collection: anybody can browse (read/list), only admins can edit products
@@ -168,6 +184,22 @@ service cloud.firestore {
     match /affiliates/{affiliateId} {
       allow read, list, get: if true;
       allow create, update, delete: if isAdmin();
+    }
+
+    // Activity Logs: anybody can log activity (views/searches), only admins can read and review them
+    match /activity_logs/{logId} {
+      allow create: if isValidActivityLog(incoming());
+      allow read, list, delete: if isAdmin();
+    }
+
+    // Reviews collection:
+    // - Anyone can see product reviews (read/list)
+    // - Authenticated users can write a review for a product with their userId
+    // - Admins can delete or moderate reviews
+    match /reviews/{reviewId} {
+      allow read, list: if true;
+      allow create: if isSignedIn() && isValidReview(incoming()) && incoming().userId == request.auth.uid;
+      allow delete, update: if isAdmin();
     }
   }
 }

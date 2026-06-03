@@ -32,7 +32,8 @@ export default function ProductDetailsView() {
     wishlist,
     toggleWishlist,
     user,
-    registerPriceAlert
+    registerPriceAlert,
+    productReviews
   } = useStore();
 
   const [quantity, setQuantity] = useState(1);
@@ -96,6 +97,12 @@ export default function ProductDetailsView() {
     }
   }, [product]);
 
+  // Load database reviews from the top-level Firestore collection
+  const dbReviews = useMemo(() => {
+    if (!productReviews || !product) return [];
+    return productReviews.filter(r => r.productId === product.id);
+  }, [productReviews, product]);
+
   // Simulated static and dynamic reviews builder
   const displayedReviews = useMemo(() => {
     const base = [
@@ -103,8 +110,8 @@ export default function ProductDetailsView() {
       { name: "Phyllis N. (Studio Director)", rating: 5, date: "1 month ago", text: "Genuine article verified through the manufacturer portal. The screens look flawless. Best local pricing for authentic titanium specs.", location: "Mombasa, KE" },
       { name: "Abdi H. (Freelance Architect)", rating: 4, date: "2 months ago", text: "Clean transactional clearance. Checked specs thoroughly; they match the physical inventory sheet exactly. Stock levels are live, which is incredible.", location: "Kisumu, KE" }
     ];
-    if (product && product.reviews && product.reviews.length > 0) {
-      const customOnes = product.reviews.map(r => ({
+    if (dbReviews && dbReviews.length > 0) {
+      const customOnes = dbReviews.map(r => ({
         name: r.userName,
         rating: r.rating,
         date: new Date(r.createdAt).toLocaleDateString("en-KE", { day: 'numeric', month: 'short', year: 'numeric' }),
@@ -114,12 +121,14 @@ export default function ProductDetailsView() {
       return [...customOnes, ...base];
     }
     return base;
-  }, [product?.reviews]);
+  }, [dbReviews]);
 
   const ratingAverage = useMemo(() => {
     if (!product) return 4.8;
-    return product.rating || 4.8;
-  }, [product]);
+    if (dbReviews.length === 0) return product.rating || 4.8;
+    const total = dbReviews.reduce((sum, r) => sum + r.rating, 0);
+    return Number((total / dbReviews.length).toFixed(1));
+  }, [product, dbReviews]);
 
   // Loading or invalid fallback
   if (!product) {
@@ -590,7 +599,12 @@ export default function ProductDetailsView() {
               <span>Submit Hardware Rating</span>
             </h3>
 
-            {reviewSuccess ? (
+            {!user ? (
+              <div className="bg-[#C5A059]/5 border border-[#C5A059]/20 text-[#C5A059] p-4 rounded-xl text-xs space-y-2 mt-4" id="review-signin-notice">
+                <p className="font-bold">🔒 Member Authorization Required</p>
+                <p className="text-white/60">Please sign in utilizing your Google Account in the navigation header to log reviews and ratings for this electronics product.</p>
+              </div>
+            ) : reviewSuccess ? (
               <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-4 rounded-xl text-xs space-y-1 my-4">
                 <p className="font-bold">✓ Feedback Logged Successfully!</p>
                 <p className="text-white/60">Your review and star ratings have been compiled. Thank you for rating Tech Gadgets Kenya.</p>

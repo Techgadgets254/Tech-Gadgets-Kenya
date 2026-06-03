@@ -142,8 +142,8 @@ export default function AdminDashboard() {
     });
   }, [orders, orderSortField, orderSortDirection]);
 
-  // Active sub-view ("overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts")
-  const [activeSubTab, setActiveSubTab] = useState<"overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts">("overview");
+  // Active sub-view ("overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence")
+  const [activeSubTab, setActiveSubTab] = useState<"overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence">("overview");
 
   // Affiliate creation form state
   const [affiliateName, setAffiliateName] = useState("");
@@ -171,6 +171,10 @@ export default function AdminDashboard() {
   const [actionSuccessNotification, setActionSuccessNotification] = useState("");
   const [trashItems, setTrashItems] = useState<{ id: string; originalId: string; productData: any; deletedAt: string }[]>([]);
   const [trashLoading, setTrashLoading] = useState(false);
+
+  // Store Intelligence states
+  const [activityLogs, setActivityLogs] = useState<any[]>([]);
+  const [activityLogsLoading, setActivityLogsLoading] = useState(false);
 
   // Newsletter Subscribers states
   const [subscribers, setSubscribers] = useState<{ email: string; subscribedAt: string }[]>([]);
@@ -290,6 +294,28 @@ export default function AdminDashboard() {
           console.error(e);
         }
         setPriceAlertsLoading(false);
+      });
+      return unsubscribe;
+    }
+  }, [activeSubTab]);
+
+  // Live real-time sync for store activity logs
+  useEffect(() => {
+    if (activeSubTab === "intelligence" || activeSubTab === "overview") {
+      setActivityLogsLoading(true);
+      const logsColRef = collection(db, "activity_logs");
+      const unsubscribe = onSnapshot(logsColRef, (snapshot) => {
+        const items: any[] = [];
+        snapshot.forEach((d) => {
+          items.push({ id: d.id, ...d.data() });
+        });
+        // Sort by createdAt descending
+        items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setActivityLogs(items);
+        setActivityLogsLoading(false);
+      }, (error) => {
+        console.error("Error loading activity logs of customers:", error);
+        setActivityLogsLoading(false);
       });
       return unsubscribe;
     }
@@ -1160,6 +1186,7 @@ Return a strictly valid JSON object structured exactly like this:
             { id: "newsletters", label: "Newsletter Analytics" },
             { id: "affiliates", label: "Affiliate Codes" },
             { id: "price_alerts", label: `Price Alerts (${priceAlerts.length})` },
+            { id: "intelligence", label: "Store Intelligence" },
             { id: "trash", label: `Trash Bin (${trashItems.length})` }
           ].map(tab => (
             <button
@@ -2924,6 +2951,192 @@ Return a strictly valid JSON object structured exactly like this:
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* STORE INTELLIGENCE TELEMETRY PANEL */}
+      {activeSubTab === "intelligence" && (
+        <div className="space-y-8 animate-fadeIn text-[#E0E0E0]">
+          {/* Header Description */}
+          <div className="bg-[#111111] border border-white/10 p-6 rounded-3xl">
+            <h2 className="text-sm font-sans font-semibold text-[#C5A059] flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#C5A059]" />
+              <span>Commercial Telemetry & Store Intelligence</span>
+            </h2>
+            <p className="text-[11px] font-mono text-white/40 mt-1 uppercase tracking-wider">
+              Real-time telemetry of user section views and target keyboard search terms to optimize commodity stocking.
+            </p>
+          </div>
+
+          {/* Aggregate metrics */}
+          {(() => {
+            const pageViewsList = activityLogs.filter(log => log.type === "page_view");
+            const searchesList = activityLogs.filter(log => log.type === "search");
+
+            const pageViewCounts = pageViewsList.reduce((acc: Record<string, number>, log) => {
+              acc[log.target] = (acc[log.target] || 0) + 1;
+              return acc;
+            }, {});
+
+            const searchCounts = searchesList.reduce((acc: Record<string, number>, log) => {
+              const term = (log.target || "").trim().toLowerCase();
+              acc[term] = (acc[term] || 0) + 1;
+              return acc;
+            }, {});
+
+            const popularPages = (Object.entries(pageViewCounts) as [string, number][])
+              .map(([page, count]) => ({ page, count }))
+              .sort((a, b) => b.count - a.count);
+
+            const popularSearches = (Object.entries(searchCounts) as [string, number][])
+              .map(([term, count]) => ({ term, count }))
+              .sort((a, b) => b.count - a.count);
+
+            return (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Card 1: Total Tracking Views */}
+                  <div className="bg-[#0F0F0F] border border-white/10 p-6 rounded-3xl shadow-xs">
+                    <span className="text-[10px] text-white/40 font-mono block tracking-wider uppercase font-bold">PAGE VIEW TELEMETRIES</span>
+                    <span className="font-sans font-black text-2xl sm:text-3xl text-[#C5A059] block mt-2">
+                      {pageViewsList.length}
+                    </span>
+                    <span className="text-[9px] text-white/20 block font-mono mt-1">Logged View Sessions in Firestore</span>
+                  </div>
+
+                  {/* Card 2: Total Searches */}
+                  <div className="bg-[#0F0F0F] border border-white/10 p-6 rounded-3xl shadow-xs">
+                    <span className="text-[10px] text-white/40 font-mono block tracking-wider uppercase font-bold">KEYBOARD TERM SEARCHES</span>
+                    <span className="font-sans font-black text-2xl sm:text-3xl text-white block mt-2">
+                      {searchesList.length}
+                    </span>
+                    <span className="text-[9px] text-white/20 block font-mono mt-1">Queries entered anonymously or by users</span>
+                  </div>
+
+                  {/* Card 3: Unique Search Terms */}
+                  <div className="bg-[#0F0F0F] border border-white/10 p-6 rounded-3xl shadow-xs">
+                    <span className="text-[10px] text-white/40 font-mono block tracking-wider uppercase font-bold">UNIQUE QUERY CONCEPTS</span>
+                    <span className="font-sans font-black text-2xl sm:text-3xl text-[#C5A059] block mt-2">
+                      {popularSearches.length}
+                    </span>
+                    <span className="text-[9px] text-white/20 block font-mono mt-1">Distinct keyword search patterns</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Left Column: Popular Pages Viewed */}
+                  <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-6">
+                    <h3 className="font-sans font-semibold text-xs text-white uppercase tracking-wider font-mono text-white/40 mb-4">View Distribution of Shop Sections</h3>
+                    {popularPages.length === 0 ? (
+                      <p className="text-xs text-white/40 font-mono py-8 text-center bg-black/20 rounded-2xl">No page view logs registered yet.</p>
+                    ) : (
+                      <div className="space-y-4">
+                        {popularPages.map((item, idx) => {
+                          const totalViews = pageViewsList.length || 1;
+                          const percent = Math.round((item.count / totalViews) * 100);
+                          return (
+                            <div key={idx} className="space-y-1.5">
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="font-mono font-bold capitalize text-white/80">{item.page} section</span>
+                                <span className="text-white/40 font-mono">{item.count} views ({percent}%)</span>
+                              </div>
+                              <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden border border-white/5">
+                                <div 
+                                  className="bg-gradient-to-r from-[#C5A059] to-[#C5A059]/70 h-full rounded-full" 
+                                  style={{ width: `${percent}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Column: Popular Search Terms */}
+                  <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-6">
+                    <h3 className="font-sans font-semibold text-xs text-white uppercase tracking-wider font-mono text-white/40 mb-4">Popular Storefront Searches Rank</h3>
+                    {popularSearches.length === 0 ? (
+                      <p className="text-xs text-white/40 font-mono py-8 text-center bg-black/20 rounded-2xl">No search queries registered yet.</p>
+                    ) : (
+                      <div className="space-y-4">
+                        {popularSearches.slice(0, 7).map((item, idx) => {
+                          const totalSearches = searchesList.length || 1;
+                          const percent = Math.round((item.count / totalSearches) * 100);
+                          return (
+                            <div key={idx} className="space-y-1.5">
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="font-mono font-medium text-[#C5A059]">“{item.term}”</span>
+                                <span className="text-white/40 font-mono">{item.count} queries ({percent}%)</span>
+                              </div>
+                              <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden border border-white/5">
+                                <div 
+                                  className="bg-gradient-to-r from-[#C5A059]/30 to-[#C5A059] h-full rounded-full" 
+                                  style={{ width: `${percent}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Sub-table: Raw Action Stream */}
+                <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6">
+                  <h3 className="font-sans font-semibold text-xs text-white uppercase tracking-wider font-mono text-white/40 mb-4">Granular Activity Telemetry Stream</h3>
+                  {activityLogsLoading ? (
+                    <div className="text-center py-8">
+                      <div className="w-4 h-4 border-2 border-white/35 border-t-[#C5A059] rounded-full animate-spin mx-auto mb-2" />
+                      <p className="text-[10px] font-mono text-white/40">Loading latest activity events...</p>
+                    </div>
+                  ) : activityLogs.length === 0 ? (
+                    <p className="text-xs text-white/40 font-mono py-8 text-center">No Activity Log found in database.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse" id="intelligence-logs-table">
+                        <thead>
+                          <tr className="border-b border-white/10 text-[10px] font-mono tracking-wider text-white/40 uppercase">
+                            <th className="p-3">Occurred At</th>
+                            <th className="p-3">Activity Type</th>
+                            <th className="p-3">Target Payload</th>
+                            <th className="p-3 uppercase text-right">Client User UID</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 text-xs font-sans">
+                          {activityLogs.slice(0, 15).map((log, idx) => (
+                            <tr key={log.id || idx} className="hover:bg-white/[0.01] transition-colors">
+                              <td className="p-3 font-mono text-white/30 text-[10px]">
+                                {new Date(log.createdAt).toLocaleDateString("en-KE")} {new Date(log.createdAt).toLocaleTimeString("en-KE", { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                              </td>
+                              <td className="p-3">
+                                {log.type === "page_view" ? (
+                                  <span className="px-2 py-0.5 rounded-sm bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/15 font-mono text-[9px] uppercase tracking-wider">
+                                    Page View
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-sm bg-purple-500/10 text-purple-400 border border-purple-500/15 font-mono text-[9px] uppercase tracking-wider">
+                                    Search Term
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3 font-mono font-medium text-white/80">
+                                {log.type === "page_view" ? `${log.target} Section` : `“${log.target}”`}
+                              </td>
+                              <td className="p-3 text-right font-mono text-white/30 text-[10px]">
+                                {log.userId || "Guest Shopper"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
 

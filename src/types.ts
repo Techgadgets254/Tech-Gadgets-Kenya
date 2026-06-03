@@ -73,3 +73,22 @@ export interface Affiliate {
   active: boolean;
   createdAt: string;
 }
+
+export interface ProductReview {
+  id?: string;
+  productId: string;
+  userId: string;
+  userName: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+
+export interface ActivityLog {
+  id?: string;
+  type: "page_view" | "search";
+  target: string;
+  userId?: string;
+  createdAt: string;
+}
+
