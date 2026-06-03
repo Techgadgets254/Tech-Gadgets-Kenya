@@ -46,7 +46,7 @@ export default function ProductDetailsView() {
   const [reviewSuccess, setReviewSuccess] = useState(false);
 
   // Form states for Price alerts
-  const [priceAlertEmail, setPriceAlertEmail] = useState("");
+  const [priceAlertEmail, setPriceAlertEmail] = useState("whatsapp-only@techgadgetskenya.co.ke");
   const [priceAlertWhatsapp, setPriceAlertWhatsapp] = useState("");
   const [priceAlertTarget, setPriceAlertTarget] = useState("");
   const [priceAlertSuccess, setPriceAlertSuccess] = useState(false);
@@ -54,24 +54,27 @@ export default function ProductDetailsView() {
   // Expanded FAQ trace
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
 
-  // Sync current user email to input
+  // Sync current user email to input if available
   React.useEffect(() => {
     if (user?.email) {
       setPriceAlertEmail(user.email);
+    } else {
+      setPriceAlertEmail("whatsapp-only@techgadgetskenya.co.ke");
     }
   }, [user]);
 
   // Pre-filled WhatsApp and share links
   const handlePriceAlertSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!product || !priceAlertEmail || !priceAlertWhatsapp || !priceAlertTarget) return;
+    const emailToUse = priceAlertEmail || user?.email || "whatsapp-only@techgadgetskenya.co.ke";
+    if (!product || !priceAlertWhatsapp || !priceAlertTarget) return;
     const targetPrice = parseFloat(priceAlertTarget);
     if (isNaN(targetPrice) || targetPrice <= 0) return;
 
     const ok = await registerPriceAlert(
       product.id,
       product.name,
-      priceAlertEmail,
+      emailToUse,
       priceAlertWhatsapp,
       targetPrice,
       product.price
@@ -183,30 +186,30 @@ export default function ProductDetailsView() {
       {/* Main split grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 mb-12">
         
-        {/* Left Side: Media Display with interactive multi-image switcher */}
-        <div className="lg:col-span-6 space-y-4">
-          <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-2xl h-96 sm:h-[480px]">
+        {/* Left Side: Media Display with interactive multi-image switcher - Medium sized */}
+        <div className="lg:col-span-6 space-y-4 flex flex-col items-center">
+          <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-2xl h-64 sm:h-80 w-full max-w-sm sm:max-w-md mx-auto">
             <img
               src={activeImage || product.image}
               alt={product.name}
               referrerPolicy="no-referrer"
-              className="w-full h-full object-cover transition-all duration-300"
+              className="w-full h-full object-contain p-3 transition-all duration-300"
             />
           </div>
           
           {/* Thumbnails list mapping up to 5 images */}
           {product.gallery && product.gallery.length > 0 && (
-            <div className="flex gap-2.5 p-1 bg-black/30 border border-white/5 rounded-2xl overflow-x-auto">
+            <div className="flex justify-center gap-2 px-2 py-1.5 bg-black/30 border border-white/5 rounded-2xl overflow-x-auto w-full max-w-sm sm:max-w-md">
               {[product.image, ...product.gallery].map((img, index) => {
                 const isActive = (activeImage || product.image) === img;
                 return (
                   <button
                     key={index}
                     onClick={() => setActiveImage(img)}
-                    className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border cursor-pointer shrink-0 transition-all ${
+                    className={`relative w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden border cursor-pointer shrink-0 transition-all ${
                       isActive 
                         ? "border-[#C5A059] ring-2 ring-[#C5A059]/20" 
-                        : "border-white/10 hover:border-white/30"
+                        : "border-white/10 hover:border-white/20"
                     }`}
                   >
                     <img src={img} alt={`Asset View ${index + 1}`} className="w-full h-full object-cover" />
@@ -287,22 +290,7 @@ export default function ProductDetailsView() {
             </div>
           </div>
 
-          {/* Predictive Stock Scarcity Alert Banner */}
-          {!isOutOfStock && (
-            <div className="bg-red-500/5 border border-red-500/25 rounded-2xl p-4 flex items-start gap-3.5 text-left animate-fadeIn">
-              <div className="bg-red-500/15 text-red-500 w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5">
-                <Sparkles className="w-3.5 h-3.5 text-red-500 animate-pulse" />
-              </div>
-              <div className="text-xs space-y-1">
-                <h4 className="font-sans font-bold text-red-500 tracking-wider leading-none uppercase">
-                  Predictive Scarcity Forecast
-                </h4>
-                <p className="text-white/60 leading-relaxed text-[11px] pt-0.5">
-                  Based on active Nairobi CBD click velocities and real-time stocks, our warehouse intelligence models predict a <span className="text-red-400 font-bold">94.8% probability of complete stock depletion</span> within the next {product.stock <= 3 ? "2.5" : "6"} hours. Register your order now to reserve hardware allocation.
-                </p>
-              </div>
-            </div>
-          )}
+          {/* Quantitative stock limits status indicator */}
 
           {/* Quantity custom count and Add-to-bag section */}
           {!isOutOfStock && (
@@ -420,24 +408,11 @@ export default function ProductDetailsView() {
             {priceAlertSuccess ? (
               <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3 rounded-xl text-xs space-y-1">
                 <p className="font-bold font-sans">✓ Price Alert Activated!</p>
-                <p className="text-white/60 text-[10px]">We will notify your WhatsApp at <strong>{priceAlertWhatsapp}</strong> (or email <strong>{priceAlertEmail}</strong>) when the price of this gadget drops to KES {Number(priceAlertTarget).toLocaleString()} or lower.</p>
+                <p className="text-white/60 text-[10px]">We will notify your WhatsApp at <strong>{priceAlertWhatsapp}</strong> when the price of this gadget drops to KES {Number(priceAlertTarget).toLocaleString()} or lower.</p>
               </div>
             ) : (
               <form onSubmit={handlePriceAlertSubmit} className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  <div>
-                    <label className="block text-[9px] font-mono font-bold text-white/40 uppercase mb-1">
-                      YOUR EMAIL
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={priceAlertEmail}
-                      onChange={(e) => setPriceAlertEmail(e.target.value)}
-                      placeholder="customer@email.com"
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs focus:outline-hidden focus:border-[#C5A059] text-white font-sans"
-                    />
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
                     <label className="block text-[9px] font-mono font-bold text-white/40 uppercase mb-1">
                       WHATSAPP NUMBER

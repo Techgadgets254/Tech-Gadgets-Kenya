@@ -25,9 +25,11 @@ import {
   Sparkles,
   Bookmark,
   Coins,
-  Share2
+  Share2,
+  Download
 } from "lucide-react";
 import { Order } from "../types";
+import { jsPDF } from "jspdf";
 
 export default function ClientDashboard() {
   const { 
@@ -63,6 +65,153 @@ export default function ClientDashboard() {
 
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailSuccess, setEmailSuccess] = useState(false);
+
+  const handleDownloadInvoicePDF = (order: Order | null) => {
+    if (!order) return;
+    const doc = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4"
+    });
+
+    const primaryColor = [197, 160, 89]; // #C5A059 Gold representation
+
+    // 1. Header Banner
+    doc.setFillColor(15, 15, 15);
+    doc.rect(0, 0, 210, 48, "F");
+
+    // 2. Branding Typography
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(22);
+    doc.text("TECH GADGETS KENYA", 15, 20);
+
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text("PREMIUM IMPORTS & ENTERPRISE COMPUTERS", 15, 26);
+
+    doc.setTextColor(160, 160, 160);
+    doc.text("Kenyatta Pioneer Building, along Kenyatta Avenue, Shop 514, Nairobi", 15, 32);
+    doc.text("Lipa Na M-Pesa Buy Goods Till Number: 9309020 | Support: info@techgadgetskenya.co.ke", 15, 37);
+
+    // 3. Tax Invoice Badge
+    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.rect(145, 12, 50, 10, "F");
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("TAX INVOICE", 155, 18);
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8.5);
+    doc.text(`ID: #${order.id.substring(0, 8).toUpperCase()}`, 145, 28);
+    doc.setFont("Helvetica", "normal");
+    doc.text(`Date: ${order.createdAt ? new Date(order.createdAt).toLocaleDateString() : "Pending"}`, 145, 33);
+    doc.text(`Settled Code: ${order.receiptNo || "STK PIN APPROVED"}`, 145, 38);
+
+    // 4. Billed Recipient & Delivery Details
+    doc.setTextColor(40, 40, 40);
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.text("BILLED RECIPIENT", 15, 58);
+    doc.text("DELIVERY LOGISTIC CHANNEL", 112, 58);
+
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.text(`Customer: ${order.customerName}`, 15, 64);
+    doc.text(`Email Address: ${order.customerEmail}`, 15, 69);
+    doc.text(`Phone Contact: ${order.customerPhone}`, 15, 74);
+
+    let wrappedAddress = doc.splitTextToSize(order.shippingAddress || "Nairobi CBD Delivery Counter", 82);
+    doc.text(wrappedAddress, 112, 64);
+
+    // 5. Table Header lines
+    let currentY = 88;
+    doc.setFillColor(242, 244, 247);
+    doc.rect(15, currentY, 180, 8, "F");
+    doc.setDrawColor(220, 222, 225);
+    doc.line(15, currentY, 195, currentY);
+    doc.line(15, currentY + 8, 195, currentY + 8);
+
+    doc.setTextColor(15, 15, 15);
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text("Specification Model Details", 18, currentY + 5.5);
+    doc.text("Qty", 125, currentY + 5.5);
+    doc.text("Unit Cost (KES)", 145, currentY + 5.5);
+    doc.text("Total Value (KES)", 171, currentY + 5.5);
+
+    doc.setFont("Helvetica", "normal");
+    currentY += 8;
+
+    // 6. Loop and output line items
+    (order.items || []).forEach((item) => {
+      doc.setFont("Helvetica", "bold");
+      doc.setTextColor(20, 20, 20);
+      doc.text(`${item.brand} ${item.name}`, 18, currentY + 6);
+      
+      doc.setFont("Helvetica", "normal");
+      doc.setTextColor(60, 60, 60);
+      doc.text(String(item.quantity), 126, currentY + 6);
+      doc.text(Number(item.price).toLocaleString(), 145, currentY + 6);
+      
+      doc.setFont("Helvetica", "bold");
+      doc.setTextColor(15, 15, 15);
+      doc.text(Number(item.price * item.quantity).toLocaleString(), 171, currentY + 6);
+
+      currentY += 9;
+      doc.line(15, currentY, 195, currentY);
+    });
+
+    // 7. Balance calculation section
+    currentY += 8;
+    doc.setFillColor(248, 250, 252);
+    doc.rect(15, currentY, 180, 26, "F");
+    doc.rect(15, currentY, 180, 26, "S");
+
+    doc.setFont("Helvetica", "bold");
+    doc.setTextColor(197, 160, 89);
+    doc.text("Safaricom Daraja API Settlement Badge", 20, currentY + 6);
+    
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Payer STK Contact: +${order.mpesaPhone}`, 20, currentY + 11);
+    if (order.receiptNo) {
+      doc.setFont("Helvetica", "bold");
+      doc.setTextColor(15, 15, 15);
+      doc.text(`Official Receipt ID: ${order.receiptNo}`, 20, currentY + 15);
+    }
+    doc.setFont("Helvetica", "normal");
+    doc.setTextColor(80, 80, 80);
+    doc.text("Digital Escrow cleared via Kenya Till 9309020", 20, currentY + 19);
+
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 100, 100);
+    doc.text("Ledger Subtotal:", 115, currentY + 7);
+    doc.text("Local Delivery Fees:", 115, currentY + 12);
+    doc.text("Paid Total Amount:", 115, currentY + 18);
+
+    doc.setFont("Helvetica", "bold");
+    doc.setTextColor(20, 20, 20);
+    doc.text(`KES ${Number(order.totalAmount).toLocaleString()}`, 165, currentY + 7);
+    doc.text("KES 0 (FREE)", 165, currentY + 12);
+    
+    doc.setTextColor(197, 160, 89);
+    doc.setFontSize(10);
+    doc.text(`KES ${Number(order.totalAmount).toLocaleString()}`, 165, currentY + 18);
+
+    // 8. Signature Bottom row
+    doc.setFont("Helvetica", "normal");
+    doc.setTextColor(140, 140, 140);
+    doc.setFontSize(7.5);
+    doc.text("This transaction copy has been verified electronically. No physical stamp required.", 105, 275, { align: "center" });
+    doc.text("Tech Gadgets Kenya | East Africa Premium Electronics Importers", 105, 279, { align: "center" });
+
+    doc.save(`Tech_Gadgets_Kenya_Invoice_${order.id.substring(0, 8)}.pdf`);
+  };
 
   const handleSendEmailReceipt = () => {
     if (!activeOrder?.customerEmail) return;
@@ -270,25 +419,17 @@ export default function ClientDashboard() {
         </p>
       </div>
 
-      {/* Dynamic Predictive Store Alert Banner */}
-      <div className="bg-[#C5A059]/10 border border-[#C5A059]/35 rounded-2xl p-4 mb-8 flex items-start gap-3.5 text-left no-print">
-        <div className="bg-[#C5A059] text-black w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5">
-          <Sparkles className="w-4 h-4 animate-pulse text-black" />
+      {/* Informative Delivery Status Banner - No Predictive Scarcity Forecast */}
+      <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 mb-8 flex items-start gap-3.5 text-left no-print animate-fadeIn">
+        <div className="bg-emerald-500/20 text-emerald-400 w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 border border-emerald-500/10">
+          <Truck className="w-4 h-4 text-emerald-400 animate-pulse" />
         </div>
         <div className="text-xs space-y-1">
-          <h4 className="font-sans font-bold text-[#C5A059] flex items-center gap-1.5 leading-none">
-            PREDICTIVE STORE ENGINE INSIGHTS
+          <h4 className="font-sans font-bold text-emerald-400 flex items-center gap-1.5 leading-none uppercase">
+            Logistics & Same-Day Dispatch Updates
           </h4>
           <p className="text-white/60 leading-relaxed text-[11px] pt-1">
-            {products && products.filter(p => p.stock > 0 && p.stock <= 4).length > 0 ? (
-              <>
-                <strong>Stock Scarcity Forecast:</strong> Our warehouse velocity models predict that <strong className="text-[#C5A059]">{products.filter(p => p.stock > 0 && p.stock <= 4).length} high-demand hardware setups</strong> are currently operating on thin margins (under 4 units). Based on client STK prompt click velocity in Nairobi over the last 24 hours, these options carry a <strong className="text-[#C5A059]">93% probability</strong> of complete stockout by tomorrow evening. Consolidate your order entries to secure allocation.
-              </>
-            ) : (
-              <>
-                <strong>Dispatch Telemetry Forecast:</strong> Kenyatta Avenue CBD logistics channels are operating at maximum efficiency today. Active county deliveries checked out in the next 2 hours have a <strong className="text-emerald-400">96.8% verified probability</strong> of successful same-day regional dispatch with no courier delays.
-              </>
-            )}
+            Kenyatta Avenue CBD freight and courier dispatch channels are operating at maximum efficiency. Approved orders are packed, verified, and handed over to same-day couriers instantly.
           </p>
         </div>
       </div>
@@ -587,14 +728,14 @@ export default function ClientDashboard() {
                       )}
                     </button>
 
-                    {/* Print / Download Button */}
+                    {/* Download Invoice PDF Button */}
                     <button
                       type="button"
-                      onClick={handlePrintInvoice}
+                      onClick={() => handleDownloadInvoicePDF(activeOrder)}
                       className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-black text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
                     >
-                      <Printer className="w-3.5 h-3.5 text-black" />
-                      <span>Download Receipt</span>
+                      <Download className="w-3.5 h-3.5 text-black" />
+                      <span>Download Invoice</span>
                     </button>
                   </div>
                 </div>

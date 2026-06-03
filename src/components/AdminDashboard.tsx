@@ -41,7 +41,7 @@ import { Product, Order } from "../types";
 import { M_PESA_GATEWAYS } from "../data";
 import { db } from "../firebase";
 import { collection, getDocs, onSnapshot, addDoc, setDoc, deleteDoc, doc } from "firebase/firestore";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 
 export default function AdminDashboard() {
   const { 
@@ -59,6 +59,15 @@ export default function AdminDashboard() {
     toggleAffiliate,
     deleteAffiliate
   } = useStore();
+
+  const stockChartData = useMemo(() => {
+    return products.map(p => ({
+      name: p.name.length > 15 ? p.name.substring(0, 13) + "..." : p.name,
+      fullName: p.name,
+      stock: p.stock,
+      brand: p.brand
+    })).sort((a, b) => a.stock - b.stock);
+  }, [products]);
 
   // Sort states for Products / Commodities
   const [productSortField, setProductSortField] = useState<"name" | "brand" | "category" | "price" | "stock">("name");
@@ -1215,6 +1224,90 @@ Return a strictly valid JSON object structured exactly like this:
               <p className="text-red-400 text-[10px] mt-3 font-mono font-bold">Item counts &le; 5 units pool</p>
             </div>
 
+          </div>
+
+          {/* INVENTORY STOCK LEVELS LEVEL BAR CHART CARD */}
+          <div className="bg-[#0F0F0F] border border-white/10 p-6 rounded-3xl shadow-xs animate-fadeIn">
+            <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-white/10 pb-4">
+              <div>
+                <h3 className="text-white font-semibold text-base font-sans flex items-center gap-2">
+                  <Package className="w-5 h-5 text-[#C5A059]" />
+                  <span>Real-time Warehouse Inventory Stock Levels</span>
+                </h3>
+                <p className="text-white/40 text-xs mt-1">
+                  Shows current stock quantity sorted by lowest-shelf-count first. Red bars require immediate re-order or restock.
+                </p>
+              </div>
+
+              <div className="flex gap-4 text-xs font-mono">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 bg-red-500/80 rounded-sm inline-block" />
+                  <span className="text-white/50">Low Stock (&le; 5)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 bg-[#C5A059]/40 rounded-sm inline-block" />
+                  <span className="text-white/50">Satisfactory Stock</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="w-full h-80 pt-2 font-mono">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stockChartData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <XAxis 
+                    dataKey="name" 
+                    stroke="rgba(255,255,255,0.3)" 
+                    fontSize={9} 
+                    tickLine={false} 
+                    angle={-15}
+                    textAnchor="end"
+                  />
+                  <YAxis 
+                    stroke="rgba(255,255,255,0.3)" 
+                    fontSize={10} 
+                    tickLine={false} 
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "rgba(255,255,255,0.02)" }}
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        const isLow = data.stock <= 5;
+                        return (
+                          <div className="bg-[#151515] border border-white/10 p-3.5 rounded-xl shadow-xl text-xs space-y-1 font-sans">
+                            <p className="text-white font-bold">{data.fullName}</p>
+                            <p className="text-white/40 text-[10px] font-mono">Brand: {data.brand}</p>
+                            <p className={`font-mono text-xs font-bold ${isLow ? "text-red-400" : "text-[#C5A059]"}`}>
+                              Stock Remaining: {data.stock} units
+                            </p>
+                            {isLow && (
+                              <p className="text-[10px] text-red-500 font-mono bg-red-500/10 px-2 py-0.5 rounded-sm inline-block mt-1 uppercase font-bold tracking-wider">
+                                restock immediate!
+                              </p>
+                            )}
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Bar dataKey="stock" fill="#C5A059" radius={[4, 4, 0, 0]} maxBarSize={32}>
+                    {stockChartData.map((entry, index) => {
+                      const isLow = entry.stock <= 5;
+                      return (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={isLow ? "#EF4444" : "#C5A059"} 
+                          fillOpacity={isLow ? 0.85 : 0.45}
+                        />
+                      );
+                    })}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
