@@ -4,12 +4,26 @@
  */
 
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import firebaseConfig from "../firebase-applet-config.json";
+
+const apiKey = import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBqwGhkBL7VdFoSk72LnG7hRG848zUzoUs";
+const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "tech-gadgets-kenya.firebaseapp.com";
+const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || "tech-gadgets-kenya";
+
+const firebaseConfig = {
+  apiKey,
+  authDomain,
+  projectId,
+  storageBucket: `${projectId}.firebasestorage.app`,
+  messagingSenderId: "937704899601",
+  appId: "1:937704899601:web:46c23cdb613e5249f89db0",
+  measurementId: "G-5301JEH6W7",
+  firestoreDatabaseId: "(default)"
+};
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId); /* CRITICAL: The app will break without this line */
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || "(default)"); /* CRITICAL: The app will break without this line */
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 

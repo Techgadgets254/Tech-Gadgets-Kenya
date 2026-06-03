@@ -1,6 +1,5 @@
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 
@@ -463,7 +462,8 @@ app.get("/api/lipana/status/:checkoutRequestId", (req, res) => {
 
 // Vite middleware and static serving
 async function bootstrap() {
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV !== "production" && process.env.VERCEL !== "1") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -482,6 +482,10 @@ async function bootstrap() {
   });
 }
 
-bootstrap().catch((err) => {
-  console.error("Bootstrapping failed:", err);
-});
+if (process.env.VERCEL !== "1") {
+  bootstrap().catch((err) => {
+    console.error("Bootstrapping failed:", err);
+  });
+}
+
+export default app;
