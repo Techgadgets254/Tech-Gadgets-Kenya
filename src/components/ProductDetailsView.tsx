@@ -47,6 +47,7 @@ export default function ProductDetailsView() {
 
   // Form states for Price alerts
   const [priceAlertEmail, setPriceAlertEmail] = useState("");
+  const [priceAlertWhatsapp, setPriceAlertWhatsapp] = useState("");
   const [priceAlertTarget, setPriceAlertTarget] = useState("");
   const [priceAlertSuccess, setPriceAlertSuccess] = useState(false);
 
@@ -63,7 +64,7 @@ export default function ProductDetailsView() {
   // Pre-filled WhatsApp and share links
   const handlePriceAlertSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!product || !priceAlertEmail || !priceAlertTarget) return;
+    if (!product || !priceAlertEmail || !priceAlertWhatsapp || !priceAlertTarget) return;
     const targetPrice = parseFloat(priceAlertTarget);
     if (isNaN(targetPrice) || targetPrice <= 0) return;
 
@@ -71,6 +72,7 @@ export default function ProductDetailsView() {
       product.id,
       product.name,
       priceAlertEmail,
+      priceAlertWhatsapp,
       targetPrice,
       product.price
     );
@@ -418,11 +420,11 @@ export default function ProductDetailsView() {
             {priceAlertSuccess ? (
               <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3 rounded-xl text-xs space-y-1">
                 <p className="font-bold font-sans">✓ Price Alert Activated!</p>
-                <p className="text-white/60 text-[10px]">We will alert you at <strong>{priceAlertEmail}</strong> when the price of this gadget drops to KES {Number(priceAlertTarget).toLocaleString()} or lower.</p>
+                <p className="text-white/60 text-[10px]">We will notify your WhatsApp at <strong>{priceAlertWhatsapp}</strong> (or email <strong>{priceAlertEmail}</strong>) when the price of this gadget drops to KES {Number(priceAlertTarget).toLocaleString()} or lower.</p>
               </div>
             ) : (
               <form onSubmit={handlePriceAlertSubmit} className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <div>
                     <label className="block text-[9px] font-mono font-bold text-white/40 uppercase mb-1">
                       YOUR EMAIL
@@ -433,6 +435,19 @@ export default function ProductDetailsView() {
                       value={priceAlertEmail}
                       onChange={(e) => setPriceAlertEmail(e.target.value)}
                       placeholder="customer@email.com"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs focus:outline-hidden focus:border-[#C5A059] text-white font-sans"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-mono font-bold text-white/40 uppercase mb-1">
+                      WHATSAPP NUMBER
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={priceAlertWhatsapp}
+                      onChange={(e) => setPriceAlertWhatsapp(e.target.value)}
+                      placeholder="e.g. +254700000000"
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs focus:outline-hidden focus:border-[#C5A059] text-white font-sans"
                     />
                   </div>

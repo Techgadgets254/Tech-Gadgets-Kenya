@@ -112,7 +112,7 @@ interface StoreContextType {
   toggleTheme: () => void;
   submitProductReview: (productId: string, rating: number, comment: string, name: string) => Promise<void>;
   importProductsCSV: (csvContent: string) => Promise<{ addedCount: number; error?: string }>;
-  registerPriceAlert: (productId: string, productName: string, email: string, targetPrice: number, currentPrice: number) => Promise<boolean>;
+  registerPriceAlert: (productId: string, productName: string, email: string, whatsapp: string, targetPrice: number, currentPrice: number) => Promise<boolean>;
   productsLoading: boolean;
   productsLimit: number;
   hasMoreProducts: boolean;
@@ -142,17 +142,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [invoiceOrderId, setInvoiceOrderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Theme state with localstorage sync - locked to elegant dark mode
-  const [theme, setTheme] = useState<"light" | "dark" | any>("dark");
+  // Theme state with localstorage sync toggling
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    const cached = localStorage.getItem("tgk_active_theme");
+    return (cached === "light" || cached === "dark") ? cached : "dark";
+  });
 
   const toggleTheme = () => {
-    // Keep strictly at dark
-    setTheme("dark");
+    setTheme((prev) => {
+      const next = prev === "dark" ? "light" : "dark";
+      localStorage.setItem("tgk_active_theme", next);
+      return next;
+    });
   };
 
   useEffect(() => {
-    document.documentElement.classList.remove("light-theme");
-  }, []);
+    if (theme === "light") {
+      document.documentElement.classList.add("light-theme");
+    } else {
+      document.documentElement.classList.remove("light-theme");
+    }
+  }, [theme]);
 
   // Wishlist and Compare States
   const [wishlist, setWishlist] = useState<string[]>([]);
@@ -1049,6 +1059,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     productId: string,
     productName: string,
     email: string,
+    whatsapp: string,
     targetPrice: number,
     currentPrice: number
   ): Promise<boolean> => {
@@ -1058,6 +1069,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         productId,
         productName,
         email,
+        whatsapp,
         targetPrice,
         currentPrice,
         createdAt: new Date().toISOString()
@@ -1072,6 +1084,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           productId,
           productName,
           email,
+          whatsapp,
           targetPrice,
           currentPrice,
           createdAt: new Date().toISOString()

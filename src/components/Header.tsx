@@ -226,6 +226,19 @@ export default function Header() {
               </button>
             </nav>
 
+            {/* Theme Toggle Button */}
+            <button
+              onClick={toggleTheme}
+              className="p-2.5 text-white/70 hover:text-[#C5A059] rounded-xl transition-all border border-white/10 hover:bg-[#1A1A1A] group focus:outline-none cursor-pointer"
+              title={`Switch to ${theme === "dark" ? "Light" : "Dark"} Mode`}
+            >
+              {theme === "dark" ? (
+                <Sun className="w-4 h-4 transition-transform group-hover:scale-110" />
+              ) : (
+                <Moon className="w-4 h-4 transition-transform group-hover:scale-110" />
+              )}
+            </button>
+
             {/* Cart Trigger */}
             <button
               onClick={() => setActiveView("checkout")}

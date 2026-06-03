@@ -122,8 +122,8 @@ export default function AdminDashboard() {
     });
   }, [orders, orderSortField, orderSortDirection]);
 
-  // Active sub-view ("overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "qrcode")
-  const [activeSubTab, setActiveSubTab] = useState<"overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "qrcode">("overview");
+  // Active sub-view ("overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts")
+  const [activeSubTab, setActiveSubTab] = useState<"overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts">("overview");
 
   // Affiliate creation form state
   const [affiliateName, setAffiliateName] = useState("");
@@ -133,12 +133,18 @@ export default function AdminDashboard() {
   const [affiliateDiscountValue, setAffiliateDiscountValue] = useState(1000);
   const [showAffiliateForm, setShowAffiliateForm] = useState(false);
 
-  // QR Code generator state
-  const [qrText, setQrText] = useState("https://techgadgetskenya.co.ke");
-  const [qrFgColor, setQrFgColor] = useState("000000");
-  const [qrBgColor, setQrBgColor] = useState("ffffff");
-  const [qrSize, setQrSize] = useState(200);
-  const [copiedQr, setCopiedQr] = useState(false);
+  // Price alerts state
+  const [priceAlerts, setPriceAlerts] = useState<{
+    id: string;
+    productId: string;
+    productName: string;
+    email: string;
+    whatsapp: string;
+    targetPrice: number;
+    currentPrice: number;
+    createdAt: string;
+  }[]>([]);
+  const [priceAlertsLoading, setPriceAlertsLoading] = useState(false);
 
   // Bulk selection, notification and trash recovery state
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
@@ -237,6 +243,76 @@ export default function AdminDashboard() {
       return unsubscribe;
     }
   }, [activeSubTab]);
+
+  // Load Price Alerts live-sync with LocalStorage fallback
+  useEffect(() => {
+    if (activeSubTab === "price_alerts" || activeSubTab === "overview") {
+      setPriceAlertsLoading(true);
+      const alertsColRef = collection(db, "price_alerts");
+      const unsubscribe = onSnapshot(alertsColRef, (snapshot) => {
+        const items: any[] = [];
+        snapshot.forEach((d) => {
+          items.push({ id: d.id, ...d.data() });
+        });
+        // Sort by createdAt descending
+        items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setPriceAlerts(items);
+        setPriceAlertsLoading(false);
+      }, (error) => {
+        console.error("Error loading price alerts collection:", error);
+        // LocalStorage fallback sync
+        try {
+          const storedStr = localStorage.getItem("tgk_price_alerts") || "[]";
+          const list = JSON.parse(storedStr);
+          list.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setPriceAlerts(list);
+        } catch (e) {
+          console.error(e);
+        }
+        setPriceAlertsLoading(false);
+      });
+      return unsubscribe;
+    }
+  }, [activeSubTab]);
+
+  const handleSendWhatsAppAlert = (alert: any) => {
+    // Clean up WhatsApp / Phone number
+    let phone = alert.whatsapp.replace(/\s+/g, "").replace(/\+/g, "");
+    if (phone.startsWith("0")) {
+      phone = "254" + phone.substring(1);
+    } else if (!phone.startsWith("254") && phone.length === 9) {
+      phone = "254" + phone;
+    }
+
+    const message = `Hello! This is Tech Gadgets Kenya. You requested a price drop notification for "${alert.productName}". Good news! The price has dropped to KES ${alert.currentPrice.toLocaleString()} (your target price was KES ${alert.targetPrice.toLocaleString()}). Place your order now at Tech Gadgets Kenya!`;
+    const whatsappUrl = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, "_blank");
+  };
+
+  const handleDeletePriceAlert = async (alertId: string) => {
+    if (confirm("Are you sure you want to delete this price drop alert notification entry?")) {
+      try {
+        setActionSuccessNotification("Purging price alert entry...");
+        await deleteDoc(doc(db, "price_alerts", alertId));
+        setActionSuccessNotification("Price alert entry cleared successfully!");
+        setPriceAlerts(prev => prev.filter(x => x.id !== alertId));
+        setTimeout(() => setActionSuccessNotification(""), 5000);
+      } catch (err: any) {
+        console.error("DB error clearing price alert, deleting locally:", err);
+        try {
+          const storedStr = localStorage.getItem("tgk_price_alerts") || "[]";
+          let stored = JSON.parse(storedStr);
+          stored = stored.filter((x: any) => x.id !== alertId && x.createdAt !== alertId);
+          localStorage.setItem("tgk_price_alerts", JSON.stringify(stored));
+          setPriceAlerts(prev => prev.filter(x => x.id !== alertId));
+        } catch (e) {
+          console.error(e);
+        }
+        setActionSuccessNotification("Cleared price alert locally.");
+        setTimeout(() => setActionSuccessNotification(""), 3000);
+      }
+    }
+  };
 
   const handleDispatchCampaign = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1051,7 +1127,7 @@ Return a strictly valid JSON object structured exactly like this:
             { id: "orders", label: "Fulfillment Queue" },
             { id: "newsletters", label: "Newsletter Analytics" },
             { id: "affiliates", label: "Affiliate Codes" },
-            { id: "qrcode", label: "QR Code Tool" },
+            { id: "price_alerts", label: `Price Alerts (${priceAlerts.length})` },
             { id: "trash", label: `Trash Bin (${trashItems.length})` }
           ].map(tab => (
             <button
@@ -2620,142 +2696,113 @@ Return a strictly valid JSON object structured exactly like this:
         </div>
       )}
 
-      {/* 7. SECURE QR CODE GENERATOR SECTION */}
-      {activeSubTab === "qrcode" && (
+      {/* 7. CUSTOMER PRICE DROP ALERTS SECTION */}
+      {activeSubTab === "price_alerts" && (
         <div className="space-y-6 animate-fadeIn">
           <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 sm:p-8">
-            <div className="mb-6">
-              <h3 className="text-white font-semibold text-lg font-sans flex items-center gap-2">
-                <QrCode className="w-5 h-5 text-[#C5A059]" />
-                <span>Multi-Resolution QR Code Engine</span>
-              </h3>
-              <p className="text-white/40 text-xs mt-1">
-                Generate high-conversion scan links for marketing flyers, physical shipments, packaging labels, and customer newsletters.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              {/* Left Parameter Panel */}
-              <div className="lg:col-span-12 xl:col-span-7 space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs text-white/50 font-mono block">QR Code Content (URL or Text message)</label>
-                  <textarea
-                    rows={3}
-                    value={qrText}
-                    onChange={(e) => setQrText(e.target.value)}
-                    placeholder="Provide web-link, order reference, or promotional tracking payload..."
-                    className="w-full bg-white/[0.03] border border-white/10 rounded-2xl p-3.5 text-xs text-white focus:outline-hidden focus:border-[#C5A059] font-sans h-[90px] resize-none"
-                  />
-                </div>
-
-                {/* Preconfigured product link helper shortcuts */}
-                <div className="space-y-2">
-                  <span className="text-[10px] font-mono text-[#C5A059] font-bold block uppercase tracking-wider">Quick Link Templates:</span>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setQrText(`${window.location.protocol}//${window.location.host}`)}
-                      className="bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] text-white/70 px-2.5 py-1.5 rounded-lg transition-all font-mono"
-                    >
-                      /Store Home Page
-                    </button>
-                    {products.slice(0, 4).map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => setQrText(`${window.location.protocol}//${window.location.host}/#product-details?id=${p.id}`)}
-                        className="bg-white/[0.02] hover:bg-white/5 border border-white/5 text-[10px] text-white/40 hover:text-[#C5A059] px-2.5 py-1.5 rounded-lg transition-colors font-sans"
-                        title={p.name}
-                      >
-                        {p.name.substring(0, 15)}...
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-white/50 font-mono block">Dimension Size ({qrSize}x{qrSize} px)</label>
-                    <input
-                      type="range"
-                      min="150"
-                      max="500"
-                      step="50"
-                      value={qrSize}
-                      onChange={(e) => setQrSize(Number(e.target.value))}
-                      className="w-full cursor-pointer accent-[#C5A059]"
-                    />
-                    <div className="flex justify-between text-[10px] font-mono text-white/30">
-                      <span>150px</span>
-                      <span>300px</span>
-                      <span>500px</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-white/50 font-mono block">Color scheme</label>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => { setQrFgColor("000000"); setQrBgColor("ffffff"); }}
-                        className="bg-white text-black text-[10px] font-bold py-1 px-2.5 rounded-lg border border-white/10 transition-colors cursor-pointer"
-                      >
-                        Classic Mono
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setQrFgColor("c5a059"); setQrBgColor("000000"); }}
-                        className="bg-black text-[#C5A059] text-[10px] font-bold py-1 px-2.5 rounded-lg border border-white/10 transition-colors cursor-pointer"
-                      >
-                        Kenya Gold
-                      </button>
-                    </div>
-                  </div>
-                </div>
+            <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/10 pb-4">
+              <div>
+                <h3 className="text-white font-semibold text-lg font-sans flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 bg-[#C5A059] rounded-full animate-ping shrink-0" />
+                  <span>Price Drop Alerts Queue</span>
+                </h3>
+                <p className="text-white/40 text-xs mt-1">
+                  Track client drop notification requests and correspond via direct WhatsApp templates when a drop is activated.
+                </p>
               </div>
 
-              {/* Right Output Panel */}
-              <div className="lg:col-span-1 border-r border-white/5 hidden lg:block" />
-
-              <div className="lg:col-span-12 xl:col-span-4 flex flex-col items-center justify-center p-6 bg-white/[0.01] border border-white/5 rounded-3xl text-center space-y-4">
-                <span className="font-mono text-[9px] font-bold text-white/30 uppercase tracking-widest block">Live Rendered Asset</span>
-
-                <div className="p-4 bg-white rounded-2xl shadow-inner border border-white/10 shrink-0">
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&data=${encodeURIComponent(qrText)}&color=${qrFgColor}&bgcolor=${qrBgColor}`}
-                    alt="Scan to follow referral tracking checkout URL"
-                    style={{ width: qrSize, height: qrSize }}
-                    className="object-contain"
-                  />
-                </div>
-
-                <div className="w-full space-y-2 max-w-[250px]">
-                  <a
-                    href={`https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&data=${encodeURIComponent(qrText)}&color=${qrFgColor}&bgcolor=${qrBgColor}`}
-                    download="techgadgetskenya_qr.png"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="w-full bg-[#C5A059] hover:bg-[#C5A059]/90 text-black text-xs font-bold font-sans py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <Download className="w-4 h-4" />
-                    Save & Download QR Code
-                  </a>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(`https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&data=${encodeURIComponent(qrText)}&color=${qrFgColor}&bgcolor=${qrBgColor}`);
-                      setCopiedQr(true);
-                      setTimeout(() => setCopiedQr(false), 2000);
-                    }}
-                    className="w-full bg-white/5 hover:bg-white/10 border border-white/5 text-white text-xs font-semibold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <Copy className="w-4 h-4" />
-                    {copiedQr ? "Copied direct link!" : "Copy vector asset link"}
-                  </button>
-                </div>
+              <div className="text-xs text-white/40 font-mono">
+                {priceAlerts.length} Active Records
               </div>
             </div>
+
+            {priceAlertsLoading ? (
+              <div className="py-12 flex flex-col items-center justify-center text-white/40 font-mono text-xs space-y-2">
+                <Loader2 className="w-5 h-5 animate-spin text-[#C5A059]" />
+                <span>Synchronizing alerts logs...</span>
+              </div>
+            ) : priceAlerts.length === 0 ? (
+              <div className="py-12 text-center border border-dashed border-white/5 rounded-2xl bg-black/30">
+                <p className="font-mono text-xs text-white/30">No active price alert requests filed yet.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-white/10 text-white/40 font-mono font-bold uppercase tracking-wider bg-white/[0.01]">
+                      <th className="p-3">Client details</th>
+                      <th className="p-3">Product Name</th>
+                      <th className="p-3 text-right">Target Price</th>
+                      <th className="p-3 text-right">Live / Initial Price</th>
+                      <th className="p-3 text-right">Fulfillment Match</th>
+                      <th className="p-3 text-center">Contact Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5 font-sans text-white/80">
+                    {priceAlerts.map((alert) => {
+                      const linkedProduct = products.find(p => p.id === alert.productId);
+                      const livePrice = linkedProduct ? linkedProduct.price : alert.currentPrice;
+                      const hasDropped = livePrice <= alert.targetPrice;
+
+                      return (
+                        <tr key={alert.id || alert.createdAt} className="hover:bg-white/[0.01] transition-all">
+                          <td className="p-3">
+                            <span className="font-bold text-white block">{alert.email || "No Email"}</span>
+                            <span className="font-mono text-[10px] text-[#C5A059] block mt-0.5">WhatsApp: {alert.whatsapp || "No Number"}</span>
+                          </td>
+                          <td className="p-3">
+                            <span className="font-mono text-[10px] text-white/40 block">PRODUCT ID: {alert.productId?.substring(0, 8).toUpperCase()}</span>
+                            <span className="font-medium text-white block line-clamp-1 max-w-[200px]" title={alert.productName}>
+                              {alert.productName}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right font-mono font-bold text-[#C5A059]">
+                            KES {alert.targetPrice.toLocaleString()}
+                          </td>
+                          <td className="p-3 text-right font-mono text-white/70">
+                            <div>KES {livePrice.toLocaleString()}</div>
+                            <div className="text-[9px] text-white/30">Init: KES {alert.currentPrice.toLocaleString()}</div>
+                          </td>
+                          <td className="p-3 text-right">
+                            {hasDropped ? (
+                              <span className="px-2 py-0.5 rounded-sm bg-emerald-500/15 text-emerald-400 font-bold font-mono text-[9px] animate-pulse uppercase tracking-wider inline-block">
+                                Drop Activated!
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-sm bg-white/5 text-white/40 font-mono text-[9px] uppercase tracking-wider inline-block">
+                                Waiting Drop
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleSendWhatsAppAlert(alert)}
+                                className="bg-emerald-500 hover:bg-emerald-600 text-black font-sans font-bold text-[10px] px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                                title="Contact customer on WhatsApp"
+                              >
+                                <Send className="w-3 h-3 text-black" />
+                                <span>WhatsApp her</span>
+                              </button>
+                              
+                              <button
+                                type="button"
+                                onClick={() => handleDeletePriceAlert(alert.id || alert.createdAt)}
+                                className="bg-red-500/10 hover:bg-red-500/25 text-red-400 font-mono text-[10px] px-2 py-1.5 rounded-xl transition-all cursor-pointer border border-red-500/10"
+                                title="Dismiss price alert"
+                              >
+                                Clear
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
