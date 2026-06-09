@@ -664,12 +664,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, amount, orderId })
       });
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "Failed to initialize Paystack checkout.");
+      let data: any;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(text.slice(0, 150) || `Server returned status ${response.status}`);
       }
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to initialize Paystack checkout.");
+      }
+
       return {
         success: data.success,
         mode: data.mode as "real" | "simulated",
@@ -691,12 +698,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const verifyPaystackTransaction = async (orderId: string, reference: string) => {
     try {
       const response = await fetch(`/api/paystack/verify/${reference}`);
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "Verification query failed with Paystack.");
+      
+      let data: any;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(text.slice(0, 150) || `Server returned status ${response.status}`);
       }
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Verification query failed with Paystack.");
+      }
+
       if (data.success && data.status === "success") {
         const receipt = data.reference || "PAYSTACK-OK";
         const orderRef = doc(db, "orders", orderId);
@@ -714,7 +729,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       } else {
         return {
           success: false,
-          message: "Paystack transaction was not settled successfully."
+          message: data.message || "Paystack transaction was not settled successfully."
         };
       }
     } catch (e: any) {

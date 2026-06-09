@@ -152,10 +152,19 @@ app.post("/api/paystack/initialize", async (req, res) => {
     return res.status(400).json({ error: "Email, amount, and orderId parameters are required to initialize Paystack transaction." });
   }
 
-  const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
+  const rawSecret = process.env.PAYSTACK_SECRET_KEY;
+  const isPaystackSecretValid = !!(rawSecret && 
+    rawSecret.trim() !== "" && 
+    rawSecret.startsWith("sk_") && 
+    !rawSecret.includes("your") && 
+    !rawSecret.includes("YOUR") && 
+    !rawSecret.includes("placeholder") && 
+    rawSecret.trim().length >= 15);
+
+  const paystackSecret = isPaystackSecretValid ? rawSecret : null;
 
   if (!paystackSecret) {
-    // Simulated Mode when keys are not configured
+    // Simulated Mode when keys are not configured or placeholder keys are provided
     const reference = "PSTK-" + Math.random().toString(36).substring(2, 10).toUpperCase();
     paystackPaymentsMap.set(reference, {
       status: "pending",
@@ -169,7 +178,7 @@ app.post("/api/paystack/initialize", async (req, res) => {
       mode: "simulated",
       authorization_url: `https://checkout.paystack.com/simulated-pay/${reference}`,
       reference,
-      message: "Paystack transaction simulation initialized properly."
+      message: "Paystack transaction simulation initialized properly (API key is simulated/empty)."
     });
   }
 
@@ -205,7 +214,14 @@ app.post("/api/paystack/initialize", async (req, res) => {
       body: JSON.stringify(payload)
     });
 
-    const data = await paystackResponse.json();
+    let data: any;
+    const contentType = paystackResponse.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      data = await paystackResponse.json();
+    } else {
+      const text = await paystackResponse.text();
+      throw new Error(`Paystack API returned invalid non-JSON response (status ${paystackResponse.status}): ${text.slice(0, 150)}`);
+    }
 
     if (paystackResponse.ok && data.status) {
       const reference = data.data.reference;
@@ -239,7 +255,16 @@ app.get("/api/paystack/verify/:reference", async (req, res) => {
   const { reference } = req.params;
   const payment = paystackPaymentsMap.get(reference);
 
-  const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
+  const rawSecret = process.env.PAYSTACK_SECRET_KEY;
+  const isPaystackSecretValid = !!(rawSecret && 
+    rawSecret.trim() !== "" && 
+    rawSecret.startsWith("sk_") && 
+    !rawSecret.includes("your") && 
+    !rawSecret.includes("YOUR") && 
+    !rawSecret.includes("placeholder") && 
+    rawSecret.trim().length >= 15);
+
+  const paystackSecret = isPaystackSecretValid ? rawSecret : null;
 
   if (!paystackSecret) {
     if (payment) {
@@ -251,7 +276,7 @@ app.get("/api/paystack/verify/:reference", async (req, res) => {
       mode: "simulated",
       status: "success",
       reference,
-      message: "Payment successfully verified and completed through Paystack simulation hub."
+      message: "Payment successfully verified and completed through Paystack simulation hub (API key is simulated/empty)."
     });
   }
 
@@ -263,7 +288,15 @@ app.get("/api/paystack/verify/:reference", async (req, res) => {
       }
     });
 
-    const data = await paystackResponse.json();
+    let data: any;
+    const contentType = paystackResponse.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      data = await paystackResponse.json();
+    } else {
+      const text = await paystackResponse.text();
+      throw new Error(`Paystack verification endpoint returned non-JSON response (status ${paystackResponse.status}): ${text.slice(0, 150)}`);
+    }
+
     if (paystackResponse.ok && data.status && data.data?.status === "success") {
       if (payment) {
         payment.status = "success";
