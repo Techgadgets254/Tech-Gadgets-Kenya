@@ -38,7 +38,7 @@ import {
   Copy
 } from "lucide-react";
 import { Product, Order } from "../types";
-import { M_PESA_GATEWAYS } from "../data";
+import { PAYSTACK_GATEWAYS } from "../data";
 import { db } from "../firebase";
 import { collection, getDocs, onSnapshot, addDoc, setDoc, deleteDoc, doc } from "firebase/firestore";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
@@ -1365,10 +1365,10 @@ Return a strictly valid JSON object structured exactly like this:
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
-            {/* Left Block: Lipa Na M-Pesa Gateway status telemetry */}
+            {/* Left Block: Paystack Gateway status telemetry */}
             <div className="lg:col-span-1 bg-[#0F0F0F] border border-white/10 p-6 rounded-3xl shadow-xs">
               <h3 className="font-sans font-semibold text-sm text-white pb-3 border-b border-white/10 mb-4 flex items-center justify-between">
-                <span>Daraja API Gateway Monitor</span>
+                <span>Paystack Gateway Monitor</span>
                 <span className="px-2 py-0.5 rounded-sm bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[9px] font-mono font-bold flex items-center gap-1.5">
                   <Activity className="w-3 h-3 text-emerald-400" />
                   ONLINE
@@ -1376,7 +1376,7 @@ Return a strictly valid JSON object structured exactly like this:
               </h3>
 
               <div className="space-y-4 font-sans text-xs">
-                {M_PESA_GATEWAYS.map((gw, index) => (
+                {PAYSTACK_GATEWAYS.map((gw, index) => (
                   <div key={index} className="flex justify-between items-center bg-[#0A0A0A] border border-white/5 p-3 rounded-xl">
                     <div>
                       <span className="font-bold text-white block text-[11px]">{gw.name}</span>
@@ -1392,7 +1392,7 @@ Return a strictly valid JSON object structured exactly like this:
               <div className="mt-6 p-3 rounded-xl border border-white/5 bg-white/[0.01] text-[10px] leading-relaxed text-white/40 font-mono flex gap-2">
                 <AlertTriangle className="w-4 h-4 text-[#C5A059] shrink-0" />
                 <div>
-                  <strong>STK Auto-Callback Policy:</strong> Callback buffers sync and verify within 5000ms loop checks. Safe-locking prevents duplicate clears.
+                  <strong>Paystack webhook Policy:</strong> Callback buffers sync and verify within 3000ms loop checks. Safe-locking prevents duplicate clears.
                 </div>
               </div>
             </div>
@@ -2345,7 +2345,7 @@ Return a strictly valid JSON object structured exactly like this:
               <div>
                 <h3 className="text-white font-semibold text-lg font-sans">Database of Registered Subscribers</h3>
                 <p className="text-white/40 text-xs mt-1">
-                  Manage users synced from live Lipa Na M-Pesa newsletter subscriptions or fallback storages.
+                  Manage users synced from live Tech Gadgets Kenya newsletter subscriptions or fallback storages.
                 </p>
               </div>
 
@@ -2398,7 +2398,7 @@ Return a strictly valid JSON object structured exactly like this:
                         rows={6}
                         value={campaignBody}
                         onChange={(e) => setCampaignBody(e.target.value)}
-                        placeholder="Provide details about new stock availability, desktops setups, and Lipa-na-Mpesa till discounts..."
+                        placeholder="Provide details about new stock availability, desktops setups, and Paystack promotional codes..."
                         className="w-full bg-white/[0.03] border border-white/10 rounded-xl p-4 text-xs text-white focus:outline-hidden focus:border-[#C5A059] font-sans"
                         required
                       />

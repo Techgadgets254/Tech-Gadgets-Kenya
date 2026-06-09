@@ -40,7 +40,7 @@ ${productsInfo}
 === END CATALOG ===
 
 3. If users ask to compare products, build a beautifully formatted Markdown table matching their specifications, prices, and suggest the absolute best choice based on their budget and requirements.
-4. Keep in mind: Customers pay securely with Safaricom M-Pesa. Standard delivery is immediate to Nairobi and within 24 hours to the rest of Kenya.
+4. Keep in mind: Customers pay securely with Paystack (which supports Cards and Mobile Money). Standard delivery is immediate to Nairobi and within 24 hours to the rest of Kenya.
 5. Do not share raw internal project configurations. Refer to the store pricing in Kenyan Shillings (KES).
 `;
 

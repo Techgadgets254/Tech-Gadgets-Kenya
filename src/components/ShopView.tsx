@@ -429,7 +429,7 @@ export default function ShopView() {
             <div>
               <div className="flex justify-between items-center mb-4 text-[10px] font-mono text-white/30 font-bold tracking-wider">
                 <span>INDEX LIVE REVEALS: {filteredProducts.length} ITEMS FOUND</span>
-                <span>MPESA LIVE CODE APPROVED</span>
+                <span>PAYSTACK SECURE SYSTEM</span>
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

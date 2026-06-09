@@ -40,8 +40,8 @@ export default function HomeView() {
 
   const faqData = [
     {
-      q: "How does the Safaricom Lipa Na M-Pesa STK transaction work?",
-      a: "When checking out, select 'Lipa Na M-Pesa', specify your Safaricom phone number, and submit. The system sends an instant secure STK PIN request dialogue directly to your handset. Once you input your secret PIN, the funds are debited instantly and your invoice list updates in real time on the client dashboard."
+      q: "How does the Paystack payment gateway work?",
+      a: "When checking out, select Paystack as your payment method. You can securely clear payments instantly using your credit/debit cards or mobile money channels. Real-time encryption verifies the transaction instantly and updates your orders list directly on your client dashboard."
     },
     {
       q: "What is the delivery timeline and coverage?",

@@ -93,7 +93,7 @@ export default function ClientDashboard() {
 
     doc.setTextColor(160, 160, 160);
     doc.text("Kenyatta Pioneer Building, along Kenyatta Avenue, Shop 514, Nairobi", 15, 32);
-    doc.text("Lipa Na M-Pesa Buy Goods Till Number: 9309020 | Support: info@techgadgetskenya.co.ke", 15, 37);
+    doc.text("Payment Clearance Channel: Secure Paystack Portal | Support: info@techgadgetskenya.co.ke", 15, 37);
 
     // 3. Tax Invoice Badge
     doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -439,7 +439,7 @@ export default function ClientDashboard() {
           <ShoppingBag className="w-12 h-12 text-white/20 mx-auto mb-4" />
           <h2 className="font-sans font-semibold text-lg text-white">No Orders Placed Yet</h2>
           <p className="text-white/40 text-xs mt-2 leading-relaxed">
-            You haven't ordered any premium hardware from Tech Gadgets Kenya yet. Explore our stock catalog to place your first Lipa Na M-Pesa order!
+            You haven't ordered any premium hardware from Tech Gadgets Kenya yet. Explore our stock catalog to place your first Paystack order!
           </p>
           <button
             onClick={() => setActiveView("shop")}

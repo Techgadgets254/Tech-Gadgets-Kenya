@@ -392,13 +392,13 @@ export default function ProductDetailsView() {
             </div>
           )}
 
-          {/* Lipa Na M-Pesa Info badge */}
+          {/* Paystack Info badge */}
           <div className="bg-[#C5A059]/10 border border-[#C5A059]/20 rounded-xl p-4 flex items-start gap-3">
             <span className="p-1 px-2 border border-[#C5A059]/30 bg-white/[0.04] rounded-md text-[10px] font-mono font-bold shrink-0 text-[#C5A059] mt-0.5">
-              M-PESA
+              PAYSTACK
             </span>
             <p className="text-[11px] text-[#C5A059] leading-normal font-sans">
-              STK checkout prompts will carry Safaricom digital certificates. Authenticate to sync invoices within 5 seconds of confirmation.
+              Instant checkouts are powered by secure live Paystack authorization. Authenticate to sync invoices within 5 seconds of confirmation.
             </p>
           </div>
 
@@ -512,8 +512,8 @@ export default function ProductDetailsView() {
               a: "Local Nairobi deliveries are fulfilled via Waiyaki Way-based courier riders within 2 hours. Deliveries outside Nairobi (Mombasa, Kisumu, Eldoret, Nakuru) are dispatched overnight via secure courier services (G4S / Wells Fargo) for next-morning delivery."
             },
             {
-              q: "Can I pay using Lipa Na M-Pesa on delivery?",
-              a: "To secure premium transport logs, high-value gadgets require transaction validation first. We support Safaricom Lipa Na M-Pesa STK push checkouts which authorize instantly. Physical cash handling is restricted for dispatch protection."
+              q: "Can I pay using online card or mobile money on delivery?",
+              a: "To secure premium transport logs, high-value gadgets require transaction validation first. We support Paystack transactions which authorize instantly. Physical cash handling is restricted for dispatch protection."
             },
             {
               q: `How do I claim the 12-month manufacturer warranty for this ${product.brand} item?`,

@@ -44,9 +44,9 @@ const ARTICLES_DATA: Article[] = [
   },
   {
     id: "art-3",
-    title: "Safaricom Lipa Na M-Pesa Enforces API Upgrades to Curb Fraudulent Outages",
-    excerpt: "E-Commerce portals integrate direct STK callback streams to protect businesses from refund schemes and payment lags.",
-    content: "E-Commerce businesses in Kenya are migrating from manual transaction keying to automatic STK callbacks. The security benefits are double: payment references are locked, and invoice generators are printed on real-time callbacks. Tech Gadgets Kenya has pioneered this automated flow inside its client dashboards, ensuring your orders are safely flagged as 'Paid' within 10 seconds of clicking the paybill trigger.",
+    title: "Paystack Payment Gateway Drives E-Commerce Security Upgrades Across Kenya",
+    excerpt: "Online merchants integrate direct webhooks and secure inline checkouts to shield customers from manual payment validation lulls.",
+    content: "E-Commerce businesses in Kenya are shifting from manual transaction keying to fully automated online checkout gateways. The advantages are multi-fold: client transactions are processed with instant SSL handshakes, and invoice states update in real-time. Tech Gadgets Kenya has pioneered this automated flow inside its client dashboards, ensuring your orders are securely cleared as 'Paid' within seconds of payment.",
     imageUrl: "https://images.unsplash.com/photo-1563013544-824ae1d704d3?auto=format&fit=crop&q=80&w=600",
     date: "May 30, 2026",
     readTime: "3 min read",

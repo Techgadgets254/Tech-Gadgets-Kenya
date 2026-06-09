@@ -221,8 +221,8 @@ export const KENYAN_COUNTIES = [
   "Nairobi", "Mombasa", "Kiambu", "Nakuru", "Uasin Gishu", "Kisumu", "Kajiado", "Machakos", "Meru", "Nyeri", "Laikipia", "Kilifi", "Kakamega"
 ];
 
-export const M_PESA_GATEWAYS = [
-  { name: "Safaricom M-Pesa C2B / STK Push Direct", status: "Operational", ping: "42ms" },
-  { name: "KCB Bank M-Pesa IPN Integration", status: "Operational", ping: "89ms" },
-  { name: "Co-op Bank M-Pesa IPN Gateway", status: "Operational", ping: "110ms" }
+export const PAYSTACK_GATEWAYS = [
+  { name: "Paystack API Transaction Initialization", status: "Operational", ping: "78ms" },
+  { name: "Paystack Live Callback webhook endpoints", status: "Operational", ping: "92ms" },
+  { name: "Paystack Card / Mobile Secure tokenizers", status: "Operational", ping: "55ms" }
 ];

@@ -329,10 +329,10 @@ ${productsInfo}
               💰 Under KES 10,000
             </button>
             <button 
-              onClick={() => handleSuggestQuery("Do you accept Lipa Na M-Pesa? How long is the delivery?")}
+              onClick={() => handleSuggestQuery("Do you accept Paystack? How long is the delivery?")}
               className="bg-white/[0.02] border border-white/10 hover:border-[#C5A059]/50 text-white/60 hover:text-white text-[10px] px-2.5 py-1.5 rounded-lg shrink-0 cursor-pointer"
             >
-              🚀 Delivery & M-Pesa
+              🚀 Delivery & Paystack
             </button>
           </div>
 

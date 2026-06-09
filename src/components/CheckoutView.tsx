@@ -285,9 +285,9 @@ export default function CheckoutView() {
 
   return (
     <div className="max-w-7xl mx-auto p-2 sm:p-4">
-      {/* 1. M-PESA DARAJA STK & VISA PAYMENTS MODAL POPUP */}
+      {/* 1. PAYSTACK MODAL POPUP */}
       {isSTKProcessing && (
-        <div id="mpesa-stk-portal" className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4">
+        <div id="paystack-gateway-portal" className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative overflow-hidden animate-scaleUp">
             <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#C5A059] via-white to-[#C5A059] animate-pulse" />
             
@@ -847,7 +847,7 @@ export default function CheckoutView() {
                         </span>
                         <p className="text-xs text-white font-semibold">Payment Before Delivery Required</p>
                         <p className="text-[10.5px] text-white/40 leading-relaxed font-sans">
-                          Nairobi addresses qualify for <strong>Free Delivery Promo</strong>. Settlement is mandated prior to vehicle dispatch through Lipa Na M-Pesa STK or Visa.
+                          Nairobi addresses qualify for <strong>Free Delivery Promo</strong>. Settlement is mandated prior to vehicle dispatch through Paystack.
                         </p>
                       </div>
                     ) : (
