@@ -629,7 +629,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       mpesaPhone: details.mpesaPhone,
       paymentStatus: "Pending",
       shippingStatus: "Processing",
-      referralCode: details.referralCode,
+      referralCode: details.referralCode || "",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

@@ -1302,7 +1302,7 @@ Return a strictly valid JSON object structured exactly like this:
             </div>
 
             <div className="w-full h-80 pt-2 font-mono">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <BarChart data={stockChartData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
                   <XAxis 
@@ -1463,7 +1463,7 @@ Return a strictly valid JSON object structured exactly like this:
                   {metrics.categorySalesData.length === 0 ? (
                     <p className="text-white/30 text-xs font-mono text-center">No category data discovered.</p>
                   ) : (
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                       <PieChart>
                         <Pie
                           data={metrics.categorySalesData}
