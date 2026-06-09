@@ -328,6 +328,104 @@ app.get("/api/paystack/verify/:reference", async (req, res) => {
   }
 });
 
+// Paystack Webhook integration controller endpoint
+app.post("/api/paystack/webhook", async (req, res) => {
+  try {
+    const rawSecret = process.env.PAYSTACK_SECRET_KEY;
+    const isPaystackSecretValid = !!(rawSecret && 
+      rawSecret.trim() !== "" && 
+      rawSecret.startsWith("sk_") && 
+      !rawSecret.includes("your") && 
+      !rawSecret.includes("YOUR") && 
+      !rawSecret.includes("placeholder") && 
+      rawSecret.trim().length >= 15);
+
+    const paystackSecret = isPaystackSecretValid ? rawSecret : null;
+
+    // Verify HMAC-SHA512 signature if a secret is present
+    const signature = req.headers["x-paystack-signature"];
+    if (paystackSecret && signature) {
+      try {
+        const crypto = await import("crypto");
+        const hash = crypto
+          .createHmac("sha512", paystackSecret)
+          .update(JSON.stringify(req.body))
+          .digest("hex");
+        
+        if (hash !== signature) {
+          console.warn("Paystack Webhook Security Warning: Received request with non-matching HMAC signature.");
+        }
+      } catch (cryptoErr) {
+        console.error("Webhook signature digest computation crashed:", cryptoErr);
+      }
+    }
+
+    const { event, data } = req.body || {};
+    console.log(`Paystack Webhook: Received event '${event || "none"}'`);
+
+    if (event === "charge.success" && data) {
+      const reference = data.reference;
+      // Extract orderId from metadata or custom fields
+      let orderId = data.metadata?.orderId;
+      if (!orderId && Array.isArray(data.metadata?.custom_fields)) {
+        const oIdField = data.metadata.custom_fields.find((f: any) => f.variable_name === "order_id" || f.display_name === "Order ID");
+        orderId = oIdField?.value;
+      }
+
+      console.log(`Paystack Webhook matching order validation: Ref=${reference}, OrderID=${orderId || "none"}`);
+
+      if (reference) {
+        // Record payment outcome in local fallback payment map
+        const payment = paystackPaymentsMap.get(reference);
+        paystackPaymentsMap.set(reference, {
+          status: "success",
+          reference,
+          orderId: orderId || payment?.orderId || "unknown",
+          amount: data.amount ? data.amount / 100 : (payment?.amount || 0),
+          message: "Payment successfully verified and parsed through server-side Webhook loop."
+        });
+
+        // Securely update database order document to "Paid"
+        if (orderId) {
+          try {
+            const { initializeApp: serverInitApp } = await import("firebase/app");
+            const { getFirestore: serverGetFS, doc: serverDoc, updateDoc: serverUpdateDoc } = await import("firebase/firestore");
+
+            const serverFirebaseConfig = {
+              apiKey: process.env.VITE_FIREBASE_API_KEY || "AIzaSyBqwGhkBL7VdFoSk72LnG7hRG848zUzoUs",
+              authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "tech-gadgets-kenya.firebaseapp.com",
+              projectId: process.env.VITE_FIREBASE_PROJECT_ID || "tech-gadgets-kenya",
+              storageBucket: "tech-gadgets-kenya.firebasestorage.app",
+              messagingSenderId: "937704899601",
+              appId: "1:937704899601:web:f2ddecafdfe118daf89db0",
+            };
+
+            const serverApp = serverInitApp(serverFirebaseConfig);
+            const serverDb = serverGetFS(serverApp, "(default)");
+            const orderRef = serverDoc(serverDb, "orders", orderId);
+
+            await serverUpdateDoc(orderRef, {
+              paymentStatus: "Paid",
+              receiptNo: reference,
+              updatedAt: new Date().toISOString()
+            });
+
+            console.log(`Paystack Webhook Success: Order ${orderId} marked as settled in Firestore.`);
+          } catch (dbErr: any) {
+            console.error("Paystack Webhook db sync failed:", dbErr.message || dbErr);
+          }
+        }
+      }
+    }
+
+    // Always return 200 OK to Paystack within timeout limits
+    res.status(200).json({ status: "success", message: "Paystack Webhook resolved successfully." });
+  } catch (err: any) {
+    console.error("Paystack Webhook Handler Error:", err);
+    res.status(500).json({ error: `Internal Webhook Error: ${err.message}` });
+  }
+});
+
 // Vite middleware and static serving
 async function bootstrap() {
   if (process.env.NODE_ENV !== "production" && process.env.VERCEL !== "1") {

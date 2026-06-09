@@ -512,12 +512,14 @@ export default function AdminDashboard() {
           })
         });
         if (response.ok) {
-          const contentType = response.headers.get("content-type");
-          if (contentType && contentType.includes("application/json")) {
-            data = await response.json();
+          const text = await response.text();
+          try {
+            data = JSON.parse(text);
             if (data.description) {
               handledByServer = true;
             }
+          } catch (pe) {
+            console.warn("AdminDashboard describe parsing failed:", pe);
           }
         }
       } catch (srvErr) {

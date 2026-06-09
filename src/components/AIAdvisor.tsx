@@ -66,13 +66,15 @@ export default function AIAdvisor() {
         });
 
         if (response.ok) {
-          const contentType = response.headers.get("content-type");
-          if (contentType && contentType.includes("application/json")) {
-            const data = await response.json();
+          const text = await response.text();
+          try {
+            const data = JSON.parse(text);
             if (data.reply) {
               replyText = data.reply;
               handledByServer = true;
             }
+          } catch (pe) {
+            console.warn("AIAdvisor chat parse failed:", pe);
           }
         }
       } catch (srvErr) {

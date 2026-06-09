@@ -664,12 +664,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, amount, orderId })
       });
 
+      const text = await response.text();
       let data: any;
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        data = await response.json();
-      } else {
-        const text = await response.text();
+      try {
+        data = JSON.parse(text);
+      } catch (parseErr) {
         throw new Error(text.slice(0, 150) || `Server returned status ${response.status}`);
       }
 
@@ -699,12 +698,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await fetch(`/api/paystack/verify/${reference}`);
       
+      const text = await response.text();
       let data: any;
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        data = await response.json();
-      } else {
-        const text = await response.text();
+      try {
+        data = JSON.parse(text);
+      } catch (parseErr) {
         throw new Error(text.slice(0, 150) || `Server returned status ${response.status}`);
       }
 
