@@ -143,321 +143,156 @@ Return a strictly valid JSON object structured exactly like this:
   }
 });
 
-// Safaricom Daraja Lipa Na M-Pesa Integration Endpoints
-const mpesaPaymentsMap = new Map<string, { status: "pending" | "success" | "failed"; receiptNo?: string; message?: string }>();
+// Paystack Payment Integration Endpoints
+const paystackPaymentsMap = new Map<string, { status: "pending" | "success" | "failed"; reference: string; orderId: string; amount: number; message?: string }>();
 
-app.post("/api/mpesa/stkpush", async (req, res) => {
-  const { phone, amount, orderId } = req.body;
-  if (!phone || !amount) {
-    return res.status(400).json({ error: "Phone number and amount parameters are required to trigger M-Pesa prompt." });
+app.post("/api/paystack/initialize", async (req, res) => {
+  const { email, amount, orderId } = req.body;
+  if (!email || !amount || !orderId) {
+    return res.status(400).json({ error: "Email, amount, and orderId parameters are required to initialize Paystack transaction." });
   }
 
-  const hasDarajaCredentials = 
-    process.env.MPESA_CONSUMER_KEY && 
-    process.env.MPESA_CONSUMER_SECRET && 
-    process.env.MPESA_PASSKEY;
+  const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
 
-  if (!hasDarajaCredentials) {
-    // Dual-Mode: Simulated live response when Daraja environment keys are not configured
-    const checkoutRequestId = "SIM-" + Math.random().toString(36).substring(2, 9).toUpperCase();
-    mpesaPaymentsMap.set(checkoutRequestId, { status: "pending" });
-    
-    // Automatically flag as success in 4.5 seconds for mock fidelity
-    setTimeout(() => {
-      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-      let receiptNo = "R";
-      for (let i = 0; i < 9; i++) {
-        receiptNo += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      mpesaPaymentsMap.set(checkoutRequestId, { 
-        status: "success", 
-        receiptNo, 
-        message: "STK PIN confirmed. Payment cleared successfully via local simulation gateway." 
-      });
-    }, 4500);
+  if (!paystackSecret) {
+    // Simulated Mode when keys are not configured
+    const reference = "PSTK-" + Math.random().toString(36).substring(2, 10).toUpperCase();
+    paystackPaymentsMap.set(reference, {
+      status: "pending",
+      reference,
+      orderId,
+      amount
+    });
 
     return res.json({
       success: true,
       mode: "simulated",
-      checkoutRequestId,
-      message: "Lipa Na M-Pesa simulation STK prompted correctly. Auto-completing verification in 4 seconds..."
+      authorization_url: `https://checkout.paystack.com/simulated-pay/${reference}`,
+      reference,
+      message: "Paystack transaction simulation initialized properly."
     });
   }
 
-  // Live Safaricom Daraja STK Push Core
+  // Live Paystack API initialization
   try {
-    // Format Telephone line to standard 254xxxxxxxxx format
-    let cleanPhone = phone.trim().replace(/\s+/g, "").replace(/-/g, "");
-    if (cleanPhone.startsWith("0")) {
-      cleanPhone = "254" + cleanPhone.substring(1);
-    } else if (cleanPhone.startsWith("+")) {
-      cleanPhone = cleanPhone.substring(1);
-    }
-    if (!cleanPhone.startsWith("254")) {
-      cleanPhone = "254" + cleanPhone;
-    }
-
-    const mEnvironment = process.env.MPESA_ENVIRONMENT || "sandbox";
-    const baseUrl = mEnvironment === "production" 
-      ? "https://api.safaricom.co.ke" 
-      : "https://sandbox.safaricom.co.ke";
-    
-    // Query Daraja Access Token
-    const credentials = Buffer.from(`${process.env.MPESA_CONSUMER_KEY}:${process.env.MPESA_CONSUMER_SECRET}`).toString("base64");
-    const tokenResponse = await fetch(`${baseUrl}/oauth/v1/generate?grant_type=client_credentials`, {
-      headers: {
-        Authorization: `Basic ${credentials}`
-      }
-    });
-
-    if (!tokenResponse.ok) {
-      throw new Error(`Failed to retrieve Daraja token credentials: ${tokenResponse.statusText}`);
-    }
-
-    const tokenData = await tokenResponse.json();
-    const accessToken = tokenData.access_token;
-
-    // Secure LNM Password calculations
-    const timestamp = new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14); // YYYYMMDDHHMMSS e.g. 20260531120000
-    const shortcode = process.env.MPESA_SHORTCODE || "174379";
-    const passkey = process.env.MPESA_PASSKEY || "";
-    const password = Buffer.from(`${shortcode}${passkey}${timestamp}`).toString("base64");
-
-    // Dynamic Callback determination (highly compatible with AI studio sandbox dynamic URLs)
     const callbackUrl = process.env.APP_URL 
-      ? `${process.env.APP_URL.replace(/\/$/, "")}/api/mpesa/callback`
-      : `https://techgadgetskenya.co.ke/api/mpesa/callback`;
+      ? `${process.env.APP_URL.replace(/\/$/, "")}/?paystack_ref=${orderId}`
+      : `http://localhost:3000/?paystack_ref=${orderId}`;
 
-    const stkPayload = {
-      BusinessShortCode: shortcode,
-      Password: password,
-      Timestamp: timestamp,
-      TransactionType: "CustomerPayBillOnline",
-      Amount: Math.round(amount),
-      PartyA: cleanPhone,
-      PartyB: shortcode,
-      PhoneNumber: cleanPhone,
-      CallBackURL: callbackUrl,
-      AccountReference: orderId ? orderId.substring(0, 12) : "TechGadget",
-      TransactionDesc: `Hardware order ${orderId ? orderId.substring(0, 8) : "Checkout"}`
-    };
-
-    const stkResponse = await fetch(`${baseUrl}/mpesa/stkpush/v1/processrequest`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(stkPayload)
-    });
-
-    const stkData = await stkResponse.json();
-
-    if (stkData.ResponseCode === "0" || stkData.ResponseCode === 0) {
-      const checkoutRequestId = stkData.CheckoutRequestID;
-      mpesaPaymentsMap.set(checkoutRequestId, { status: "pending" });
-      
-      return res.json({
-        success: true,
-        mode: "real",
-        checkoutRequestId,
-        message: "Lipa Na M-Pesa STK PIN Dialogue pushed to your mobile screen. Please key in your PIN on your physical handset."
-      });
-    } else {
-      throw new Error(stkData.ResponseDescription || stkData.CustomerMessage || "Daraja rejected parameters.");
-    }
-
-  } catch (err: any) {
-    console.error("Daraja Core Failure:", err);
-    res.status(500).json({ 
-      error: `Daraja API connection failed: ${err.message || "Check environment secrets"}` 
-    });
-  }
-});
-
-app.post("/api/mpesa/callback", (req, res) => {
-  console.log("Daraja Push Callback Received:", JSON.stringify(req.body));
-  
-  try {
-    const callbackData = req.body?.Body?.stkCallback;
-    if (!callbackData) {
-      return res.status(400).json({ error: "Invalid callback shape format." });
-    }
-
-    const checkoutRequestId = callbackData.CheckoutRequestID;
-    const resultCode = callbackData.ResultCode;
-    const resultDesc = callbackData.ResultDesc;
-
-    if (resultCode === 0 || resultCode === "0") {
-      const metaItems = callbackData.CallbackMetadata?.Item || [];
-      const receiptItem = metaItems.find((itm: any) => itm.Name === "MpesaReceiptNumber");
-      const receiptNo = receiptItem ? receiptItem.Value : `MP${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
-      
-      mpesaPaymentsMap.set(checkoutRequestId, {
-        status: "success",
-        receiptNo,
-        message: "Payment successfully validated and completed."
-      });
-      console.log(`STK Client Success callback for Checkout ${checkoutRequestId}: Code ${receiptNo}`);
-    } else {
-      mpesaPaymentsMap.set(checkoutRequestId, {
-        status: "failed",
-        message: resultDesc || "Handset user rejected PIN confirmation prompt."
-      });
-      console.log(`STK Client Cancel callback for Checkout ${checkoutRequestId}: Message ${resultDesc}`);
-    }
-
-    res.json({ ResultCode: 0, ResultDesc: "Safaricom callback parsed properly" });
-  } catch (error: any) {
-    console.error("Callback parsing crash:", error);
-    res.status(500).json({ error: "Internal callback handler failed." });
-  }
-});
-
-app.get("/api/mpesa/status/:checkoutRequestId", (req, res) => {
-  const { checkoutRequestId } = req.params;
-  const payment = mpesaPaymentsMap.get(checkoutRequestId);
-  
-  if (!payment) {
-    return res.status(404).json({ error: "Requested transaction token not active on server." });
-  }
-
-  res.json(payment);
-});
-
-// Lipana Gateway Integration Endpoints
-const lipanaPaymentsMap = new Map<string, { status: "pending" | "success" | "failed"; receiptNo?: string; message?: string }>();
-
-app.post("/api/lipana/stkpush", async (req, res) => {
-  const { phone, amount, orderId } = req.body;
-  if (!phone || !amount) {
-    return res.status(400).json({ error: "Phone number and amount parameters are required to trigger premium Lipana prompt." });
-  }
-
-  const hasLipanaCredentials = 
-    process.env.LIPANA_API_KEY && 
-    process.env.LIPANA_MERCHANT_ID;
-
-  if (!hasLipanaCredentials) {
-    // If Lipana keys are not configured in system environment variables, run simulated mode for a smooth developer/preview experience!
-    const checkoutRequestId = "LPN-SIM-" + Math.random().toString(36).substring(2, 9).toUpperCase();
-    lipanaPaymentsMap.set(checkoutRequestId, { status: "pending" });
-
-    setTimeout(() => {
-      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-      let receiptNo = "LPN";
-      for (let i = 0; i < 9; i++) {
-        receiptNo += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      lipanaPaymentsMap.set(checkoutRequestId, {
-        status: "success",
-        receiptNo,
-        message: "Lipana STK push verified successfully. Settlement completed through simulated Lipana hub."
-      });
-    }, 4500);
-
-    return res.json({
-      success: true,
-      mode: "simulated",
-      checkoutRequestId,
-      message: "Lipana payment simulation initiated successfully! Triggering simulation push..."
-    });
-  }
-
-  // Live Lipana API integration
-  try {
-    let cleanPhone = phone.trim().replace(/\s+/g, "").replace(/-/g, "");
-    if (cleanPhone.startsWith("0")) {
-      cleanPhone = "254" + cleanPhone.substring(1);
-    } else if (cleanPhone.startsWith("+")) {
-      cleanPhone = cleanPhone.substring(1);
-    }
-    if (!cleanPhone.startsWith("254")) {
-      cleanPhone = "254" + cleanPhone;
-    }
-
-    // According to Lipana API standard: POST payload with credentials and payment context
     const payload = {
-      api_key: process.env.LIPANA_API_KEY,
-      merchant_id: process.env.LIPANA_MERCHANT_ID,
-      phone: cleanPhone,
-      amount: Math.round(amount),
-      reference: orderId || "TGK-ORDER",
-      description: `Payment for Order ${orderId ? orderId.substring(0, 8) : "Checkout"}`.substring(0, 50),
-      callback_url: process.env.APP_URL 
-        ? `${process.env.APP_URL.replace(/\/$/, "")}/api/lipana/callback`
-        : `https://techgadgetskenya.co.ke/api/lipana/callback`
+      email,
+      amount: Math.round(amount * 100), // subunits (KES cents/subunits)
+      currency: "KES",
+      callback_url: callbackUrl,
+      metadata: {
+        orderId,
+        custom_fields: [
+          {
+            display_name: "Order ID",
+            variable_name: "order_id",
+            value: orderId
+          }
+        ]
+      }
     };
 
-    // Make live requests securely to Lipana Gateway (standard endpoint api.lipana.tech/v1/stk/push)
-    const lipanaResponse = await fetch("https://api.lipana.tech/v1/stk/push", {
+    const paystackResponse = await fetch("https://api.paystack.co/transaction/initialize", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.LIPANA_API_KEY}`
+        Authorization: `Bearer ${paystackSecret}`,
+        "Content-Type": "application/json"
       },
       body: JSON.stringify(payload)
     });
 
-    const responseData = await lipanaResponse.json();
+    const data = await paystackResponse.json();
 
-    if (lipanaResponse.ok && (responseData.status === "success" || responseData.success || responseData.response_code === "0")) {
-      const checkoutRequestId = responseData.transaction_id || responseData.request_id || responseData.CheckoutRequestID || ("LPN-" + Math.random().toString(36).substring(2, 9).toUpperCase());
-      lipanaPaymentsMap.set(checkoutRequestId, { status: "pending" });
+    if (paystackResponse.ok && data.status) {
+      const reference = data.data.reference;
+      paystackPaymentsMap.set(reference, {
+        status: "pending",
+        reference,
+        orderId,
+        amount
+      });
 
       return res.json({
         success: true,
         mode: "real",
-        checkoutRequestId,
-        message: responseData.message || "Lipana Gateway STK push prompted on handset."
+        authorization_url: data.data.authorization_url,
+        reference,
+        message: "Paystack live transaction initialized successfully."
       });
     } else {
-      throw new Error(responseData.message || responseData.error || "Lipana Gateway rejected STK parameter payload.");
+      throw new Error(data.message || "Paystack Gateway rejected initial handshake payload.");
     }
+
   } catch (err: any) {
-    console.error("Lipana live integration failure:", err);
+    console.error("Paystack Initialization Failure:", err);
     res.status(500).json({
-      error: `Lipana Live Integration error: ${err.message || "Verify your Lipana keys in Secrets panel."}`
+      error: `Paystack API checkout connection error: ${err.message || "Verify secret credentials"}`
     });
   }
 });
 
-app.post("/api/lipana/callback", (req, res) => {
-  console.log("Lipana Callback Triggered:", JSON.stringify(req.body));
-  try {
-    const transactionId = req.body.transaction_id || req.body.request_id || req.body.CheckoutRequestID;
-    const status = req.body.status || req.body.state; // "success" or "completed" or equivalent
-    const receiptNo = req.body.receipt || req.body.mpesa_receipt || req.body.MpesaReceiptNumber;
-    const message = req.body.message || req.body.ResultDesc;
+app.get("/api/paystack/verify/:reference", async (req, res) => {
+  const { reference } = req.params;
+  const payment = paystackPaymentsMap.get(reference);
 
-    if (transactionId) {
-      if (status === "success" || status === "completed" || status === "successful" || req.body.ResultCode === 0) {
-        lipanaPaymentsMap.set(transactionId, {
-          status: "success",
-          receiptNo: receiptNo || `LPN${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
-          message: message || "Payment authenticated & settled on Lipana hub."
-        });
-      } else {
-        lipanaPaymentsMap.set(transactionId, {
-          status: "failed",
-          message: message || "Lipana transaction request rejected by subscriber."
-        });
-      }
+  const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
+
+  if (!paystackSecret) {
+    if (payment) {
+      payment.status = "success";
+      paystackPaymentsMap.set(reference, payment);
     }
-    res.json({ success: true, message: "Callback processed successfully by TechGadgetsKenya server." });
-  } catch (err: any) {
-    console.error("Lipana Callback Parsing Error:", err);
-    res.status(500).json({ error: "Failed parsing Lipana callback payload." });
+    return res.json({
+      success: true,
+      mode: "simulated",
+      status: "success",
+      reference,
+      message: "Payment successfully verified and completed through Paystack simulation hub."
+    });
   }
-});
 
-app.get("/api/lipana/status/:checkoutRequestId", (req, res) => {
-  const { checkoutRequestId } = req.params;
-  const payment = lipanaPaymentsMap.get(checkoutRequestId);
-  if (!payment) {
-    return res.status(404).json({ error: "Checkout session ID not found on Lipana memory pool." });
+  // Live transaction status verification
+  try {
+    const paystackResponse = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
+      headers: {
+        Authorization: `Bearer ${paystackSecret}`
+      }
+    });
+
+    const data = await paystackResponse.json();
+    if (paystackResponse.ok && data.status && data.data?.status === "success") {
+      if (payment) {
+        payment.status = "success";
+        paystackPaymentsMap.set(reference, payment);
+      }
+      return res.json({
+        success: true,
+        mode: "real",
+        status: "success",
+        reference,
+        data: data.data,
+        message: "Payment checked and fully validated on Paystack ecosystem."
+      });
+    } else {
+      if (payment) {
+        payment.status = "failed";
+        paystackPaymentsMap.set(reference, payment);
+      }
+      return res.status(400).json({
+        success: false,
+        error: data.message || "Failed verifying transaction settlement status on Paystack gateway."
+      });
+    }
+  } catch (err: any) {
+    console.error("Paystack Verification service crash:", err);
+    res.status(500).json({
+      error: `Paystack core integration status lookup exploded: ${err.message}`
+    });
   }
-  res.json(payment);
 });
 
 // Vite middleware and static serving

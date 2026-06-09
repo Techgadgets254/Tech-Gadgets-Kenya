@@ -171,13 +171,13 @@ export default function ClientDashboard() {
     doc.rect(15, currentY, 180, 26, "S");
 
     doc.setFont("Helvetica", "bold");
-    doc.setTextColor(197, 160, 89);
-    doc.text("Safaricom Daraja API Settlement Badge", 20, currentY + 6);
+    doc.setTextColor(9, 165, 219);
+    doc.text("Paystack Commerce Clearance Badge", 20, currentY + 6);
     
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(80, 80, 80);
-    doc.text(`Payer STK Contact: +${order.mpesaPhone}`, 20, currentY + 11);
+    doc.text(`Billing Contact: +${order.mpesaPhone}`, 20, currentY + 11);
     if (order.receiptNo) {
       doc.setFont("Helvetica", "bold");
       doc.setTextColor(15, 15, 15);
@@ -185,7 +185,7 @@ export default function ClientDashboard() {
     }
     doc.setFont("Helvetica", "normal");
     doc.setTextColor(80, 80, 80);
-    doc.text("Digital Escrow cleared via Kenya Till 9309020", 20, currentY + 19);
+    doc.text("Digital Transaction secure instant clearing system", 20, currentY + 19);
 
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(8.5);
@@ -872,31 +872,30 @@ export default function ClientDashboard() {
 
                   {/* Total Calculations Ledger & Stamps */}
                   <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 shadow-xs/10">
-                    
-                    {/* Official Safaricom M-Pesa stamp verification */}
+                                     {/* Official Paystack stamp verification */}
                     <div className="p-4 bg-[#C5A059]/10 border border-[#C5A059]/20 rounded-2xl max-w-sm shrink-0">
                       <div className="flex gap-2 items-center text-[#C5A059] font-bold mb-1.5 text-xs font-sans">
                         <ShieldCheck className="w-4 h-4 text-[#C5A059]" />
-                        <span>Safaricom M-Pesa Verified</span>
+                        <span>Paystack Commerce Secured</span>
                       </div>
                       
                       <div className="space-y-1 text-[10px] font-mono text-[#C5A059]/80 leading-tight">
-                        <p>Processing: STK Gateway Cleared</p>
-                        <p>Settlement Phone: +{activeOrder.mpesaPhone}</p>
+                        <p>Processing: Gateway Cleared</p>
+                        <p>Billing Contact: {activeOrder.mpesaPhone}</p>
                         {activeOrder.receiptNo && (
-                          <p className="text-white font-bold">Receipt reference: {activeOrder.receiptNo}</p>
+                          <p className="text-white font-bold">Paystack reference: {activeOrder.receiptNo}</p>
                         )}
-                        <p className="text-[9px] text-[#C5A059]/50 mt-1 block">Certified under Till Na: 9309020</p>
+                        <p className="text-[9px] text-[#C5A059]/50 mt-1 block">Live encrypted payment gateway</p>
                       </div>
                     </div>
-
+ 
                     <div className="w-full sm:w-auto space-y-2 border-t border-white/5 pt-3 sm:border-0 sm:pt-0 font-sans text-white/80">
                       <div className="flex justify-between sm:justify-end gap-12 text-xs text-white/40">
                         <span>Ledger Subtotal:</span>
                         <span className="font-mono font-semibold text-white">KES {activeOrder.totalAmount.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between sm:justify-end gap-12 text-xs text-emerald-400">
-                        <span>Daraja STK Fee:</span>
+                        <span>Paystack Gateway Fee:</span>
                         <span className="font-mono font-semibold">KES 0 (FREE)</span>
                       </div>
                       <div className="flex justify-between sm:justify-end gap-12 text-xs text-white/40 pb-2 border-b border-white/5">

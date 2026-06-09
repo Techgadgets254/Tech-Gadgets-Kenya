@@ -2229,7 +2229,7 @@ Return a strictly valid JSON object structured exactly like this:
                             </select>
                             
                             <div className="text-[10px] font-mono text-white/35 block font-bold leading-normal">
-                              STK Phone: {ord.mpesaPhone}
+                              Billing Contact: {ord.mpesaPhone}
                             </div>
                             {ord.receiptNo && (
                               <div className="text-[10px] font-mono text-emerald-400 font-bold block leading-normal">

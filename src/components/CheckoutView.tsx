@@ -30,8 +30,8 @@ export default function CheckoutView() {
     removeFromCart, 
     clearCart,
     createCheckoutOrder, 
-    simulateMpesaSTKPush, 
-    triggerLipanaSTKPush,
+    initializePaystackTransaction, 
+    verifyPaystackTransaction,
     setActiveView, 
     setInvoiceOrderId,
     loginWithGoogle,
@@ -45,8 +45,19 @@ export default function CheckoutView() {
   const [deliveryDetails, setDeliveryDetails] = useState("");
   const [mpesaPhone, setMpesaPhone] = useState("");
 
-  // Payment Selection: "mpesa" | "lipana" | "visa"
-  const [paymentMethod, setPaymentMethod] = useState<"mpesa" | "lipana" | "visa">("lipana");
+  // Payment Selection: "paystack"
+  const [paymentMethod, setPaymentMethod] = useState<"paystack">("paystack");
+
+  // Simulated Paystack States
+  const [simulatedPaystackRef, setSimulatedPaystackRef] = useState("");
+  const [simulatedOrderId, setSimulatedOrderId] = useState("");
+  const [showSimulatedPaystackModal, setShowSimulatedPaystackModal] = useState(false);
+  const [simulatedPaystackStep, setSimulatedPaystackStep] = useState<"options" | "card" | "mpesa" | "success">("options");
+  const [simulatedCardNo, setSimulatedCardNo] = useState("");
+  const [simulatedCardExp, setSimulatedCardExp] = useState("");
+  const [simulatedCardPin, setSimulatedCardPin] = useState("");
+  const [simulatedMpesaPhone, setSimulatedMpesaPhone] = useState("");
+  const [isSimulatingPayment, setIsSimulatingPayment] = useState(false);
 
   // Affiliate & Referral Promotion Codes State
   const [promoInput, setPromoInput] = useState("");
@@ -148,25 +159,14 @@ export default function CheckoutView() {
 
     if (isNairobi) {
       // Nairobi requires immediate Payment Before Delivery
-      if (paymentMethod === "mpesa") {
-        if (!mpesaPhone) {
-          alert("Please specify M-Pesa Phone number to prompt STK push");
-          return;
-        }
-        const cleanMpesa = mpesaPhone.trim();
-        if (!/^(?:254|\+254|0)?(7|1)\d{8}$/.test(cleanMpesa)) {
-          alert("Please specify a valid Safaricom M-Pesa mobile number (e.g. 0712345678 or 254712345678)");
-          return;
-        }
-
-        // Begin STK logic
+      if (paymentMethod === "paystack") {
         setIsSTKProcessing(true);
         setStkLogs([]);
         
-        updateSTKLog("Initiating Secure Safaricom Daraja API Session...", 200);
-        updateSTKLog("Checking Till Validation Pool... [Till No: 9309020]", 500);
-        updateSTKLog("Generating secure access tokens with Buy Goods Till gateway...", 800);
-        
+        updateSTKLog("Initializing Secure Paystack Payment Interface...", 100);
+        updateSTKLog("Negotiating bearer handshake with api.paystack.co...", 350);
+        updateSTKLog("Configuring currency criteria [KES]...", 650);
+
         const shippingFullAddress = `${deliveryDetails}, ${selectedCounty} County, Kenya (Nairobi - Free Delivery)`;
         
         const orderObj = await createCheckoutOrder({
@@ -174,7 +174,7 @@ export default function CheckoutView() {
           customerEmail: user.email || "",
           customerPhone,
           shippingAddress: shippingFullAddress,
-          mpesaPhone: cleanMpesa,
+          mpesaPhone: customerPhone, // Stores customer billing contact to satisfy Firestore layout
           totalAmount: Math.max(0, getCartTotal() + deliveryFee - discount),
           referralCode: appliedPromo || undefined
         });
@@ -185,131 +185,58 @@ export default function CheckoutView() {
           return;
         }
 
-        updateSTKLog(`Order created successfully on server database! [ID: ${orderObj.id}]`, 1100);
-        updateSTKLog(`Sending Lipa Na M-Pesa STK Push to Till 9309020 for amount KES ${Math.max(0, getCartTotal() + deliveryFee - discount).toLocaleString()}`, 1400);
-        updateSTKLog("Handset waiting for PIN validation. Check your physical phone...", 1700);
+        updateSTKLog(`Order created successfully on server database! [ID: ${orderObj.id}]`, 1000);
+        updateSTKLog(`Generating secure transaction reference on Paystack for KES ${orderObj.totalAmount.toLocaleString()}`, 1300);
 
-        const response = await simulateMpesaSTKPush(orderObj.id, cleanMpesa, orderObj.totalAmount);
+        const initRes = await initializePaystackTransaction(orderObj.id, user.email || "techgadgetsk@gmail.com", orderObj.totalAmount);
 
-        if (response.success) {
-          updateSTKLog(`PIN VERIFIED: M-Pesa funds captured! Receipts code: ${response.receiptNo}`, 1900);
-          updateSTKLog("Generating downloadable digital tax invoices. Commissioning fulfillment...", 2100);
+        if (initRes.success) {
+          updateSTKLog(`Paystack checkout token generated: ${initRes.reference}`, 1600);
           
-          setTimeout(() => {
-            setGeneratedReceipt(response.receiptNo || "M-PESA-OK");
-            setGeneratedOrderId(orderObj.id);
-            setPaymentSuccess(true);
-            setIsSTKProcessing(false);
-            clearCart();
-          }, 2200);
+          if (initRes.mode === "real") {
+            updateSTKLog("Opening Paystack secure authorization portal in new window...", 2000);
+            setTimeout(() => {
+              window.open(initRes.authUrl, "_blank");
+            }, 2100);
+
+            updateSTKLog("Monitoring Paystack secure verification bridge... Please complete payment.", 2800);
+            
+            let attempts = 0;
+            const maxAttempts = 30;
+            const pollInterval = setInterval(async () => {
+              attempts++;
+              const check = await verifyPaystackTransaction(orderObj.id, initRes.reference!);
+              if (check.success) {
+                clearInterval(pollInterval);
+                updateSTKLog(`PAYMENT COMPLETED: Paystack invoice reference ${initRes.reference} fully verified!`, 100);
+                setTimeout(() => {
+                  setGeneratedReceipt(initRes.reference || "PSTK-OK");
+                  setGeneratedOrderId(orderObj.id);
+                  setPaymentSuccess(true);
+                  setIsSTKProcessing(false);
+                  clearCart();
+                }, 1000);
+              } else if (attempts >= maxAttempts) {
+                clearInterval(pollInterval);
+                setIsSTKProcessing(false);
+                alert("Payment status query timeout. If payment was authorized, please check the Client Dashboard.");
+              }
+            }, 4000);
+
+          } else {
+            // Simulated inline Paystack checkout popup
+            updateSTKLog("Launching Simulated Paystack Checkout Popup...", 2000);
+            setTimeout(() => {
+              setSimulatedPaystackRef(initRes.reference || "");
+              setSimulatedOrderId(orderObj.id);
+              setSimulatedPaystackStep("options");
+              setShowSimulatedPaystackModal(true);
+            }, 2200);
+          }
         } else {
           setIsSTKProcessing(false);
-          alert(response.message);
+          alert(initRes.message || "Failed initializing Paystack handshake.");
         }
-      } else if (paymentMethod === "lipana") {
-        if (!mpesaPhone) {
-          alert("Please specify Lipana verification phone number to prompt STK push");
-          return;
-        }
-        const cleanMpesa = mpesaPhone.trim();
-        if (!/^(?:254|\+254|0)?(7|1)\d{8}$/.test(cleanMpesa)) {
-          alert("Please specify a valid Safaricom M-Pesa mobile number (e.g. 0712345678 or 254712345678)");
-          return;
-        }
-
-        // Begin Lipana STK logic
-        setIsSTKProcessing(true);
-        setStkLogs([]);
-        
-        updateSTKLog("Initiating Secure Lipana Payment Gateway Session...", 200);
-        updateSTKLog("Checking Merchant Account Directory... [ID: Lipana Ecosystem]", 500);
-        updateSTKLog("Establishing authenticated bearer channel connection...", 800);
-        
-        const shippingFullAddress = `${deliveryDetails}, ${selectedCounty} County, Kenya (Nairobi - Free Delivery)`;
-        
-        const orderObj = await createCheckoutOrder({
-          customerName,
-          customerEmail: user.email || "",
-          customerPhone,
-          shippingAddress: shippingFullAddress,
-          mpesaPhone: cleanMpesa,
-          totalAmount: Math.max(0, getCartTotal() + deliveryFee - discount),
-          referralCode: appliedPromo || undefined
-        });
-
-        if (!orderObj) {
-          setIsSTKProcessing(false);
-          alert("Encountered access authorization limit creating database record.");
-          return;
-        }
-
-        updateSTKLog(`Order created successfully on server database! [ID: ${orderObj.id}]`, 1100);
-        updateSTKLog(`Triggering secure M-Pesa STK push via Lipana for amount KES ${Math.max(0, getCartTotal() + deliveryFee - discount).toLocaleString()}`, 1400);
-        updateSTKLog("Handset waiting for PIN confirmation prompt. Check your phone screen...", 1700);
-
-        const response = await triggerLipanaSTKPush(orderObj.id, cleanMpesa, orderObj.totalAmount);
-
-        if (response.success) {
-          updateSTKLog(`LIPANA SECURE CLEARANCE: Payment captured successfully! Receipt No: ${response.receiptNo}`, 1900);
-          updateSTKLog("Generating downloadable digital tax invoices. Commissioning fulfillment...", 2100);
-          
-          setTimeout(() => {
-            setGeneratedReceipt(response.receiptNo || "LIPANA-OK");
-            setGeneratedOrderId(orderObj.id);
-            setPaymentSuccess(true);
-            setIsSTKProcessing(false);
-            clearCart();
-          }, 2200);
-        } else {
-          setIsSTKProcessing(false);
-          alert(response.message);
-        }
-      } else {
-        // Visa Card Payment
-        if (!cardHolder || !cardNumber || !cardExpiry || !cardCvv) {
-          alert("Please fill in all credit card parameters to authenticate payment.");
-          return;
-        }
-        if (cardNumber.replace(/\s/g, "").length < 16) {
-          alert("Please specify a genuine 16-digit card number.");
-          return;
-        }
-
-        setIsSTKProcessing(true);
-        setStkLogs([]);
-
-        updateSTKLog("Connecting to secure Visa Processing Gateway...", 200);
-        updateSTKLog("Initializing 3D-Secure 2.0 liability shift authorization...", 500);
-        updateSTKLog("Validating card limits and credentials...", 900);
-
-        const shippingFullAddress = `${deliveryDetails}, ${selectedCounty} County, Kenya (Nairobi - Free Delivery)`;
-        
-        const orderObj = await createCheckoutOrder({
-          customerName,
-          customerEmail: user.email || "",
-          customerPhone,
-          shippingAddress: shippingFullAddress,
-          mpesaPhone: "VISA-CARD",
-          totalAmount: Math.max(0, getCartTotal() + deliveryFee - discount),
-          referralCode: appliedPromo || undefined
-        });
-
-        if (!orderObj) {
-          setIsSTKProcessing(false);
-          alert("Encountered access authorization limit creating database record.");
-          return;
-        }
-
-        updateSTKLog("Verifying with issuing Bank (OTP Verified Simulation)...", 1400);
-        updateSTKLog("Payment approved by Visa Core Network!", 1700);
-
-        setTimeout(() => {
-          setGeneratedReceipt(`VISA-TX-${Math.random().toString(36).substring(2, 10).toUpperCase()}`);
-          setGeneratedOrderId(orderObj.id);
-          setPaymentSuccess(true);
-          setIsSTKProcessing(false);
-          clearCart();
-        }, 2200);
       }
     } else {
       // OUTSIDE NAIROBI: "no payment before delivery"
@@ -370,10 +297,7 @@ export default function CheckoutView() {
               </div>
               <h3 className="font-sans font-semibold text-lg text-white">
                 {isNairobi 
-                  ? (paymentMethod === "lipana" 
-                      ? "Lipana Integration Checkout" 
-                      : (paymentMethod === "mpesa" ? "Lipa Na M-Pesa STK Gateway" : "Secure Visa Settlement")
-                    ) 
+                  ? "Paystack Commerce Terminal" 
                   : "Logistic Dispatch Routing"
                 }
               </h3>
@@ -397,14 +321,279 @@ export default function CheckoutView() {
             <div className="mt-6 flex justify-between items-center text-[10px] text-white/30 font-mono">
               <span>
                 {isNairobi 
-                  ? (paymentMethod === "lipana" 
-                      ? "Lipana Gateway Portal" 
-                      : (paymentMethod === "mpesa" ? "Till Number: 9309020" : "Settle: 3D-Secure")
-                    ) 
+                  ? "Paystack Commerce Bridge"
                   : "Free Courier Dispatch"
                 }
               </span>
               <span>Keep your tab open</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 1.1 SIMULATED PAYSTACK POPUP OVERLAY */}
+      {showSimulatedPaystackModal && (
+        <div id="paystack-checkout-popup" className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full overflow-hidden shadow-2xl animate-scaleUp text-black">
+            {/* Header segment styled exactly like Paystack brand */}
+            <div className="bg-[#121a24] text-white p-4 flex items-center justify-between border-b border-white/5">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-[#09a5db]" />
+                <div>
+                  <h4 className="text-xs font-bold font-sans tracking-wide">Paystack Commerce</h4>
+                  <p className="text-[9px] text-[#09a5db] font-mono leading-none tracking-widest uppercase font-bold">SIMULATOR ACTIVE</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] font-mono text-white/50 block font-bold">KES</span>
+                <span className="text-sm font-bold font-sans text-emerald-500">
+                  {Math.max(0, getCartTotal() + deliveryFee - discount).toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            {/* Simulated content body segments */}
+            {simulatedPaystackStep === "options" && (
+              <div className="p-5 space-y-4">
+                <p className="text-xs text-gray-500 font-sans leading-relaxed">
+                  Choose your test payment method to simulate Paystack instant checkout clearance:
+                </p>
+                <div className="space-y-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSimulatedPaystackStep("card");
+                      setSimulatedCardNo("");
+                      setSimulatedCardPin("");
+                    }}
+                    className="w-full text-left p-3 rounded-xl border border-gray-150 hover:bg-gray-50 transition-all flex items-center gap-3 cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-650 font-bold text-xs font-mono">💳</div>
+                    <div>
+                      <span className="text-xs font-bold font-sans text-gray-800 block">Pay with Card</span>
+                      <span className="text-[10px] text-gray-400 block font-sans">Visa, Mastercard, Verve</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSimulatedPaystackStep("mpesa");
+                      setSimulatedMpesaPhone(customerPhone || "");
+                    }}
+                    className="w-full text-left p-3 rounded-xl border border-gray-150 hover:bg-gray-50 transition-all flex items-center gap-3 cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold text-xs font-sans">M</div>
+                    <div>
+                      <span className="text-xs font-bold font-sans text-gray-800 block">Pay with Mobile Money</span>
+                      <span className="text-[10px] text-emerald-600 font-semibold block font-sans">Safaricom LNM M-Pesa</span>
+                    </div>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSimulatedPaystackModal(false);
+                    setIsSTKProcessing(false);
+                  }}
+                  className="w-full text-center text-xs font-bold text-red-500 hover:underline pt-2 cursor-pointer font-sans border-none bg-transparent"
+                >
+                  Cancel Transaction
+                </button>
+              </div>
+            )}
+
+            {simulatedPaystackStep === "card" && (
+              <div className="p-5 space-y-3.5">
+                <h5 className="text-xs font-bold text-gray-700 font-mono">ENTER TEST CARD DETAILS</h5>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[9px] text-gray-400 font-bold block mb-1">CARD NUMBER</label>
+                    <input
+                      type="text"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-800 focus:outline-hidden focus:border-emerald-500 font-mono"
+                      placeholder="4000 1234 5678 9010"
+                      maxLength={19}
+                      value={simulatedCardNo}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "");
+                        const formatted = val.match(/.{1,4}/g)?.join(" ") || val;
+                        setSimulatedCardNo(formatted);
+                      }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[9px] text-gray-400 font-bold block mb-1">EXPIRY (MM/YY)</label>
+                      <input
+                        type="text"
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-center text-gray-800 focus:outline-hidden focus:border-emerald-500 font-mono"
+                        placeholder="11/29"
+                        maxLength={5}
+                        value={simulatedCardExp}
+                        onChange={(e) => {
+                          let val = e.target.value.replace(/\D/g, "");
+                          if (val.length > 2) {
+                            val = val.substring(0, 2) + "/" + val.substring(2, 4);
+                          }
+                          setSimulatedCardExp(val);
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] text-gray-400 font-bold block mb-1">CARD PIN</label>
+                      <input
+                        type="password"
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-center text-gray-800 focus:outline-hidden focus:border-emerald-500 font-mono"
+                        placeholder="••••"
+                        maxLength={4}
+                        value={simulatedCardPin}
+                        onChange={(e) => setSimulatedCardPin(e.target.value.replace(/\D/g, ""))}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    disabled={isSimulatingPayment}
+                    onClick={async () => {
+                      if (simulatedCardNo.replace(/\s/g, "").length < 16) {
+                        alert("Please specify a 16-digit test card number.");
+                        return;
+                      }
+                      setIsSimulatingPayment(true);
+                      setTimeout(async () => {
+                        setIsSimulatingPayment(false);
+                        setSimulatedPaystackStep("success");
+                        // Trigger actual verification endpoint
+                        await verifyPaystackTransaction(simulatedOrderId, simulatedPaystackRef);
+                        setTimeout(() => {
+                          setShowSimulatedPaystackModal(false);
+                          setGeneratedReceipt(simulatedPaystackRef);
+                          setGeneratedOrderId(simulatedOrderId);
+                          setPaymentSuccess(true);
+                          setIsSTKProcessing(false);
+                          clearCart();
+                        }, 1800);
+                      }, 2000);
+                    }}
+                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-sans font-bold py-2.5 rounded-xl cursor-pointer text-xs flex items-center justify-center gap-1.5 transition-all shadow-md disabled:bg-gray-300 disabled:cursor-not-allowed border-none"
+                  >
+                    {isSimulatingPayment ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Authorizing Transaction...</span>
+                      </>
+                    ) : (
+                      <span>Pay KES {Math.round(getCartTotal() + deliveryFee - discount).toLocaleString()}</span>
+                    )}
+                  </button>
+                </div>
+
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => setSimulatedPaystackStep("options")}
+                    className="text-[11px] text-gray-400 hover:underline cursor-pointer border-none bg-transparent"
+                  >
+                    &larr; Go Back
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {simulatedPaystackStep === "mpesa" && (
+              <div className="p-5 space-y-3.5">
+                <h5 className="text-xs font-bold text-emerald-600 font-sans">PAY WITH M-PESA ACCOUNT</h5>
+                <p className="text-[11px] text-gray-500 leading-normal font-sans">
+                  Our simulation will dispatch a test mobile money checkout to your handset callback pool:
+                </p>
+                <div>
+                  <label className="text-[9px] text-gray-400 font-bold block mb-1">M-PESA MOBILE PHONE</label>
+                  <div className="flex gap-2">
+                    <div className="bg-gray-100 border border-gray-200 px-3 py-2 text-xs rounded-xl text-gray-500 flex items-center justify-center font-mono h-[36px]">
+                      +254
+                    </div>
+                    <input
+                      type="text"
+                      className="flex-1 bg-gray-50 border border-gray-200 text-xs px-3 rounded-xl focus:outline-hidden focus:border-emerald-500 text-gray-800 font-sans font-bold h-[36px]"
+                      placeholder="7XXXXXXXX"
+                      maxLength={9}
+                      value={simulatedMpesaPhone}
+                      onChange={(e) => setSimulatedMpesaPhone(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    disabled={isSimulatingPayment}
+                    onClick={async () => {
+                      if (!simulatedMpesaPhone) {
+                        alert("Please specify a simulated mobile terminal number.");
+                        return;
+                      }
+                      setIsSimulatingPayment(true);
+                      setTimeout(async () => {
+                        setIsSimulatingPayment(false);
+                        setSimulatedPaystackStep("success");
+                        // Trigger verification
+                        await verifyPaystackTransaction(simulatedOrderId, simulatedPaystackRef);
+                        setTimeout(() => {
+                          setShowSimulatedPaystackModal(false);
+                          setGeneratedReceipt(simulatedPaystackRef);
+                          setGeneratedOrderId(simulatedOrderId);
+                          setPaymentSuccess(true);
+                          setIsSTKProcessing(false);
+                          clearCart();
+                        }, 1800);
+                      }, 2000);
+                    }}
+                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-sans font-bold py-2.5 rounded-xl cursor-pointer text-xs flex items-center justify-center gap-1.5 transition-all shadow-md disabled:bg-gray-300 border-none"
+                  >
+                    {isSimulatingPayment ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Sending checkout prompt...</span>
+                      </>
+                    ) : (
+                      <span>Pay KES {Math.round(getCartTotal() + deliveryFee - discount).toLocaleString()}</span>
+                    )}
+                  </button>
+                </div>
+
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => setSimulatedPaystackStep("options")}
+                    className="text-[11px] text-gray-400 hover:underline cursor-pointer border-none bg-transparent"
+                  >
+                    &larr; Go Back
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {simulatedPaystackStep === "success" && (
+              <div className="p-8 text-center space-y-3">
+                <div className="w-12 h-12 bg-emerald-100 border border-emerald-300 rounded-full flex items-center justify-center text-emerald-500 mx-auto text-xl font-bold">
+                  ✓
+                </div>
+                <h5 className="text-sm font-bold text-emerald-600 font-sans">Payment Cleared!</h5>
+                <p className="text-xs text-gray-450 font-sans max-w-xs mx-auto leading-relaxed">
+                  Your reference <strong>{simulatedPaystackRef}</strong> has been cleared. Securing your invoice...
+                </p>
+              </div>
+            )}
+
+            {/* Footer segment with Paystack branding details */}
+            <div className="bg-gray-50 px-5 py-3 text-center border-t border-gray-100 flex items-center justify-center gap-1.5">
+              <span className="text-[9px] text-gray-400 font-sans tracking-wide uppercase font-semibold">Secured by</span>
+              <span className="font-bold font-sans text-[11px] text-emerald-500">paystack</span>
             </div>
           </div>
         </div>
@@ -680,170 +869,19 @@ export default function CheckoutView() {
                   {isNairobi ? (
                     <div className="border-t border-white/5 pt-5 mt-6 space-y-4">
                       <div className="flex flex-col gap-2.5">
-                        <span className="font-mono text-[10px] text-white/30 font-bold uppercase tracking-wider">SELECT PAYMENT TYPE</span>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-                          <button
-                            type="button"
-                            onClick={() => setPaymentMethod("lipana")}
-                            className={`p-3.5 rounded-2xl border transition-all flex flex-col items-center gap-1.5 cursor-pointer text-center ${
-                              paymentMethod === "lipana"
-                                ? "bg-[#C5A059]/10 text-[#C5A059] border-[#C5A059]/55 shadow-md justify-between"
-                                : "bg-white/[0.01] text-white/50 border-white/5 hover:bg-white/[0.03] justify-between"
-                            }`}
-                          >
-                            <span className="text-xs font-bold font-sans text-amber-400">Lipana Hub</span>
-                            <span className="text-[9px] text-[#C5A059] font-mono tracking-wider font-bold">STK ONLINE (RECOMMENDED)</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setPaymentMethod("mpesa")}
-                            className={`p-3.5 rounded-2xl border transition-all flex flex-col items-center gap-1.5 cursor-pointer text-center ${
-                              paymentMethod === "mpesa"
-                                ? "bg-[#C5A059]/10 text-[#C5A059] border-[#C5A059]/55 shadow-md justify-between"
-                                : "bg-white/[0.01] text-white/50 border-white/5 hover:bg-white/[0.03] justify-between"
-                            }`}
-                          >
-                            <span className="text-xs font-bold font-sans">Safaricom Direct</span>
-                            <span className="text-[9px] text-white/30 font-mono tracking-wider font-bold">STK ON PHONE</span>
-                          </button>
-                          
-                          <button
-                            type="button"
-                            onClick={() => setPaymentMethod("visa")}
-                            className={`p-3.5 rounded-2xl border transition-all flex flex-col items-center gap-1.5 cursor-pointer text-center ${
-                              paymentMethod === "visa"
-                                ? "bg-[#C5A059]/10 text-[#C5A059] border-[#C5A059]/55 shadow-md justify-between"
-                                : "bg-white/[0.01] text-white/50 border-white/5 hover:bg-white/[0.03] justify-between"
-                            }`}
-                          >
-                            <span className="text-xs font-bold font-sans">Visa / Mastercard</span>
-                            <span className="text-[9px] text-white/30 font-mono tracking-wider font-bold">CREDIT / DEBIT CARD</span>
-                          </button>
+                        <span className="font-mono text-[10px] text-white/30 font-bold uppercase tracking-wider">SECURE INSTANT CHECKOUT</span>
+                        <div className="bg-emerald-950/15 border border-emerald-500/20 rounded-2xl p-4 flex items-start gap-3 animate-fadeIn">
+                          <div className="w-8 h-8 rounded-full bg-emerald-400/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20">
+                            <span className="font-bold text-xs">P</span>
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="text-xs font-semibold font-sans text-emerald-400">Paystack Commerce Gateway</h4>
+                            <p className="text-[10.5px] text-white/50 mt-1 leading-relaxed font-sans">
+                              Pre-payment is required for Nairobi locations. Secure credit card, debit card, and mobile money payments are processed with live encryption.
+                            </p>
+                          </div>
                         </div>
                       </div>
-
-                      {/* LIPANA FORM PANEL */}
-                      {paymentMethod === "lipana" && (
-                        <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-4 animate-fadeIn">
-                          <label className="font-mono text-[10px] font-bold text-[#C5A059] block mb-1 uppercase tracking-wider">
-                            LIPANA INTEGRATED M-PESA PHONE
-                          </label>
-                          <p className="text-[10px] text-[#C5A059]/75 mb-3 leading-tight font-sans">
-                            Enter an active Safaricom mobile line. The automated Lipana Checkout service will dispatch a secure STK PIN confirmation prompt.
-                          </p>
-                          <div className="flex gap-2">
-                            <div className="bg-[#0F0F0F] border border-white/10 px-3 py-2 text-xs rounded-xl text-white/40 flex items-center justify-center font-mono h-[38px]">
-                              +254
-                            </div>
-                            <input
-                              type="text"
-                              required={isNairobi && paymentMethod === "lipana"}
-                              value={mpesaPhone}
-                              onChange={(e) => setMpesaPhone(e.target.value)}
-                              className="flex-1 bg-white/[0.03] border border-white/10 text-xs py-2 px-3 rounded-xl focus:outline-hidden focus:border-[#C5A059] text-white font-sans font-bold h-[38px]"
-                              placeholder="7XXXXXXXX (e.g. 712345678)"
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* MPESA FORM PANEL */}
-                      {paymentMethod === "mpesa" && (
-                        <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-4 animate-fadeIn">
-                          <label className="font-mono text-[10px] font-bold text-[#C5A059] block mb-1 uppercase tracking-wider">
-                            SAFARICOM M-PESA SETTLEMENT PHONE
-                          </label>
-                          <p className="text-[10px] text-[#C5A059]/75 mb-3 leading-tight font-sans">
-                            Provide the active line where you will inspect the Lipa Na M-Pesa PIN dialogue. [Buy Goods Till: <strong>9309020</strong>]
-                          </p>
-                          <div className="flex gap-2">
-                            <div className="bg-[#0F0F0F] border border-white/10 px-3 py-2 text-xs rounded-xl text-white/40 flex items-center justify-center font-mono h-[38px]">
-                              +254
-                            </div>
-                            <input
-                              type="text"
-                              required={isNairobi && paymentMethod === "mpesa"}
-                              value={mpesaPhone}
-                              onChange={(e) => setMpesaPhone(e.target.value)}
-                              className="flex-1 bg-white/[0.03] border border-white/10 text-xs py-2 px-3 rounded-xl focus:outline-hidden focus:border-[#C5A059] text-white font-sans font-bold h-[38px]"
-                              placeholder="7XXXXXXXX (e.g. 712345678)"
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* VISA CARD FORM PANEL (NEW REVENUE STREAM) */}
-                      {paymentMethod === "visa" && (
-                        <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-4 space-y-3.5 animate-fadeIn">
-                          <span className="font-mono text-[10px] text-[#C5A059] font-bold block uppercase tracking-wider">
-                            SECURE INTERNATIONAL VISA CHANNEL
-                          </span>
-                          
-                          <div>
-                            <label className="font-mono text-[9px] text-white/40 block mb-0.5 font-bold uppercase">CARDHOLDER NAME</label>
-                            <input
-                              type="text"
-                              required={isNairobi && paymentMethod === "visa"}
-                              value={cardHolder}
-                              onChange={(e) => setCardHolder(e.target.value)}
-                              className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#C5A059] h-[36px]"
-                              placeholder="KELVIN MUTUA"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="font-mono text-[9px] text-white/40 block mb-0.5 font-bold uppercase">CARD NUMBER</label>
-                            <input
-                              type="text"
-                              required={isNairobi && paymentMethod === "visa"}
-                              maxLength={19}
-                              value={cardNumber}
-                              onChange={(e) => {
-                                // Format spacing beautifully
-                                const val = e.target.value.replace(/\D/g, "");
-                                const formatted = val.match(/.{1,4}/g)?.join(" ") || val;
-                                setCardNumber(formatted);
-                              }}
-                              className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#C5A059] font-mono h-[36px]"
-                              placeholder="4111 2222 3333 4444"
-                            />
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3.5">
-                            <div>
-                              <label className="font-mono text-[9px] text-white/40 block mb-0.5 font-bold uppercase">EXPIRATION (MM/YY)</label>
-                              <input
-                                type="text"
-                                required={isNairobi && paymentMethod === "visa"}
-                                maxLength={5}
-                                value={cardExpiry}
-                                onChange={(e) => {
-                                  let val = e.target.value.replace(/\D/g, "");
-                                  if (val.length > 2) {
-                                    val = val.substring(0, 2) + "/" + val.substring(2, 4);
-                                  }
-                                  setCardExpiry(val);
-                                }}
-                                className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#C5A059] font-mono text-center h-[36px]"
-                                placeholder="12/28"
-                              />
-                            </div>
-                            <div>
-                              <label className="font-mono text-[9px] text-white/40 block mb-0.5 font-bold uppercase">SECURITY CODE (CVV)</label>
-                              <input
-                                type="password"
-                                required={isNairobi && paymentMethod === "visa"}
-                                maxLength={3}
-                                value={cardCvv}
-                                onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, ""))}
-                                className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#C5A059] font-mono text-center h-[36px]"
-                                placeholder="•••"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   ) : null}
 
@@ -851,13 +889,10 @@ export default function CheckoutView() {
                     type="submit"
                     className="w-full bg-[#C5A059] hover:bg-[#C5A059]/90 text-black font-sans font-bold py-3.5 px-4 rounded-xl shadow-xs transition-all mt-4 flex items-center justify-center gap-2 cursor-pointer text-sm transform hover:scale-101 duration-200"
                   >
-                    <CreditCard className="w-5 h-5 text-black shrink-0 animate-pulse" />
+                    <CreditCard className="w-5 h-5 text-black shrink-0" />
                     <span>
                       {isNairobi 
-                        ? (paymentMethod === "lipana" 
-                            ? "Initiate Lipana STK Prompt" 
-                            : (paymentMethod === "mpesa" ? "Initiate Direct Safaricom STK Push" : "Authenticate Visa Settlement")
-                          )
+                        ? "Proceed to Pay via Paystack"
                         : "Place Order (Pay on Delivery)"
                       }
                     </span>

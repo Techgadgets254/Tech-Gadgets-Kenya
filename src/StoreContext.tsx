@@ -89,8 +89,8 @@ interface StoreContextType {
     totalAmount?: number;
     referralCode?: string;
   }) => Promise<Order | null>;
-  simulateMpesaSTKPush: (orderId: string, phone: string, amount?: number) => Promise<{ success: boolean; receiptNo?: string; message: string }>;
-  triggerLipanaSTKPush: (orderId: string, phone: string, amount?: number) => Promise<{ success: boolean; receiptNo?: string; message: string }>;
+  initializePaystackTransaction: (orderId: string, email: string, amount: number) => Promise<{ success: boolean; mode: "real" | "simulated"; authUrl?: string; reference?: string; message?: string }>;
+  verifyPaystackTransaction: (orderId: string, reference: string) => Promise<{ success: boolean; receiptNo?: string; message: string }>;
   
   // Admin Product Actions
   addProduct: (productData: Omit<Product, "id">) => Promise<void>;
@@ -652,165 +652,73 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Safaricom M-Pesa Simulated & Real Live STK Push Handler
-  const simulateMpesaSTKPush = async (orderId: string, phone: string, amount?: number) => {
+  // Paystack transaction initializer
+  const initializePaystackTransaction = async (orderId: string, email: string, amount: number) => {
     try {
-      // Determine appropriate total amount context
-      let finalAmount = amount || 0;
-      if (!finalAmount) {
-        // Fallback: lookup current order total if amount was not supplied
-        const matched = orders.find(o => o.id === orderId);
-        if (matched) {
-          finalAmount = matched.totalAmount;
-        } else {
-          finalAmount = 1; // absolute fallback
-        }
-      }
-
-      // 1. Send checkout STK payload to backend express route
-      const initResponse = await fetch("/api/mpesa/stkpush", {
+      const response = await fetch("/api/paystack/initialize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, amount: finalAmount, orderId })
+        body: JSON.stringify({ email, amount, orderId })
       });
 
-      if (!initResponse.ok) {
-        const errorData = await initResponse.json();
-        throw new Error(errorData.error || "Failed to trigger Daraja portal request.");
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "Failed to initialize Paystack checkout.");
       }
 
-      const initData = await initResponse.json();
-      if (!initData.success) {
-        throw new Error(initData.message || "Failed callback parameters request.");
-      }
-
-      const checkoutRequestId = initData.checkoutRequestId;
-      console.log(`M-Pesa STK push registered correctly. Checkout ID: ${checkoutRequestId}. Mapping status checks...`);
-
-      // 2. Poll server for Safaricom transaction feedback callbacks (up to 45 seconds)
-      const maxChecks = 30;
-      let checkCount = 0;
-
-      while (checkCount < maxChecks) {
-        checkCount++;
-        // Wait 1.5 seconds between polling iterations
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-
-        const statusResponse = await fetch(`/api/mpesa/status/${checkoutRequestId}`);
-        if (!statusResponse.ok) continue;
-
-        const info = await statusResponse.json();
-        if (info.status === "success") {
-          const receipt = info.receiptNo || "MPESA-OK";
-          const orderRef = doc(db, "orders", orderId);
-          await updateDoc(orderRef, {
-            paymentStatus: "Paid",
-            receiptNo: receipt,
-            updatedAt: new Date().toISOString()
-          });
-
-          return {
-            success: true,
-            receiptNo: receipt,
-            message: info.message || `M-Pesa STK prompt cleared successfully! Receipt No: ${receipt}`
-          };
-        } else if (info.status === "failed") {
-          return {
-            success: false,
-            message: info.message || "M-Pesa payment prompt rejected by subscriber."
-          };
-        }
-      }
-
+      const data = await response.json();
       return {
-        success: false,
-        message: "Safaricom M-Pesa response polling timeout. Please try checkout transaction again."
+        success: data.success,
+        mode: data.mode as "real" | "simulated",
+        authUrl: data.authorization_url,
+        reference: data.reference,
+        message: data.message
       };
     } catch (e: any) {
-      console.error("M-Pesa checkout execution error:", e);
+      console.error("Paystack transaction initialization failure:", e);
       return {
         success: false,
-        message: e.message || "Unable to establish M-Pesa STK Push sequence on your handset."
+        mode: "simulated" as const,
+        message: e.message || "An unexpected error occurred while communicating with Paystack."
       };
     }
   };
 
-  // Lipana Payment STK Push Handler
-  const triggerLipanaSTKPush = async (orderId: string, phone: string, amount?: number) => {
+  // Paystack transaction verifier
+  const verifyPaystackTransaction = async (orderId: string, reference: string) => {
     try {
-      let finalAmount = amount || 0;
-      if (!finalAmount) {
-        const matched = orders.find(o => o.id === orderId);
-        if (matched) {
-          finalAmount = matched.totalAmount;
-        } else {
-          finalAmount = 1;
-        }
+      const response = await fetch(`/api/paystack/verify/${reference}`);
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "Verification query failed with Paystack.");
       }
 
-      // 1. Send checkout STK payload to backend Express Lipana route
-      const initResponse = await fetch("/api/lipana/stkpush", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, amount: finalAmount, orderId })
-      });
+      const data = await response.json();
+      if (data.success && data.status === "success") {
+        const receipt = data.reference || "PAYSTACK-OK";
+        const orderRef = doc(db, "orders", orderId);
+        await updateDoc(orderRef, {
+          paymentStatus: "Paid",
+          receiptNo: receipt,
+          updatedAt: new Date().toISOString()
+        });
 
-      if (!initResponse.ok) {
-        const errorData = await initResponse.json();
-        throw new Error(errorData.error || "Failed to initiate Lipana transaction.");
+        return {
+          success: true,
+          receiptNo: receipt,
+          message: data.message || `Paystack checkout cleared successfully! Reference: ${receipt}`
+        };
+      } else {
+        return {
+          success: false,
+          message: "Paystack transaction was not settled successfully."
+        };
       }
-
-      const initData = await initResponse.json();
-      if (!initData.success) {
-        throw new Error(initData.message || "Failed callback transaction request.");
-      }
-
-      const checkoutRequestId = initData.checkoutRequestId;
-      console.log(`Lipana payment triggered. ID: ${checkoutRequestId}. Polling status...`);
-
-      // 2. Poll server for Lipana transaction feedback (up to 45 seconds)
-      const maxChecks = 30;
-      let checkCount = 0;
-
-      while (checkCount < maxChecks) {
-        checkCount++;
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-
-        const statusResponse = await fetch(`/api/lipana/status/${checkoutRequestId}`);
-        if (!statusResponse.ok) continue;
-
-        const info = await statusResponse.json();
-        if (info.status === "success") {
-          const receipt = info.receiptNo || "LIPANA-OK";
-          const orderRef = doc(db, "orders", orderId);
-          await updateDoc(orderRef, {
-            paymentStatus: "Paid",
-            receiptNo: receipt,
-            updatedAt: new Date().toISOString()
-          });
-
-          return {
-            success: true,
-            receiptNo: receipt,
-            message: info.message || `Lipana STK prompt cleared successfully! Receipt No: ${receipt}`
-          };
-        } else if (info.status === "failed") {
-          return {
-            success: false,
-            message: info.message || "Lipana payment prompt rejected by subscriber."
-          };
-        }
-      }
-
-      return {
-        success: false,
-        message: "Lipana payment response polling timed out. Please retry your purchase checkout."
-      };
     } catch (e: any) {
-      console.error("Lipana checkout execution error:", e);
+      console.error("Paystack transaction verify failure:", e);
       return {
         success: false,
-        message: e.message || "Unable to establish Lipana payment STK push on your active phone."
+        message: e.message || "Could not complete transaction status validation."
       };
     }
   };
@@ -1172,8 +1080,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         clearCart,
         getCartTotal,
         createCheckoutOrder,
-        simulateMpesaSTKPush,
-        triggerLipanaSTKPush,
+        initializePaystackTransaction,
+        verifyPaystackTransaction,
         addProduct,
         editProduct,
         removeProduct,
