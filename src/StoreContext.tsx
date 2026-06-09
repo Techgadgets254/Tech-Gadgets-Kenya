@@ -88,6 +88,7 @@ interface StoreContextType {
     mpesaPhone: string;
     totalAmount?: number;
     referralCode?: string;
+    paymentProvider?: string;
   }) => Promise<Order | null>;
   initializePaystackTransaction: (orderId: string, email: string, amount: number) => Promise<{ success: boolean; mode: "real" | "simulated"; authUrl?: string; reference?: string; message?: string }>;
   verifyPaystackTransaction: (orderId: string, reference: string) => Promise<{ success: boolean; receiptNo?: string; message: string }>;
@@ -601,6 +602,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     mpesaPhone: string;
     totalAmount?: number;
     referralCode?: string;
+    paymentProvider?: string;
   }) => {
     if (!user) {
       alert("Please log in to place an order");
@@ -630,6 +632,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       paymentStatus: "Pending",
       shippingStatus: "Processing",
       referralCode: details.referralCode || "",
+      paymentProvider: details.paymentProvider || "Paystack",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

@@ -51,6 +51,7 @@ export interface Order {
   paymentStatus: "Pending" | "Paid" | "Failed";
   shippingStatus: "Processing" | "Shipped" | "Delivered";
   referralCode?: string;
+  paymentProvider?: string;
   createdAt?: any;
   updatedAt?: any;
 }

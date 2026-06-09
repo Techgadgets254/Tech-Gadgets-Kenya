@@ -43,7 +43,7 @@ export default function CheckoutView() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [selectedCounty, setSelectedCounty] = useState(KENYAN_COUNTIES[0]);
   const [deliveryDetails, setDeliveryDetails] = useState("");
-  const [mpesaPhone, setMpesaPhone] = useState("");
+  const [billingPhone, setBillingPhone] = useState("");
 
   // Payment Selection: "paystack"
   const [paymentMethod, setPaymentMethod] = useState<"paystack">("paystack");
@@ -52,11 +52,11 @@ export default function CheckoutView() {
   const [simulatedPaystackRef, setSimulatedPaystackRef] = useState("");
   const [simulatedOrderId, setSimulatedOrderId] = useState("");
   const [showSimulatedPaystackModal, setShowSimulatedPaystackModal] = useState(false);
-  const [simulatedPaystackStep, setSimulatedPaystackStep] = useState<"options" | "card" | "mpesa" | "success">("options");
+  const [simulatedPaystackStep, setSimulatedPaystackStep] = useState<"options" | "card" | "mobile" | "success">("options");
   const [simulatedCardNo, setSimulatedCardNo] = useState("");
   const [simulatedCardExp, setSimulatedCardExp] = useState("");
   const [simulatedCardPin, setSimulatedCardPin] = useState("");
-  const [simulatedMpesaPhone, setSimulatedMpesaPhone] = useState("");
+  const [simulatedMobilePhone, setSimulatedMobilePhone] = useState("");
   const [isSimulatingPayment, setIsSimulatingPayment] = useState(false);
 
   // Affiliate & Referral Promotion Codes State
@@ -124,7 +124,7 @@ export default function CheckoutView() {
     if (user) {
       setCustomerName(user.displayName || "");
       setCardHolder(user.displayName || "");
-      setMpesaPhone("");
+      setBillingPhone("");
     }
   }, [user]);
 
@@ -176,7 +176,8 @@ export default function CheckoutView() {
           shippingAddress: shippingFullAddress,
           mpesaPhone: customerPhone, // Stores customer billing contact to satisfy Firestore layout
           totalAmount: Math.max(0, getCartTotal() + deliveryFee - discount),
-          referralCode: appliedPromo || undefined
+          referralCode: appliedPromo || undefined,
+          paymentProvider: "Paystack"
         });
 
         if (!orderObj) {
@@ -255,7 +256,8 @@ export default function CheckoutView() {
         shippingAddress: shippingFullAddress,
         mpesaPhone: "PAY-ON-DELIVERY",
         totalAmount: Math.max(0, getCartTotal() - discount),
-        referralCode: appliedPromo || undefined
+        referralCode: appliedPromo || undefined,
+        paymentProvider: "Delivery-Pay"
       });
 
       if (!orderObj) {
@@ -378,15 +380,15 @@ export default function CheckoutView() {
                   <button
                     type="button"
                     onClick={() => {
-                      setSimulatedPaystackStep("mpesa");
-                      setSimulatedMpesaPhone(customerPhone || "");
+                      setSimulatedPaystackStep("mobile");
+                      setSimulatedMobilePhone(customerPhone || "");
                     }}
                     className="w-full text-left p-3 rounded-xl border border-gray-150 hover:bg-gray-50 transition-all flex items-center gap-3 cursor-pointer"
                   >
                     <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold text-xs font-sans">M</div>
                     <div>
                       <span className="text-xs font-bold font-sans text-gray-800 block">Pay with Mobile Money</span>
-                      <span className="text-[10px] text-emerald-600 font-semibold block font-sans">Safaricom LNM M-Pesa</span>
+                      <span className="text-[10px] text-emerald-600 font-semibold block font-sans">Paystack Mobile Wallet (MTN, Airtel, etc.)</span>
                     </div>
                   </button>
                 </div>
@@ -505,14 +507,14 @@ export default function CheckoutView() {
               </div>
             )}
 
-            {simulatedPaystackStep === "mpesa" && (
+            {simulatedPaystackStep === "mobile" && (
               <div className="p-5 space-y-3.5">
-                <h5 className="text-xs font-bold text-emerald-600 font-sans">PAY WITH M-PESA ACCOUNT</h5>
+                <h5 className="text-xs font-bold text-emerald-600 font-sans">PAY WITH MOBILE MONEY</h5>
                 <p className="text-[11px] text-gray-500 leading-normal font-sans">
                   Our simulation will dispatch a test mobile money checkout to your handset callback pool:
                 </p>
                 <div>
-                  <label className="text-[9px] text-gray-400 font-bold block mb-1">M-PESA MOBILE PHONE</label>
+                  <label className="text-[9px] text-gray-400 font-bold block mb-1">MOBILE PHONE NUMBER</label>
                   <div className="flex gap-2">
                     <div className="bg-gray-100 border border-gray-200 px-3 py-2 text-xs rounded-xl text-gray-500 flex items-center justify-center font-mono h-[36px]">
                       +254
@@ -522,8 +524,8 @@ export default function CheckoutView() {
                       className="flex-1 bg-gray-50 border border-gray-200 text-xs px-3 rounded-xl focus:outline-hidden focus:border-emerald-500 text-gray-800 font-sans font-bold h-[36px]"
                       placeholder="7XXXXXXXX"
                       maxLength={9}
-                      value={simulatedMpesaPhone}
-                      onChange={(e) => setSimulatedMpesaPhone(e.target.value)}
+                      value={simulatedMobilePhone}
+                      onChange={(e) => setSimulatedMobilePhone(e.target.value)}
                     />
                   </div>
                 </div>
@@ -533,8 +535,8 @@ export default function CheckoutView() {
                     type="button"
                     disabled={isSimulatingPayment}
                     onClick={async () => {
-                      if (!simulatedMpesaPhone) {
-                        alert("Please specify a simulated mobile terminal number.");
+                      if (!simulatedMobilePhone) {
+                        alert("Please specify a simulated mobile money number.");
                         return;
                       }
                       setIsSimulatingPayment(true);
@@ -544,12 +546,12 @@ export default function CheckoutView() {
                         // Trigger verification
                         await verifyPaystackTransaction(simulatedOrderId, simulatedPaystackRef);
                         setTimeout(() => {
-                          setShowSimulatedPaystackModal(false);
-                          setGeneratedReceipt(simulatedPaystackRef);
-                          setGeneratedOrderId(simulatedOrderId);
-                          setPaymentSuccess(true);
-                          setIsSTKProcessing(false);
-                          clearCart();
+                           setShowSimulatedPaystackModal(false);
+                           setGeneratedReceipt(simulatedPaystackRef);
+                           setGeneratedOrderId(simulatedOrderId);
+                           setPaymentSuccess(true);
+                           setIsSTKProcessing(false);
+                           clearCart();
                         }, 1800);
                       }, 2000);
                     }}

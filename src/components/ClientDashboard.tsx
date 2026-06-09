@@ -881,6 +881,7 @@ export default function ClientDashboard() {
                       
                       <div className="space-y-1 text-[10px] font-mono text-[#C5A059]/80 leading-tight">
                         <p>Processing: Gateway Cleared</p>
+                        <p>Merchant Gateway: {activeOrder.paymentProvider || "Paystack"}</p>
                         <p>Billing Contact: {activeOrder.mpesaPhone}</p>
                         {activeOrder.receiptNo && (
                           <p className="text-white font-bold">Paystack reference: {activeOrder.receiptNo}</p>
