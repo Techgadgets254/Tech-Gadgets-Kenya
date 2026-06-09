@@ -15,10 +15,10 @@ const firebaseConfig = {
   apiKey,
   authDomain,
   projectId,
-  storageBucket: `${projectId}.firebasestorage.app`,
+  storageBucket: "tech-gadgets-kenya.firebasestorage.app",
   messagingSenderId: "937704899601",
-  appId: "1:937704899601:web:46c23cdb613e5249f89db0",
-  measurementId: "G-5301JEH6W7",
+  appId: "1:937704899601:web:f2ddecafdfe118daf89db0",
+  measurementId: "G-VKLHREQ9PN",
   firestoreDatabaseId: "(default)"
 };
 
