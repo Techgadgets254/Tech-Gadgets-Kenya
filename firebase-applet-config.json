@@ -1,10 +1,10 @@
 {
-  "projectId": "agile-verbena-vv7sv",
-  "appId": "1:109544028030:web:157625a59f2442121b652f",
-  "apiKey": "AIzaSyBVIoJnqHiXk0jpJH_3zkT4uPdIgb6yZEY",
-  "authDomain": "agile-verbena-vv7sv.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-f529b922-b60b-496a-86e2-236b6a901bbe",
-  "storageBucket": "agile-verbena-vv7sv.firebasestorage.app",
-  "messagingSenderId": "109544028030",
-  "measurementId": ""
+  "projectId": "tech-gadgets-kenya",
+  "appId": "1:937704899601:web:f2ddecafdfe118daf89db0",
+  "apiKey": "AIzaSyBqwGhkBL7VdFoSk72LnG7hRG848zUzoUs",
+  "authDomain": "tech-gadgets-kenya.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "tech-gadgets-kenya.firebasestorage.app",
+  "messagingSenderId": "937704899601",
+  "measurementId": "G-VKLHREQ9PN"
 }
