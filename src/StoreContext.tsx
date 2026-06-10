@@ -157,7 +157,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setProductReviews(items);
     }, (error) => {
-      console.error("Error loading reviews collection:", error);
+      handleFirestoreError(error, OperationType.LIST, "reviews");
     });
     return unsubscribe;
   }, []);
@@ -352,7 +352,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       });
       setAffiliates(list);
     }, (error) => {
-      console.error("Affiliates Firestore listener failure: ", error);
+      handleFirestoreError(error, OperationType.LIST, "affiliates");
     });
     return unsubscribe;
   }, []);

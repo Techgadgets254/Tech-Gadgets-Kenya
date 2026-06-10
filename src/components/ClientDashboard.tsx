@@ -26,7 +26,8 @@ import {
   Bookmark,
   Coins,
   Share2,
-  Download
+  Download,
+  XCircle
 } from "lucide-react";
 import { Order } from "../types";
 import { jsPDF } from "jspdf";
@@ -78,7 +79,7 @@ export default function ClientDashboard() {
 
     // 1. Header Banner
     doc.setFillColor(15, 15, 15);
-    doc.rect(0, 0, 210, 48, "F");
+    doc.rect(0, 0, 210, 54, "F");
 
     // 2. Branding Typography
     doc.setTextColor(255, 255, 255);
@@ -109,25 +110,28 @@ export default function ClientDashboard() {
     doc.setFont("Helvetica", "normal");
     doc.text(`Date: ${order.createdAt ? new Date(order.createdAt).toLocaleDateString() : "Pending"}`, 145, 33);
     doc.text(`Settled Code: ${order.receiptNo || "STK PIN APPROVED"}`, 145, 38);
+    doc.setFont("Helvetica", "bold");
+    doc.text(`Payment: ${order.paymentStatus ? order.paymentStatus.toUpperCase() : "PENDING"}`, 145, 43);
+    doc.text(`Fulfillment: ${order.shippingStatus ? order.shippingStatus.toUpperCase() : "PROCESSING"}`, 145, 48);
 
     // 4. Billed Recipient & Delivery Details
     doc.setTextColor(40, 40, 40);
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(9.5);
-    doc.text("BILLED RECIPIENT", 15, 58);
-    doc.text("DELIVERY LOGISTIC CHANNEL", 112, 58);
+    doc.text("BILLED RECIPIENT", 15, 64);
+    doc.text("DELIVERY LOGISTIC CHANNEL", 112, 64);
 
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(8.5);
-    doc.text(`Customer: ${order.customerName}`, 15, 64);
-    doc.text(`Email Address: ${order.customerEmail}`, 15, 69);
-    doc.text(`Phone Contact: ${order.customerPhone}`, 15, 74);
+    doc.text(`Customer: ${order.customerName}`, 15, 70);
+    doc.text(`Email Address: ${order.customerEmail}`, 15, 75);
+    doc.text(`Phone Contact: ${order.customerPhone}`, 15, 80);
 
     let wrappedAddress = doc.splitTextToSize(order.shippingAddress || "Nairobi CBD Delivery Counter", 82);
-    doc.text(wrappedAddress, 112, 64);
+    doc.text(wrappedAddress, 112, 70);
 
     // 5. Table Header lines
-    let currentY = 88;
+    let currentY = 94;
     doc.setFillColor(242, 244, 247);
     doc.rect(15, currentY, 180, 8, "F");
     doc.setDrawColor(220, 222, 225);
@@ -593,27 +597,42 @@ export default function ClientDashboard() {
                     </div>
                   </div>
 
-                  {/* Step 2: Payment clearance */}
+                   {/* Step 2: Payment clearance */}
                   <div className="relative text-xs">
                     <span className={`absolute -left-6 rounded-full p-0.5 border-4 border-[#0F0F0F] z-10 block shrink-0 ${
                       activeOrder.paymentStatus === "Paid"
                         ? "bg-emerald-500 text-white"
+                        : activeOrder.paymentStatus === "Failed"
+                        ? "bg-red-500 text-white"
                         : "bg-[#C5A059] text-black"
                     }`}>
                       {activeOrder.paymentStatus === "Paid" ? (
                         <CheckCircle className="w-3.5 h-3.5" />
+                      ) : activeOrder.paymentStatus === "Failed" ? (
+                        <XCircle className="w-3.5 h-3.5" />
                       ) : (
                         <Clock className="w-3.5 h-3.5 text-black fill-transparent" />
                       )}
                     </span>
                     <div>
                       <p className="font-bold text-white text-sm">
-                        {activeOrder.paymentStatus === "Paid" ? "M-Pesa Clearing Received" : "M-Pesa Verification Awaiting"}
+                        {activeOrder.paymentStatus === "Paid" 
+                          ? "M-Pesa Clearing Received" 
+                          : activeOrder.paymentStatus === "Failed"
+                          ? "Payment Failed"
+                          : "M-Pesa Verification Awaiting"
+                        }
                       </p>
                       {activeOrder.paymentStatus === "Paid" ? (
                         <p className="text-white/40 text-[11px] mt-0.5">
-                          Safaricom PayCode <strong>{activeOrder.receiptNo}</strong> validated. Account cleared.
+                          Safaricom PayCode <strong>{activeOrder.receiptNo || "PAYCODE-OK"}</strong> validated. Account cleared.
                         </p>
+                      ) : activeOrder.paymentStatus === "Failed" ? (
+                        <div className="mt-1.5 p-2 bg-red-500/10 text-red-500 rounded-xl border border-red-500/20">
+                          <p className="text-[11px] leading-relaxed">
+                            Payment status: <strong className="uppercase">Failed</strong>. The transaction was cancelled or declined. Please retry check-out or use another number.
+                          </p>
+                        </div>
                       ) : (
                         <div className="mt-1.5 p-2 bg-[#C5A059]/10 text-[#C5A059] rounded-xl border border-[#C5A059]/20">
                           <p className="text-[11px] leading-relaxed">
@@ -785,6 +804,30 @@ export default function ClientDashboard() {
                       <span className="bg-[#C5A059] text-black font-sans text-xs font-bold px-3 py-1 rounded-sm block w-fit select-none uppercase tracking-wider">
                         TAX INVOICE
                       </span>
+                      
+                      {/* Interactive Visual Status Stamps */}
+                      <div className="flex gap-2 mt-2.5 sm:justify-end">
+                        <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded-md uppercase tracking-wider block border ${
+                          activeOrder.paymentStatus === "Paid"
+                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                            : activeOrder.paymentStatus === "Failed"
+                            ? "bg-red-500/15 text-red-500 border-red-500/25 animate-pulse"
+                            : "bg-[#C5A059]/10 text-[#C5A059] border-[#C5A059]/20"
+                        }`}>
+                          Payment: {activeOrder.paymentStatus}
+                        </span>
+                        
+                        <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded-md uppercase tracking-wider block border ${
+                          activeOrder.shippingStatus === "Delivered"
+                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                            : activeOrder.shippingStatus === "Shipped"
+                            ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                            : "bg-[#C5A059]/10 text-[#C5A059] border-[#C5A059]/20 animate-pulse"
+                        }`}>
+                          Fulfillment: {activeOrder.shippingStatus}
+                        </span>
+                      </div>
+
                       <p className="text-xs font-black text-white print:text-black mt-3 block">
                         ORDER ID: #{activeOrder.id.toUpperCase()}
                       </p>
@@ -880,8 +923,9 @@ export default function ClientDashboard() {
                       </div>
                       
                       <div className="space-y-1 text-[10px] font-mono text-[#C5A059]/80 leading-tight">
-                        <p>Processing: Gateway Cleared</p>
-                        <p>Merchant Gateway: {activeOrder.paymentProvider || "Paystack"}</p>
+                        <p>Payment: <span className={activeOrder.paymentStatus === "Paid" ? "text-emerald-400 font-bold" : activeOrder.paymentStatus === "Failed" ? "text-red-500 font-bold" : "text-[#C5A059]"}>{activeOrder.paymentStatus.toUpperCase()}</span></p>
+                        <p>Fulfillment: <span className={activeOrder.shippingStatus === "Delivered" ? "text-emerald-400 font-bold" : activeOrder.shippingStatus === "Shipped" ? "text-blue-400 font-medium" : "text-[#C5A059]"}>{activeOrder.shippingStatus.toUpperCase()}</span></p>
+                        <p>Gateway Carrier: {activeOrder.paymentProvider || "Paystack"}</p>
                         <p>Billing Contact: {activeOrder.mpesaPhone}</p>
                         {activeOrder.receiptNo && (
                           <p className="text-white font-bold">Paystack reference: {activeOrder.receiptNo}</p>

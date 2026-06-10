@@ -7,20 +7,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
-const apiKey = import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBqwGhkBL7VdFoSk72LnG7hRG848zUzoUs";
-const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "tech-gadgets-kenya.firebaseapp.com";
-const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || "tech-gadgets-kenya";
-
-const firebaseConfig = {
-  apiKey,
-  authDomain,
-  projectId,
-  storageBucket: "tech-gadgets-kenya.firebasestorage.app",
-  messagingSenderId: "937704899601",
-  appId: "1:937704899601:web:f2ddecafdfe118daf89db0",
-  measurementId: "G-VKLHREQ9PN",
-  firestoreDatabaseId: "(default)"
-};
+import firebaseConfig from "../firebase-applet-config.json";
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || "(default)"); /* CRITICAL: The app will break without this line */

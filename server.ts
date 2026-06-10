@@ -2,11 +2,19 @@ import express from "express";
 import path from "path";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import crypto from "crypto";
+import { initializeApp as serverInitApp } from "firebase/app";
+import { getFirestore as serverGetFS, doc as serverDoc, updateDoc as serverUpdateDoc } from "firebase/firestore";
+import serverFirebaseConfig from "./firebase-applet-config.json";
 
 dotenv.config();
 
 const app = express();
 const PORT = 3000;
+
+// Initialize server-side Firebase
+const serverApp = serverInitApp(serverFirebaseConfig);
+const serverDb = serverGetFS(serverApp, serverFirebaseConfig.firestoreDatabaseId || "(default)");
 
 app.use(express.json());
 
@@ -346,7 +354,6 @@ app.post("/api/paystack/webhook", async (req, res) => {
     const signature = req.headers["x-paystack-signature"];
     if (paystackSecret && signature) {
       try {
-        const crypto = await import("crypto");
         const hash = crypto
           .createHmac("sha512", paystackSecret)
           .update(JSON.stringify(req.body))
@@ -388,20 +395,6 @@ app.post("/api/paystack/webhook", async (req, res) => {
         // Securely update database order document to "Paid"
         if (orderId) {
           try {
-            const { initializeApp: serverInitApp } = await import("firebase/app");
-            const { getFirestore: serverGetFS, doc: serverDoc, updateDoc: serverUpdateDoc } = await import("firebase/firestore");
-
-            const serverFirebaseConfig = {
-              apiKey: process.env.VITE_FIREBASE_API_KEY || "AIzaSyBqwGhkBL7VdFoSk72LnG7hRG848zUzoUs",
-              authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "tech-gadgets-kenya.firebaseapp.com",
-              projectId: process.env.VITE_FIREBASE_PROJECT_ID || "tech-gadgets-kenya",
-              storageBucket: "tech-gadgets-kenya.firebasestorage.app",
-              messagingSenderId: "937704899601",
-              appId: "1:937704899601:web:f2ddecafdfe118daf89db0",
-            };
-
-            const serverApp = serverInitApp(serverFirebaseConfig);
-            const serverDb = serverGetFS(serverApp, "(default)");
             const orderRef = serverDoc(serverDb, "orders", orderId);
 
             await serverUpdateDoc(orderRef, {
