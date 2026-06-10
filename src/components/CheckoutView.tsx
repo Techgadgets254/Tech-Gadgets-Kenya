@@ -123,6 +123,27 @@ export default function CheckoutView() {
   const [generatedReceipt, setGeneratedReceipt] = useState("");
   const [generatedOrderId, setGeneratedOrderId] = useState("");
 
+  const [redirectCount, setRedirectCount] = useState(6);
+
+  useEffect(() => {
+    if (paymentSuccess) {
+      setRedirectCount(6);
+      const timer = setInterval(() => {
+        setRedirectCount((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            setInvoiceOrderId(generatedOrderId);
+            setActiveView("client-dashboard");
+            setPaymentSuccess(false);
+            return 6;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [paymentSuccess, generatedOrderId, setInvoiceOrderId, setActiveView]);
+
   const isNairobi = selectedCounty === "Nairobi";
   const deliveryFee = 0; // Standard Free Shipping nationwide
 
@@ -579,6 +600,12 @@ export default function CheckoutView() {
               <span>Your Nairobi purchase transition cleared in real time. Order <strong>#{generatedOrderId.substring(0, 8).toUpperCase()}</strong> has shifted directly into physical shipment fulfillment.</span>
             )}
           </p>
+
+          {/* Redirection timer toast */}
+          <div className="mt-4 px-4 py-2.5 rounded-xl bg-[#C5A059]/10 border border-[#C5A059]/25 text-[#C5A059] font-mono text-[11px] inline-flex items-center gap-2 max-w-xs mx-auto justify-center select-none animate-pulse">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-[#C5A059]" />
+            <span>Transitioning to <strong>Dashboard</strong> in <strong className="text-white font-sans text-xs">{redirectCount}s</strong>...</span>
+          </div>
 
           <div className="bg-[#050505] border border-white/5 rounded-2xl p-4 my-6 font-mono text-xs text-white/70 space-y-2.5 text-left max-w-sm mx-auto">
             <p className="flex justify-between"><span>RECEIPT MODE:</span> <strong className="text-white">{generatedReceipt}</strong></p>

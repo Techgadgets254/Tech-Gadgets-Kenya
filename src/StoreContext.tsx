@@ -674,7 +674,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         await updateDoc(productRef, { stock: newStock });
       }
 
-      clearCart();
       return { id: docRef.id, ...orderData } as Order;
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, "orders");
