@@ -80,6 +80,59 @@ function StoreLayout() {
     }
   }, [activeView]);
 
+  // Specific interactive motion configurations custom-matched to each view's theme and purpose
+  const transitionVariants = {
+    home: {
+      initial: { opacity: 0, scale: 0.98, y: 12 },
+      animate: { opacity: 1, scale: 1, y: 0 },
+      exit: { opacity: 0, scale: 0.98, y: -12 },
+      transition: { duration: 0.32, ease: [0.16, 1, 0.3, 1] as const }
+    },
+    shop: {
+      initial: { opacity: 0, x: 24 },
+      animate: { opacity: 1, x: 0 },
+      exit: { opacity: 0, x: -24 },
+      transition: { duration: 0.28, ease: [0.25, 1, 0.5, 1] as const }
+    },
+    "product-details": {
+      initial: { opacity: 0, x: 32, scale: 0.99 },
+      animate: { opacity: 1, x: 0, scale: 1 },
+      exit: { opacity: 0, x: -32, scale: 0.99 },
+      transition: { duration: 0.36, ease: [0.34, 1.5, 0.64, 1] as const }
+    },
+    checkout: {
+      initial: { opacity: 0, scale: 1.015, y: 8 },
+      animate: { opacity: 1, scale: 1, y: 0 },
+      exit: { opacity: 0, scale: 0.985, y: -8 },
+      transition: { duration: 0.34, ease: [0.175, 0.885, 0.32, 1.1] as const }
+    },
+    "client-dashboard": {
+      initial: { opacity: 0, y: 24, rotate: 0.5 },
+      animate: { opacity: 1, y: 0, rotate: 0 },
+      exit: { opacity: 0, y: -24, rotate: -0.5 },
+      transition: { duration: 0.38, ease: [0.16, 1, 0.3, 1] as const }
+    },
+    "admin-dashboard": {
+      initial: { opacity: 0, y: -24, scale: 0.99 },
+      animate: { opacity: 1, y: 0, scale: 1 },
+      exit: { opacity: 0, y: 24, scale: 0.99 },
+      transition: { duration: 0.38, ease: [0.16, 1, 0.3, 1] as const }
+    },
+    news: {
+      initial: { opacity: 0, filter: "blur(4px)", y: 16 },
+      animate: { opacity: 1, filter: "blur(0px)", y: 0 },
+      exit: { opacity: 0, filter: "blur(4px)", y: -16 },
+      transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] as const }
+    }
+  };
+
+  const activeVariants = (transitionVariants[activeView] || {
+    initial: { opacity: 0, y: 15 },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -15 },
+    transition: { duration: 0.22, ease: "easeOut" }
+  }) as any;
+
   return (
     <div className="min-h-screen bg-[#0A0A0A] flex flex-col text-[#E0E0E0] font-sans selection:bg-[#C5A059]/20 selection:text-[#C5A059]">
       {/* Dynamic SEO Meta Header element */}
@@ -96,10 +149,11 @@ function StoreLayout() {
         <AnimatePresence mode="wait">
           <motion.div
             key={activeView}
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
-            transition={{ duration: 0.22, ease: "easeOut" }}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            variants={activeVariants}
+            transition={activeVariants.transition}
             className="w-full h-full"
           >
             {activeView === "home" && <HomeView />}
