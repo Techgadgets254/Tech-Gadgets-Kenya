@@ -228,8 +228,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [compareList, setCompareList] = useState<Product[]>([]);
   const [notifications, setNotifications] = useState<ToastNotification[]>([]);
 
-  // Keep a ref to track real-time shipping status changes cleanly in firestore listener
-  const prevStatusesRef = React.useRef<Record<string, string>>({});
+  // Keep a ref to track real-time status changes cleanly in firestore listener
+  const prevStatusesRef = React.useRef<Record<string, { shipping: string; payment: string }>>({});
   const isFirstLoadRef = React.useRef(true);
 
   // Sync Wishlist to localStorage
@@ -470,26 +470,53 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const orderData = { id: d.id, ...d.data() } as Order;
         allOrders.push(orderData);
 
-        // Real-time Shipping Status Change Checker
+        // Real-time Status Change Checker (Shipping & Payment)
         const orderId = d.id;
-        const currentShippingStatus = orderData.shippingStatus;
-        const oldShippingStatus = prevStatusesRef.current[orderId];
+        const currentShippingStatus = orderData.shippingStatus || "Processing";
+        const currentPaymentStatus = orderData.paymentStatus || "Pending";
+        const cached = prevStatusesRef.current[orderId];
 
         // Ensure we inspect status changes for existing records after we've initialized them once
-        if (!isFirstLoadRef.current && oldShippingStatus !== undefined && oldShippingStatus !== currentShippingStatus) {
-          changedAlerts.push({
-            id: `${orderId}-${Date.now()}-${Math.random()}`,
-            orderId,
-            customerName: orderData.customerName || "Customer",
-            oldStatus: oldShippingStatus,
-            newStatus: currentShippingStatus,
-            message: `Delivery Update: Your order #${orderId.slice(-6)} shipping status is now updated from "${oldShippingStatus}" to "${currentShippingStatus}"!`,
-            timestamp: Date.now()
-          });
+        if (!isFirstLoadRef.current && cached !== undefined) {
+          if (cached.shipping !== currentShippingStatus) {
+            changedAlerts.push({
+              id: `ship-${orderId}-${Date.now()}-${Math.random()}`,
+              orderId,
+              customerName: orderData.customerName || "Customer",
+              oldStatus: cached.shipping,
+              newStatus: currentShippingStatus,
+              message: `Delivery Update: Your order #${orderId.slice(-6)} shipping status is now updated from "${cached.shipping}" to "${currentShippingStatus}"!`,
+              timestamp: Date.now()
+            });
+          }
+          if (cached.payment !== currentPaymentStatus) {
+            let paymentMsg = `Payment Update: Order #${orderId.slice(-6)} database payment status has been set to "${currentPaymentStatus.toUpperCase()}"!`;
+            if (currentPaymentStatus === "Paid") {
+              const payCodeInfo = orderData.receiptNo ? ` (MPESA REF: ${orderData.receiptNo})` : "";
+              paymentMsg = `✓ Lipa Na M-Pesa Cleared! Order #${orderId.slice(-6)} transaction resolved successfully. Cashier Clearance approved${payCodeInfo}.`;
+            } else if (currentPaymentStatus === "Failed") {
+              paymentMsg = `✗ Transaction Alert: Order #${orderId.slice(-6)} payment status was updated to FAILED. Verification declined.`;
+            } else if (currentPaymentStatus === "Pending") {
+              paymentMsg = `⏳ Settlement Pending: Order #${orderId.slice(-6)} is in transaction processing pipeline.`;
+            }
+
+            changedAlerts.push({
+              id: `pay-${orderId}-${Date.now()}-${Math.random()}`,
+              orderId,
+              customerName: orderData.customerName || "Customer",
+              oldStatus: cached.payment,
+              newStatus: currentPaymentStatus,
+              message: paymentMsg,
+              timestamp: Date.now()
+            });
+          }
         }
 
         // Cache the latest status
-        prevStatusesRef.current[orderId] = currentShippingStatus;
+        prevStatusesRef.current[orderId] = {
+          shipping: currentShippingStatus,
+          payment: currentPaymentStatus
+        };
       });
 
       // Mark first load complete once initial state mapping is finished

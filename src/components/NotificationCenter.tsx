@@ -77,9 +77,13 @@ function NotificationToast({ toast, onDismiss, duration }: { toast: any; onDismi
       case "Shipped":
         return <Truck className="w-5 h-5 text-[#C5A059]" />;
       case "Delivered":
-        return <CheckCircle2 className="w-5 h-5 text-green-400" />;
+        return <CheckCircle2 className="w-5 h-5 text-emerald-400" />;
       case "Processing":
         return <Package className="w-5 h-5 text-blue-400" />;
+      case "Paid":
+        return <CheckCircle2 className="w-5 h-5 text-emerald-400" />;
+      case "Failed":
+        return <ShieldAlert className="w-5 h-5 text-red-500 animate-pulse" />;
       default:
         return <ShieldAlert className="w-5 h-5 text-[#C5A059]" />;
     }
