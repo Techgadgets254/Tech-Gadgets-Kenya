@@ -20,6 +20,7 @@ import {
   Check
 } from "lucide-react";
 import { KENYAN_COUNTIES } from "../data";
+import { PaymentHandler } from "./PaymentHandler";
 
 export default function CheckoutView() {
   const { 
@@ -65,6 +66,12 @@ export default function CheckoutView() {
   const [discount, setDiscount] = useState(0);
   const [promoFeedback, setPromoFeedback] = useState("");
   const [isPromoSuccess, setIsPromoSuccess] = useState(false);
+
+  // Dedicated Payment Handler States
+  const [isPaymentHandlerOpen, setIsPaymentHandlerOpen] = useState(false);
+  const [activePaymentOrderId, setActivePaymentOrderId] = useState("");
+  const [activePaymentEmail, setActivePaymentEmail] = useState("");
+  const [activePaymentAmount, setActivePaymentAmount] = useState(0);
 
   // Copy receipt state & helper
   const [copiedReceipt, setCopiedReceipt] = useState(false);
@@ -160,15 +167,13 @@ export default function CheckoutView() {
     if (isNairobi) {
       // Nairobi requires immediate Payment Before Delivery
       if (paymentMethod === "paystack") {
-        setIsSTKProcessing(true);
-        setStkLogs([]);
-        
-        updateSTKLog("Initializing Secure Paystack Payment Interface...", 100);
-        updateSTKLog("Negotiating bearer handshake with api.paystack.co...", 350);
-        updateSTKLog("Configuring currency criteria [KES]...", 650);
-
         const shippingFullAddress = `${deliveryDetails}, ${selectedCounty} County, Kenya (Nairobi - Free Delivery)`;
         
+        // Show immediate spinner/loading state
+        setIsSTKProcessing(true);
+        setStkLogs([]);
+        updateSTKLog("Starting Secure Ordering pipeline...", 100);
+
         const orderObj = await createCheckoutOrder({
           customerName,
           customerEmail: user.email || "",
@@ -186,58 +191,14 @@ export default function CheckoutView() {
           return;
         }
 
-        updateSTKLog(`Order created successfully on server database! [ID: ${orderObj.id}]`, 1000);
-        updateSTKLog(`Generating secure transaction reference on Paystack for KES ${orderObj.totalAmount.toLocaleString()}`, 1300);
+        // Clean older states
+        setIsSTKProcessing(false);
 
-        const initRes = await initializePaystackTransaction(orderObj.id, user.email || "techgadgetsk@gmail.com", orderObj.totalAmount);
-
-        if (initRes.success) {
-          updateSTKLog(`Paystack checkout token generated: ${initRes.reference}`, 1600);
-          
-          if (initRes.mode === "real") {
-            updateSTKLog("Opening Paystack secure authorization portal in new window...", 2000);
-            setTimeout(() => {
-              window.open(initRes.authUrl, "_blank");
-            }, 2100);
-
-            updateSTKLog("Monitoring Paystack secure verification bridge... Please complete payment.", 2800);
-            
-            let attempts = 0;
-            const maxAttempts = 30;
-            const pollInterval = setInterval(async () => {
-              attempts++;
-              const check = await verifyPaystackTransaction(orderObj.id, initRes.reference!);
-              if (check.success) {
-                clearInterval(pollInterval);
-                updateSTKLog(`PAYMENT COMPLETED: Paystack invoice reference ${initRes.reference} fully verified!`, 100);
-                setTimeout(() => {
-                  setGeneratedReceipt(initRes.reference || "PSTK-OK");
-                  setGeneratedOrderId(orderObj.id);
-                  setPaymentSuccess(true);
-                  setIsSTKProcessing(false);
-                  clearCart();
-                }, 1000);
-              } else if (attempts >= maxAttempts) {
-                clearInterval(pollInterval);
-                setIsSTKProcessing(false);
-                alert("Payment status query timeout. If payment was authorized, please check the Client Dashboard.");
-              }
-            }, 4000);
-
-          } else {
-            // Simulated inline Paystack checkout popup
-            updateSTKLog("Launching Simulated Paystack Checkout Popup...", 2000);
-            setTimeout(() => {
-              setSimulatedPaystackRef(initRes.reference || "");
-              setSimulatedOrderId(orderObj.id);
-              setSimulatedPaystackStep("options");
-              setShowSimulatedPaystackModal(true);
-            }, 2200);
-          }
-        } else {
-          setIsSTKProcessing(false);
-          alert(initRes.message || "Failed initializing Paystack handshake.");
-        }
+        // Open our high-integrity PaymentHandler modal
+        setActivePaymentOrderId(orderObj.id);
+        setActivePaymentEmail(user.email || "techgadgetsk@gmail.com");
+        setActivePaymentAmount(orderObj.totalAmount);
+        setIsPaymentHandlerOpen(true);
       }
     } else {
       // OUTSIDE NAIROBI: "no payment before delivery"
@@ -991,6 +952,25 @@ export default function CheckoutView() {
         </div>
       )}
 
+      <PaymentHandler
+        isOpen={isPaymentHandlerOpen}
+        onClose={() => setIsPaymentHandlerOpen(false)}
+        orderId={activePaymentOrderId}
+        customerEmail={activePaymentEmail}
+        totalAmount={activePaymentAmount}
+        onSuccess={(reference) => {
+          setIsPaymentHandlerOpen(false);
+          setGeneratedReceipt(reference);
+          setGeneratedOrderId(activePaymentOrderId);
+          setPaymentSuccess(true);
+          clearCart();
+        }}
+        onCancel={() => {
+          setIsPaymentHandlerOpen(false);
+        }}
+        initializePaystackTransaction={initializePaystackTransaction}
+        verifyPaystackTransaction={verifyPaystackTransaction}
+      />
     </div>
   );
 }

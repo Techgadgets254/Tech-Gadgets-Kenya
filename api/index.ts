@@ -2,11 +2,26 @@ import express from "express";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
 import { initializeApp as serverInitApp } from "firebase/app";
-import { getFirestore as serverGetFS, doc as serverDoc, updateDoc as serverUpdateDoc } from "firebase/firestore";
-import serverFirebaseConfig from "../firebase-applet-config.json";
+import { getFirestore as serverGetFS, doc as serverDoc, updateDoc as serverUpdateDoc, collection as serverCollection, addDoc as serverAddDoc } from "firebase/firestore";
 
 dotenv.config();
+
+// Load Firebase configuration safely without importing JSON via ES Modules
+let serverFirebaseConfig: any;
+try {
+  const configPath = path.resolve(process.cwd(), "firebase-applet-config.json");
+  serverFirebaseConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
+} catch (e) {
+  console.error("Failed to load /firebase-applet-config.json via fs.readFileSync:", e);
+  // Fallback to empty config to prevent crash
+  serverFirebaseConfig = {
+    projectId: "tech-gadgets-kenya",
+    firestoreDatabaseId: "(default)"
+  };
+}
 
 const app = express();
 
@@ -140,6 +155,24 @@ Return a strictly valid JSON object structured exactly like this:
     console.error("Gemini API Error in /api/ai/describe:", error);
     res.status(500).json({ error: error.message || "Failed to generate product technical description." });
   }
+});
+
+app.get("/api/paystack/check-config", (req, res) => {
+  const rawSecret = process.env.PAYSTACK_SECRET_KEY;
+  const isPaystackSecretValid = !!(rawSecret && 
+    rawSecret.trim() !== "" && 
+    rawSecret.startsWith("sk_") && 
+    !rawSecret.includes("your") && 
+    !rawSecret.includes("YOUR") && 
+    !rawSecret.includes("placeholder") && 
+    rawSecret.trim().length >= 15);
+
+  res.json({
+    configured: isPaystackSecretValid,
+    message: isPaystackSecretValid 
+      ? "Paystack API key is correctly defined in the environment." 
+      : "PAYSTACK_SECRET_KEY is missing or invalid. Payments will fall back to simulation mode."
+  });
 });
 
 const paystackPaymentsMap = new Map<string, { status: "pending" | "success" | "failed"; reference: string; orderId: string; amount: number; message?: string }>();
@@ -398,6 +431,68 @@ app.post("/api/paystack/webhook", async (req, res) => {
     console.error("Paystack Webhook Handler Error:", err);
     res.status(500).json({ error: `Internal Webhook Error: ${err.message}` });
   }
+});
+
+// Create Global Error Utility for logging module loading, server exceptions, and routes failures
+async function logToFirestoreErrorStore(errorType: string, message: string, stack: string | null, details: any = {}) {
+  try {
+    const errorLogsRef = serverCollection(serverDb, "error-log");
+    await serverAddDoc(errorLogsRef, {
+      errorType,
+      message,
+      stack,
+      details: JSON.stringify(details),
+      timestamp: new Date().toISOString()
+    });
+    console.log(`[Error Store] Successfully logged '${errorType}' incident to Firestore: ${message}`);
+  } catch (dbErr) {
+    console.error("[Error Store] Critical Failure: Could not write incident log to Firestore:", dbErr);
+  }
+}
+
+// Global process listeners to capture startup / module-loading path resolution issues
+process.on("uncaughtException", (err: any) => {
+  console.error("CRITICAL UNCAUGHT EXCEPTION:", err);
+  const isModuleNotFound = err?.code === "ERR_MODULE_NOT_FOUND" || err?.message?.includes("Cannot find module");
+  logToFirestoreErrorStore(
+    isModuleNotFound ? "MODULE_NOT_FOUND" : "UNCAUGHT_EXCEPTION",
+    err?.message || String(err),
+    err?.stack || null,
+    { code: err?.code }
+  );
+});
+
+process.on("unhandledRejection", (reason: any) => {
+  console.error("CRITICAL UNHANDLED REJECTION:", reason);
+  logToFirestoreErrorStore(
+    "UNHANDLED_REJECTION",
+    reason?.message || String(reason),
+    reason?.stack || null
+  );
+});
+
+// Express route error resolution middleware
+app.use(async (err: any, req: any, res: any, next: any) => {
+  console.error("Express App Handler Caught Incident:", err);
+  const isModuleNotFound = err?.code === "ERR_MODULE_NOT_FOUND" || err?.message?.includes("Cannot find module");
+  
+  await logToFirestoreErrorStore(
+    isModuleNotFound ? "MODULE_NOT_FOUND" : "ROUTE_EXCEPTION",
+    err?.message || String(err),
+    err?.stack || null,
+    {
+      code: err?.code || null,
+      path: req?.path || null,
+      method: req?.method || null,
+      query: req?.query || null
+    }
+  );
+
+  res.status(500).json({
+    error: "Internal Server Error",
+    message: err?.message || String(err),
+    code: err?.code || null
+  });
 });
 
 export default app;
