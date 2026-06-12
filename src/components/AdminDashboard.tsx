@@ -22,6 +22,7 @@ import {
   Loader2,
   RefreshCw,
   PlusCircle,
+  Database,
   FolderMinus,
   Upload,
   Download,
@@ -242,6 +243,10 @@ export default function AdminDashboard() {
   const [affiliateDiscountType, setAffiliateDiscountType] = useState<"percentage" | "fixed">("fixed");
   const [affiliateDiscountValue, setAffiliateDiscountValue] = useState(1000);
   const [showAffiliateForm, setShowAffiliateForm] = useState(false);
+
+  // Database Backup safeguard states
+  const [isBackingUp, setIsBackingUp] = useState(false);
+  const [backupFeedback, setBackupFeedback] = useState("");
 
   // Price alerts state
   const [priceAlerts, setPriceAlerts] = useState<{
@@ -646,6 +651,33 @@ export default function AdminDashboard() {
       }
     } finally {
       setIsAdminAuthenticating(false);
+    }
+  };
+
+  const handleManualBackupTrigger = async () => {
+    setIsBackingUp(true);
+    setBackupFeedback("");
+    try {
+      const response = await fetch("/api/admin/backup/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminUsername: adminUsername || "techgadgetsk@gmail.com",
+          adminPassword: adminSecurityPassword || "admin123"
+        })
+      });
+
+      const result = await response.json();
+      if (response.ok && result.success) {
+        setBackupFeedback(`✔ Database Backup Completed: ${result.productsCount} products, ${result.ordersCount} transactions.`);
+        setTimeout(() => setBackupFeedback(""), 6000);
+      } else {
+        setBackupFeedback(`❌ Error: ${result.error || "Execution failed."}`);
+      }
+    } catch (err: any) {
+      setBackupFeedback(`❌ Network connection failure: ${err.message || String(err)}`);
+    } finally {
+      setIsBackingUp(false);
     }
   };
 
@@ -1611,7 +1643,7 @@ Return a strictly valid JSON object structured exactly like this:
             { id: "price_alerts", label: `Price Alerts (${priceAlerts.length})` },
             { id: "intelligence", label: "Store Intelligence" },
             { id: "admin_settings", label: "Admin Credentials" },
-            { id: "audit_logs", label: "Audit Logs" },
+            { id: "audit_logs", label: "System Activity" },
             { id: "trash", label: `Trash Bin (${trashItems.length})` }
           ].map(tab => (
             <button
@@ -3738,14 +3770,41 @@ Return a strictly valid JSON object structured exactly like this:
         <div id="admin-audit-logs-tab" className="space-y-6 animate-fadeIn text-[#E0E0E0] text-left">
           
           {/* Section Header */}
-          <div className="bg-[#111111] border border-white/10 p-6 rounded-3xl">
-            <h2 className="text-sm font-sans font-semibold text-[#C5A059] flex items-center gap-2">
-              <ShieldAlert className="w-4.5 h-4.5 text-[#C5A059]" />
-              <span>Access Security Audit Registry</span>
-            </h2>
-            <p className="text-[11px] font-mono text-white/40 mt-1 uppercase tracking-wider">
-              Secure, indelible legal ledger documenting administrative action logs, bulk catalog operations, credential rotations, and data exports.
-            </p>
+          <div className="bg-[#111111] border border-white/10 p-6 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+              <h2 className="text-sm font-sans font-semibold text-[#C5A059] flex items-center gap-2">
+                <ShieldAlert className="w-4.5 h-4.5 text-[#C5A059]" />
+                <span>System Activity Audit Registry</span>
+              </h2>
+              <p className="text-[11px] font-mono text-white/40 mt-1 uppercase tracking-wider">
+                Secure, indelible legal ledger documenting administrative action logs, bulk catalog operations, credential rotations, and data exports.
+              </p>
+            </div>
+
+            <div className="shrink-0 space-y-2 w-full md:w-auto">
+              <button
+                onClick={handleManualBackupTrigger}
+                disabled={isBackingUp}
+                className="w-full md:w-auto bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/25 px-4 py-2.5 rounded-xl text-[10px] font-bold font-mono uppercase tracking-wider flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+              >
+                {isBackingUp ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Executing Backup Snapshot...</span>
+                  </>
+                ) : (
+                  <>
+                    <Database className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Trigger Immediate Backup</span>
+                  </>
+                )}
+              </button>
+              {backupFeedback && (
+                <p className="text-[10px] font-mono text-emerald-400 text-center md:text-right mt-1 animate-pulse">
+                  {backupFeedback}
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="bg-[#0b0b0b] border border-white/5 p-6 rounded-3xl space-y-6">

@@ -783,6 +783,119 @@ app.post("/api/paystack/webhook", async (req, res) => {
   }
 });
 
+// ----------------------------------------------------
+// SECURE SYSTEM BACKUP SAfEGUARD DAEMON (JSON EXPORTS)
+// ----------------------------------------------------
+
+async function triggerDataBackup(adminUid: string, adminEmail: string) {
+  try {
+    const productsSnap = await serverGetDocs(serverCollection(serverDb, "products"));
+    const productsList: any[] = [];
+    productsSnap.forEach(doc => {
+      productsList.push({ id: doc.id, ...doc.data() });
+    });
+
+    const ordersSnap = await serverGetDocs(serverCollection(serverDb, "orders"));
+    const ordersList: any[] = [];
+    ordersSnap.forEach(doc => {
+      ordersList.push({ id: doc.id, ...doc.data() });
+    });
+
+    const backupPayload = {
+      timestamp: new Date().toISOString(),
+      products: productsList,
+      transactions: ordersList,
+      countProducts: productsList.length,
+      countTransactions: ordersList.length
+    };
+
+    const todaySlug = new Date().toISOString().split("T")[0];
+    const backupId = `backup_${todaySlug}_${Date.now()}`;
+
+    // 1. Back up to Firestore collection "backups"
+    await serverSetDoc(serverDoc(serverDb, "backups", backupId), backupPayload);
+
+    // 2. Secondary layer: save local JSON file export in /backups folder
+    try {
+      const backupsDir = path.resolve(process.cwd(), "backups");
+      if (!fs.existsSync(backupsDir)) {
+        fs.mkdirSync(backupsDir, { recursive: true });
+      }
+      const localBackupPath = path.join(backupsDir, `${backupId}.json`);
+      fs.writeFileSync(localBackupPath, JSON.stringify(backupPayload, null, 2), "utf8");
+    } catch (fsErr) {
+      console.warn("[Local FS Backup Warning] Local backups directory write skipped:", fsErr);
+    }
+
+    // 3. Document into system activity / audit logs
+    const auditRef = serverCollection(serverDb, "audit_logs");
+    await serverAddDoc(auditRef, {
+      action: "bulk_backup",
+      details: `Daily JSON backup completed: Archived ${productsList.length} products and ${ordersList.length} global orders/transactions ledger snapshots to secure cloud backup storage.`,
+      adminEmail: adminEmail,
+      adminUid: adminUid,
+      createdAt: new Date().toISOString()
+    });
+
+    console.log(`[Backup Daemon] Backup ${backupId} completed: Products: ${productsList.length}, Transactions: ${ordersList.length}`);
+    return { success: true, backupId, productsCount: productsList.length, ordersCount: ordersList.length, timestamp: backupPayload.timestamp };
+  } catch (err: any) {
+    console.error("[Backup Daemon Failure] Backup failed executing:", err);
+    throw err;
+  }
+}
+
+// Router route for manual administrator backup triggers
+app.post("/api/admin/backup/run", async (req, res) => {
+  const { adminUsername, adminPassword } = req.body;
+
+  if (!adminUsername || !adminPassword) {
+    return res.status(400).json({ error: "Administrator authorization signatures are required." });
+  }
+
+  try {
+    const adminRef = serverDoc(serverDb, "admin_accounts", adminUsername.trim().toLowerCase());
+    const adminSnap = await serverGetDoc(adminRef);
+
+    if (!adminSnap.exists() || adminSnap.data()?.password !== adminPassword) {
+      return res.status(401).json({ error: "Access Denied: Invalid administrator signature credentials." });
+    }
+
+    const backupResult = await triggerDataBackup(adminUsername, adminUsername);
+    res.json(backupResult);
+  } catch (error: any) {
+    res.status(500).json({ error: "Failed executing immediate database backup: " + (error.message || String(error)) });
+  }
+});
+
+// Automatic Daily Backup Scheduler Check Daemon
+(global as any).lastBackupExecutedDate = undefined;
+function startDailyBackupScheduler() {
+  const checkAndRun = async () => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      if ((global as any).lastBackupExecutedDate !== today) {
+        console.log(`[Backup Scheduler] Running daily JSON backup system scan: "${today}"`);
+        await triggerDataBackup("SYSTEM_SCHEDULER", "system_scheduler@techgadgetskenya.co.ke");
+        (global as any).lastBackupExecutedDate = today;
+      }
+    } catch (e: any) {
+      console.error("[Backup Scheduler daemon failure]:", e.message || e);
+    }
+  };
+
+  // Run initial scheduler check after boot delay (15 seconds) to allow database listeners to register
+  setTimeout(() => {
+    checkAndRun().catch(err => console.error("Database scheduler initial run failure", err));
+  }, 15000);
+
+  // Check hourly
+  setInterval(() => {
+    checkAndRun().catch(err => console.error("Database scheduler interval error", err));
+  }, 1000 * 60 * 60);
+}
+startDailyBackupScheduler();
+
 // Create Global Error Utility for logging module loading, server exceptions, and routes failures
 async function logToFirestoreErrorStore(errorType: string, message: string, stack: string | null, details: any = {}) {
   try {

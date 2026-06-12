@@ -113,7 +113,27 @@ html.light-theme .text-white\/90,
 html.light-theme .text-zinc-300,
 html.light-theme .text-zinc-400,
 html.light-theme .text-zinc-500 {
-  color: #5a544d !important; /* Premium Readable Warm Charcoal grey */
+  color: #3e3a35 !important; /* Premium Readable Warm Charcoal grey (WCAG 4.5:1 ratio compliant) */
+}
+
+/* Accessible Light Theme Button Background Overrides */
+html.light-theme .bg-\[\#C5A059\] {
+  background-color: #835c17 !important; /* Deep WCAG-compliant active bronze-gold for white-text buttons */
+  color: #ffffff !important;
+}
+
+html.light-theme .bg-\[\#C5A059\]\/90 {
+  background-color: #704e12 !important;
+  color: #ffffff !important;
+}
+
+html.light-theme button.bg-\[\#C5A059\] {
+  background-color: #835c17 !important;
+  color: #ffffff !important;
+}
+
+html.light-theme button.bg-\[\#C5A059\]:hover {
+  background-color: #704e12 !important;
 }
 
 /* Dividers & Borders Compatibility */

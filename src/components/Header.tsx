@@ -24,6 +24,7 @@ import {
   RotateCcw
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import LoginModal from "./LoginModal";
 
 export default function Header() {
   const { 
@@ -69,6 +70,7 @@ export default function Header() {
   }, [searchQuery, products]);
 
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [customLogo, setCustomLogo] = useState<string | null>(() => {
     return localStorage.getItem("tgk_custom_logo");
@@ -440,7 +442,7 @@ export default function Header() {
                 </div>
               ) : (
                 <button
-                  onClick={loginWithGoogle}
+                  onClick={() => setIsLoginModalOpen(true)}
                   className="bg-[#C5A059] text-black hover:bg-[#C5A059]/90 transform active:scale-95 transition-all px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg"
                 >
                   <LogIn className="w-3.5 h-3.5" />
@@ -664,17 +666,27 @@ export default function Header() {
                   </>
                 ) : (
                   <button
-                    onClick={() => { loginWithGoogle(); setMobileMenuOpen(false); }}
+                    onClick={() => { setIsLoginModalOpen(true); setMobileMenuOpen(false); }}
                     className="w-full py-3 rounded-xl bg-[#C5A059] text-black font-sans text-xs font-extrabold flex items-center justify-center gap-2 cursor-pointer tracking-wider"
                   >
                     <LogIn className="w-4 h-4" />
-                    <span>SIGN IN WITH GOOGLE</span>
+                    <span>SIGN IN PORTAL</span>
                   </button>
                 )}
               </div>
 
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isLoginModalOpen && (
+          <LoginModal 
+            isOpen={isLoginModalOpen} 
+            onClose={() => setIsLoginModalOpen(false)} 
+            onGoogleLogin={loginWithGoogle} 
+          />
         )}
       </AnimatePresence>
     </header>
