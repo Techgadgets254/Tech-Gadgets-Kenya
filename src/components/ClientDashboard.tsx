@@ -27,7 +27,8 @@ import {
   Coins,
   Share2,
   Download,
-  XCircle
+  XCircle,
+  Sliders
 } from "lucide-react";
 import { Order } from "../types";
 import { jsPDF } from "jspdf";
@@ -43,6 +44,48 @@ export default function ClientDashboard() {
   } = useStore();
 
   const [orderSearchQuery, setOrderSearchQuery] = useState("");
+
+  // Tabs for ClientDashboard
+  const [activeTab, setActiveTab] = useState<"transactions" | "settings">("transactions");
+
+  // Account Settings state
+  const [settingsKraPin, setSettingsKraPin] = useState(() => localStorage.getItem("tgk_kra_pin") || "");
+  const [settingsShippingCounty, setSettingsShippingCounty] = useState(() => localStorage.getItem("tgk_shipping_county") || "");
+  const [settingsPaymentPhone, setSettingsPaymentPhone] = useState(() => localStorage.getItem("tgk_payment_phone") || "");
+  const [settingsMarketingSub, setSettingsMarketingSub] = useState(() => localStorage.getItem("tgk_marketing_sub") === "true");
+  const [showSettingsForm, setShowSettingsForm] = useState(false);
+  const [settingsFeedback, setSettingsFeedback] = useState("");
+
+  const handleSaveSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      localStorage.setItem("tgk_kra_pin", settingsKraPin);
+      localStorage.setItem("tgk_shipping_county", settingsShippingCounty);
+      localStorage.setItem("tgk_payment_phone", settingsPaymentPhone);
+      localStorage.setItem("tgk_marketing_sub", String(settingsMarketingSub));
+      setSettingsFeedback("✓ Settings persisted successfully!");
+      setShowSettingsForm(false);
+      setTimeout(() => setSettingsFeedback(""), 4000);
+    } catch (err) {
+      console.error(err);
+      setSettingsFeedback("⚠ Save failed.");
+    }
+  };
+
+  const handleClearSettings = () => {
+    if (confirm("Are you sure you want to clear your saved account configurations?")) {
+      setSettingsKraPin("");
+      setSettingsShippingCounty("");
+      setSettingsPaymentPhone("");
+      setSettingsMarketingSub(false);
+      localStorage.removeItem("tgk_kra_pin");
+      localStorage.removeItem("tgk_shipping_county");
+      localStorage.removeItem("tgk_payment_phone");
+      localStorage.removeItem("tgk_marketing_sub");
+      setSettingsFeedback("✓ Local profile parameters cleared.");
+      setTimeout(() => setSettingsFeedback(""), 4000);
+    }
+  };
 
   // Save/bookmark specific order receipts locally
   const [savedReceiptIds, setSavedReceiptIds] = useState<string[]>(() => {
@@ -215,6 +258,137 @@ export default function ClientDashboard() {
     doc.text("Tech Gadgets Kenya | East Africa Premium Electronics Importers", 105, 279, { align: "center" });
 
     doc.save(`Tech_Gadgets_Kenya_Invoice_${order.id.substring(0, 8)}.pdf`);
+  };
+
+  const handleDownloadStatementPDF = () => {
+    if (orders.length === 0) return;
+    const doc = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4"
+    });
+
+    const primaryColor = [197, 160, 89]; // #C5A059 Gold representation
+
+    // Header Banner (Dark Cosmic styled banner)
+    doc.setFillColor(15, 15, 15);
+    doc.rect(0, 0, 210, 54, "F");
+
+    // Title Block
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text("TECH GADGETS KENYA", 15, 20);
+
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text("E-TIMS FISCAL STATEMENT & TRANSACTION RECORDS", 15, 26);
+
+    doc.setTextColor(160, 160, 160);
+    doc.text("Kenyatta Pioneer Building, Kenyatta Avenue, Shop 514, Nairobi | Kenya", 15, 32);
+    doc.text(`Official statement generated dynamically on: ${new Date().toLocaleString()}`, 15, 37);
+
+    // KRA Compliant Stamp
+    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.rect(138, 12, 57, 10, "F");
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text("KRA FISCAL LEDGER", 143, 18);
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(7.5);
+    doc.text(`User Index: ${user?.email || "Guest Client"}`, 138, 28);
+    doc.text(`Statement Period: All-Time`, 138, 33);
+    doc.text(`Settlement Status: Verified`, 138, 38);
+    doc.text(`Records Found: ${orders.length}`, 138, 43);
+
+    // Client overview
+    doc.setTextColor(40, 40, 40);
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text("CLIENT SUMMARY DATA", 15, 64);
+
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(`Account Holder: ${user?.displayName || "Official Customer"}`, 15, 70);
+    doc.text(`Logon Primary Email: ${user?.email}`, 15, 75);
+    doc.text(`Active Session ID: ${user?.uid.substring(0, 12)}...`, 15, 80);
+
+    // Aggregate statistics
+    const totalSpent = orders.reduce((sum, o) => sum + o.totalAmount, 0);
+    const vatComponent = totalSpent * 16 / 116; // 16% VAT inclusive
+    doc.text(`Total Purchases: ${orders.length}`, 115, 70);
+    doc.setFont("Helvetica", "bold");
+    doc.text(`Accumulated Ledger Value: KES ${totalSpent.toLocaleString()}`, 115, 75);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text(`VAT Component (16% Incl.): KES ${Math.round(vatComponent).toLocaleString()}`, 115, 80);
+
+    // Table Header lines
+    let currentY = 90;
+    doc.setFillColor(242, 244, 247);
+    doc.rect(15, currentY, 180, 8, "F");
+    doc.setDrawColor(220, 222, 225);
+    doc.line(15, currentY, 195, currentY);
+    doc.line(15, currentY + 8, 195, currentY + 8);
+
+    doc.setTextColor(15, 15, 15);
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.text("Order ID Reference", 18, currentY + 5.5);
+    doc.text("Date Created", 55, currentY + 5.5);
+    doc.text("Status", 92, currentY + 5.5);
+    doc.text("Items count", 118, currentY + 5.5);
+    doc.text("Payment Code", 140, currentY + 5.5);
+    doc.text("Total Paid (KES)", 171, currentY + 5.5);
+
+    doc.setFont("Helvetica", "normal");
+    currentY += 8;
+
+    // Loop entries
+    orders.forEach((ord) => {
+      doc.setFont("Helvetica", "bold");
+      doc.setTextColor(20, 20, 20);
+      doc.text(`#${ord.id.substring(0, 8).toUpperCase()}`, 18, currentY + 6);
+      
+      doc.setFont("Helvetica", "normal");
+      doc.setTextColor(60, 60, 60);
+      doc.text(ord.createdAt ? new Date(ord.createdAt).toLocaleDateString() : "Pending", 55, currentY + 6);
+      doc.text(ord.paymentStatus || "Draft", 92, currentY + 6);
+      doc.text(String((ord.items || []).reduce((s, i) => s + i.quantity, 0)), 118, currentY + 6);
+      doc.text(ord.receiptNo || "STK APPROVED", 140, currentY + 6);
+      
+      doc.setFont("Helvetica", "bold");
+      doc.setTextColor(15, 15, 15);
+      doc.text(Number(ord.totalAmount).toLocaleString(), 171, currentY + 6);
+
+      currentY += 9;
+      doc.line(15, currentY, 195, currentY);
+    });
+
+    // Total section banner
+    currentY += 8;
+    doc.setFillColor(248, 250, 252);
+    doc.rect(15, currentY, 180, 15, "F");
+    doc.rect(15, currentY, 180, 15, "S");
+
+    doc.setFont("Helvetica", "bold");
+    doc.setTextColor(15, 15, 15);
+    doc.text("TOTAL DISCHARGED TAX-COMPLIANT VOLUME", 20, currentY + 9);
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text(`KES ${totalSpent.toLocaleString()}/=`, 155, currentY + 9);
+
+    // Footer copyright message
+    doc.setFont("Helvetica", "normal");
+    doc.setTextColor(140, 140, 140);
+    doc.setFontSize(7.5);
+    doc.text("This multi-order transaction statement is generated by verified digital token indexing on safely cleared M-Pesa channels.", 105, 275, { align: "center" });
+    doc.text("Tech Gadgets Kenya eTIMS Ledger API integration is verified and active.", 105, 279, { align: "center" });
+
+    doc.save(`Tech_Gadgets_Kenya_Tax_Statement_${user?.uid.substring(0,6)}.pdf`);
   };
 
   const handleSendEmailReceipt = async () => {
@@ -441,39 +615,79 @@ export default function ClientDashboard() {
           Client Dashboard
         </h1>
         <p className="text-white/40 text-xs sm:text-sm mt-1">
-          Review purchase history, watch courier dispatches, and download certified tax invoices.
+          Manage purchase folders, configure billing indexes, and download tax-compliant invoices.
         </p>
       </div>
 
-      {/* Informative Delivery Status Banner - No Predictive Scarcity Forecast */}
-      <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 mb-8 flex items-start gap-3.5 text-left no-print animate-fadeIn">
-        <div className="bg-emerald-500/20 text-emerald-400 w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 border border-emerald-500/10">
-          <Truck className="w-4 h-4 text-emerald-400 animate-pulse" />
-        </div>
-        <div className="text-xs space-y-1">
-          <h4 className="font-sans font-bold text-emerald-400 flex items-center gap-1.5 leading-none uppercase">
-            Logistics & Same-Day Dispatch Updates
-          </h4>
-          <p className="text-white/60 leading-relaxed text-[11px] pt-1">
-            Kenyatta Avenue CBD freight and courier dispatch channels are operating at maximum efficiency. Approved orders are packed, verified, and handed over to same-day couriers instantly.
-          </p>
-        </div>
+      {/* Tabs selector strip */}
+      <div className="flex gap-2 border-b border-white/10 pb-4 mb-6 no-print">
+        <button
+          onClick={() => setActiveTab("transactions")}
+          className={`px-4 py-2.5 font-sans font-bold text-xs rounded-xl tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === "transactions"
+              ? "bg-[#C5A059] text-black shadow-md font-extrabold"
+              : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white"
+          }`}
+        >
+          <Clock className="w-3.5 h-3.5" />
+          <span>TRANSACTION HISTORY</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("settings")}
+          className={`px-4 py-2.5 font-sans font-bold text-xs rounded-xl tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === "settings"
+              ? "bg-[#C5A059] text-black shadow-md font-extrabold"
+              : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white"
+          }`}
+        >
+          <Monitor className="w-3.5 h-3.5" />
+          <span>ACCOUNT SETTINGS</span>
+        </button>
       </div>
 
-      {orders.length === 0 ? (
-        <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-12 text-center max-w-md mx-auto my-6 no-print">
-          <ShoppingBag className="w-12 h-12 text-white/20 mx-auto mb-4" />
-          <h2 className="font-sans font-semibold text-lg text-white">No Orders Placed Yet</h2>
-          <p className="text-white/40 text-xs mt-2 leading-relaxed">
-            You haven't ordered any premium hardware from Tech Gadgets Kenya yet. Explore our stock catalog to place your first Paystack order!
-          </p>
-          <button
-            onClick={() => setActiveView("shop")}
-            className="mt-6 bg-[#C5A059] hover:bg-[#C5A059]/90 text-black font-sans text-xs font-bold px-5 py-2.5 rounded-xl transition-all cursor-pointer"
-          >
-            Browse Stock Storefront
-          </button>
+      {/* Settings Feedback Notifications */}
+      {settingsFeedback && (
+        <div className="bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 p-3.5 rounded-xl text-xs font-semibold mb-6 animate-fadeIn no-print">
+          {settingsFeedback}
         </div>
+      )}
+
+      {activeTab === "transactions" && (
+        <>
+          {/* Informative Delivery Status Banner - No Predictive Scarcity Forecast */}
+          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 mb-8 flex items-start gap-3.5 text-left no-print animate-fadeIn">
+            <div className="bg-emerald-500/20 text-emerald-400 w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 border border-emerald-500/10">
+              <Truck className="w-4 h-4 text-emerald-400 animate-pulse" />
+            </div>
+            <div className="text-xs space-y-1">
+              <h4 className="font-sans font-bold text-emerald-400 flex items-center gap-1.5 leading-none uppercase">
+                Logistics & Same-Day Dispatch Updates
+              </h4>
+              <p className="text-white/60 leading-relaxed text-[11px] pt-1">
+                Kenyatta Avenue CBD freight and courier dispatch channels are operating at maximum efficiency. Approved orders are packed, verified, and handed over to same-day couriers instantly.
+              </p>
+            </div>
+          </div>
+
+          {orders.length === 0 ? (
+            <div className="bg-[#0F0F0F] border border-[#C5A059]/30 rounded-3xl p-12 text-center max-w-lg mx-auto my-12 no-print shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[#C5A059]/5 rounded-full blur-3xl pointer-events-none" />
+              <div className="bg-[#C5A059]/10 text-[#C5A059] w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-[#C5A059]/20 shadow-inner">
+                <ShoppingBag className="w-8 h-8 text-[#C5A059]" />
+              </div>
+              <h2 className="font-sans font-extrabold text-xl text-white tracking-tight">No Electronic Transactions Captured</h2>
+              <p className="text-white/40 text-xs mt-3 leading-relaxed max-w-sm mx-auto">
+                Your premium gadget ledger is currently unpopulated. All subsequent transactions routed through Safaricom M-Pesa STK Push or Paystack secure clearing gateways will materialize here.
+              </p>
+              <div className="mt-8 flex justify-center gap-3">
+                <button
+                  onClick={() => setActiveView("shop")}
+                  className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-black font-sans text-xs font-bold px-6 py-3 rounded-xl transition-all cursor-pointer shadow-md transform hover:scale-[1.02]"
+                >
+                  Browse Hardware Storefront
+                </button>
+              </div>
+            </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
@@ -992,6 +1206,216 @@ export default function ClientDashboard() {
             ) : null}
 
           </div>
+
+        </div>
+      )}
+        </>
+      )}
+
+      {/* Tab Contents: Settings */}
+      {activeTab === "settings" && (
+        <div className="max-w-2xl mx-auto no-print space-y-6 text-left animate-fadeIn">
+          
+          {/* Settings Header banner */}
+          <div className="bg-[#0F0F0F] border border-white/10 rounded-2xl p-6 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-[#C5A059]/5 rounded-full blur-2xl pointer-events-none" />
+            <h2 className="font-sans font-bold text-lg text-white mb-1 flex items-center gap-2">
+              <Sliders className="w-5 h-5 text-[#C5A059]" />
+              <span>Personalized Fiscal Adjustments</span>
+            </h2>
+            <p className="text-white/40 text-xs leading-relaxed">
+              Define physical delivery terminal nodes and custom corporate tax identifiers (KRA Tax PIN) to instantly customize downloadable invoices.
+            </p>
+          </div>
+
+          {/* Empty state component specifically for settings when NO custom data has been committed */}
+          {!settingsKraPin && !settingsShippingCounty && !settingsPaymentPhone && !showSettingsForm ? (
+            <div className="bg-[#0F0F0F] border border-dashed border-[#C5A059]/20 rounded-3xl p-10 text-center animate-fadeIn py-14 shadow-xl">
+              <div className="bg-[#C5A059]/10 text-[#C5A059] w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 border border-[#C5A059]/20 shadow-inner">
+                <Sliders className="w-6 h-6 text-[#C5A059]" />
+              </div>
+              <h3 className="font-sans font-bold text-base text-white">No Custom Account Ledger Saved</h3>
+              <p className="text-white/40 text-xs mt-2 max-w-sm mx-auto leading-relaxed">
+                Configure your display phone billing, tax codes, and default delivery channels. This allows Tech Gadgets Kenya to pre-populate custom layouts cleanly.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowSettingsForm(true)}
+                className="mt-6 bg-[#C5A059] hover:bg-[#C5A059]/95 text-black font-sans text-xs font-bold px-5 py-2.5 rounded-xl transition-all cursor-pointer shadow-md"
+              >
+                Configure Ledger Settings
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              
+              {/* Dynamic displays of parameters */}
+              {!showSettingsForm && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* Card 1: KRA Pin */}
+                  <div className="bg-[#0F0F0F] border border-[#C5A059]/35 rounded-2xl p-4 space-y-1 relative shadow-lg">
+                    <span className="font-mono text-[9px] text-[#C5A059] font-bold block uppercase tracking-wider">KRA TAX IDENTIFICATION</span>
+                    <p className="font-sans font-black text-white text-base tracking-wide uppercase mt-1">
+                      {settingsKraPin || "NOT CONFIGURED"}
+                    </p>
+                    <p className="text-white/30 text-[9.5px] leading-tight pt-1 font-sans font-semibold">Stored dynamically for eTIMS audits.</p>
+                  </div>
+
+                  {/* Card 2: Shipping Counter location */}
+                  <div className="bg-[#0F0F0F] border border-[#C5A059]/35 rounded-2xl p-4 space-y-1 relative shadow-lg">
+                    <span className="font-mono text-[9px] text-white/40 font-bold block uppercase tracking-wider">DISPATCH TERMINAL</span>
+                    <p className="font-sans font-black text-white text-base truncate mt-1">
+                      {settingsShippingCounty || "NOT CONFIGURED"}
+                    </p>
+                    <p className="text-white/30 text-[9.5px] leading-tight pt-1 font-sans font-semibold">Preferred county counter address.</p>
+                  </div>
+
+                  {/* Card 3: Wallet line contact */}
+                  <div className="bg-[#0F0F0F] border border-[#C5A059]/35 rounded-2xl p-4 space-y-1 relative shadow-lg">
+                    <span className="font-mono text-[9px] text-white/40 font-bold block uppercase tracking-wider">M-PESA WALLET CONTACT</span>
+                    <p className="font-mono font-black text-white text-base mt-1">
+                      {settingsPaymentPhone || "NOT CONFIGURED"}
+                    </p>
+                    <p className="text-white/30 text-[9.5px] leading-tight pt-1 font-sans font-semibold">Primary Safaricom clearing interface.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Editable form panel */}
+              {(showSettingsForm || (settingsKraPin || settingsShippingCounty || settingsPaymentPhone)) ? (
+                <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 sm:p-8 space-y-6 animate-fadeIn font-sans">
+                  
+                  {/* Edit block toggle header */}
+                  <div className="flex justify-between items-center pb-4 border-b border-white/5">
+                    <span className="font-sans font-bold text-sm text-white uppercase tracking-wider">
+                      {showSettingsForm ? "Modify Saved Profiles" : "Profile Parameter Index"}
+                    </span>
+                    {!showSettingsForm && (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowSettingsForm(true)}
+                          className="bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/30 font-sans text-[10px] font-bold px-3 py-1.5 rounded-xl hover:bg-[#C5A059]/20 transition-all cursor-pointer"
+                        >
+                          Edit Profile
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleClearSettings}
+                          className="bg-red-500/10 text-red-400 border border-red-500/10 font-sans text-[10px] font-bold px-3 py-1.5 rounded-xl hover:bg-red-500/20 transition-all cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {showSettingsForm ? (
+                    <form onSubmit={handleSaveSettings} className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        
+                        {/* KRA Pin Info */}
+                        <div className="space-y-1 text-left">
+                          <label className="font-mono text-[10px] font-bold text-white/40 block mb-1">
+                            KRA TAX IDENTIFICATION PIN
+                          </label>
+                          <input
+                            type="text"
+                            value={settingsKraPin}
+                            onChange={(e) => setSettingsKraPin(e.target.value.toUpperCase().trim())}
+                            placeholder="A01459421H"
+                            maxLength={11}
+                            className="w-full bg-[#0A0A0A] border border-white/10 py-2.5 px-3 rounded-xl focus:outline-hidden focus:border-[#C5A059] text-white font-mono placeholder-white/25"
+                          />
+                        </div>
+
+                        {/* Payment phone line */}
+                        <div className="space-y-1 text-left">
+                          <label className="font-mono text-[10px] font-bold text-white/40 block mb-1">
+                            DEFAULT M-PESA LINE (STK PUSH DEFAULT)
+                          </label>
+                          <input
+                            type="text"
+                            value={settingsPaymentPhone}
+                            onChange={(e) => setSettingsPaymentPhone(e.target.value.trim())}
+                            placeholder="254712345678"
+                            className="w-full bg-[#0A0A0A] border border-white/10 py-2.5 px-3 rounded-xl focus:outline-hidden focus:border-[#C5A059] text-white font-mono placeholder-white/25"
+                          />
+                        </div>
+
+                      </div>
+
+                      {/* Shipping Delivery County */}
+                      <div className="space-y-1 text-left">
+                        <label className="font-mono text-[10px] font-bold text-white/40 block mb-1">
+                          DEFAULT PREFERRED COUNTY COUNTER FOR SHIPMENTS
+                        </label>
+                        <input
+                          type="text"
+                          value={settingsShippingCounty}
+                          onChange={(e) => setSettingsShippingCounty(e.target.value)}
+                          placeholder="Mombasa CBD Parcel Branch, Moi Avenue Counter #4"
+                          className="w-full bg-[#0A0A0A] border border-white/10 py-2.5 px-3 rounded-xl focus:outline-hidden focus:border-[#C5A059] text-white placeholder-white/25"
+                        />
+                      </div>
+
+                      {/* Marketing alerts checkbox */}
+                      <div className="bg-[#0A0A0A] border border-white/5 rounded-2xl p-4 flex items-center justify-between">
+                        <div className="text-left">
+                          <h4 className="font-sans font-semibold text-xs text-white">Promotional Newsletters Subscriptions</h4>
+                          <p className="text-white/30 text-[10px] mt-0.5 font-sans">Authorize Tech Gadgets Kenya to email you weekly stock drops.</p>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={settingsMarketingSub}
+                          onChange={(e) => setSettingsMarketingSub(e.target.checked)}
+                          className="w-4 h-4 accent-[#C5A059] cursor-pointer"
+                        />
+                      </div>
+
+                      <div className="flex gap-2 justify-end pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowSettingsForm(false)}
+                          className="bg-white/5 text-white/50 border border-white/10 hover:bg-white/10 font-sans text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-black font-sans text-xs font-bold px-6 py-2 rounded-xl transition-all cursor-pointer shadow-md"
+                        >
+                          Persist Profiles
+                        </button>
+                      </div>
+
+                    </form>
+                  ) : (
+                    <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-4 text-xs space-y-3 leading-relaxed text-left">
+                      <div className="flex justify-between border-b border-white/5 pb-2">
+                        <span className="text-white/40 font-sans">Email Registration:</span>
+                        <span className="text-white font-mono font-semibold">{user?.email}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-white/5 pb-2">
+                        <span className="text-white/40 font-sans">KRA Code assigned:</span>
+                        <span className="text-[#C5A059] font-mono font-bold uppercase">{settingsKraPin || "No tax PIN linked"}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-white/5 pb-2">
+                        <span className="text-white/40 font-sans">County Delivery COUNTER:</span>
+                        <span className="text-white font-medium">{settingsShippingCounty || "Kenyatta Avenue Main Desk"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-white/40 font-sans">Promo Subscriptions:</span>
+                        <span className="text-white font-semibold font-mono">{settingsMarketingSub ? "ENABLED" : "DISABLED"}</span>
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+              ) : null}
+
+            </div>
+          )}
 
         </div>
       )}

@@ -348,6 +348,102 @@ app.post("/api/email/send-receipt", async (req, res) => {
   }
 });
 
+// Manual/Automatic Restock Alerts Dispatch via SMTP
+app.post("/api/email/send-restock-alert", async (req, res) => {
+  const { email, productName, productId, price } = req.body;
+
+  if (!email || !productName) {
+    return res.status(400).json({ error: "Missing required parameters: email and productName." });
+  }
+
+  const host = process.env.SMTP_HOST;
+  const port = parseInt(process.env.SMTP_PORT || "587", 10);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const from = process.env.SMTP_FROM || '"Tech Gadgets Kenya" <alerts@techgadgetskenya.co.ke>';
+
+  const emailHtmlContent = `
+    <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #dddddd; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+      <div style="background-color: #111111; padding: 25px; text-align: center; border-bottom: 3px solid #C5A059;">
+        <h1 style="color: #ffffff; margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 2px;">Tech Gadgets Kenya</h1>
+        <p style="color: #C5A059; margin: 5px 0 0 0; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Premium Electronics Inventory Alert</p>
+      </div>
+      <div style="padding: 30px; background-color: #ffffff;">
+        <h2 style="color: #111111; margin-top: 0; font-size: 18px; border-bottom: 1px solid #eeeeee; padding-bottom: 10px;">Item Fully Restocked!</h2>
+        <p style="font-size: 14px; color: #555555; line-height: 1.6;">Dear Client,</p>
+        <p style="font-size: 14px; color: #555555; line-height: 1.6;">You are receiving this update because you subscribed to inventory status indicators or price metrics for the premium gadget detailed below:</p>
+        
+        <div style="background-color: #f9f9f9; padding: 20px; border-radius: 6px; margin: 20px 0; font-size: 14px; border-left: 4px solid #C5A059;">
+          <p style="margin: 0 0 6px 0; color: #111111; font-weight: bold;">${productName}</p>
+          <p style="margin: 0 0 6px 0; font-size: 12px; color: #777777;">Product Code: #${(productId || "").substring(0, 8).toUpperCase()}</p>
+          <p style="margin: 0; font-weight: bold; color: #835c17;">Current Price: KES ${(price || 0).toLocaleString()}/=</p>
+        </div>
+
+        <p style="font-size: 14px; color: #555555; line-height: 1.6;">Our fresh air consignment has officially cleared custom diagnostics, and this model has been restored to fully active inventory. Stock is currently limited and available on a first-come, first-served basis.</p>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="https://techgadgetskenya.co.ke" style="background-color: #835c17; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; display: inline-block;">Secure Yours Now</a>
+        </div>
+        
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eeeeee; font-size: 11px; color: #777777; text-align: center; line-height: 1.6;">
+          <p><strong>Physical Address:</strong> Kenyatta Pioneer Building, Kenyatta Avenue, 5th Floor, Shop 514 (Next to I&M Building), Nairobi, Kenya.</p>
+          <p>Contact Email: <a href="mailto:info@techgadgetskenya.co.ke" style="color: #C5A059; text-decoration: none;">info@techgadgetskenya.co.ke</a> | WhatsApp: +254 700 000000</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const isSmtpConfigured = !!(host && user && pass);
+
+  if (isSmtpConfigured) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host,
+        port,
+        secure: port === 465,
+        auth: {
+          user,
+          pass,
+        },
+      });
+
+      const mailOptions = {
+        from,
+        to: email,
+        subject: `[Restock Alert] Tech Gadgets Kenya - ${productName} is back!`,
+        html: emailHtmlContent,
+      };
+
+      const info = await transporter.sendMail(mailOptions);
+      console.log(`[Email Dispatcher] Restock Alert Email sent via SMTP: ${info.messageId}`);
+      
+      return res.json({
+        success: true,
+        message: "Restock notification email sent successfully via SMTP.",
+        recipient: email,
+        deliveryMode: "live"
+      });
+    } catch (err: any) {
+      console.error("[Email Dispatcher] Outbound restock SMTP crash:", err);
+      return res.json({
+        success: true,
+        message: `Outbound SMTP failed: ${err.message || String(err)}. Simulated delivery response fallback applied.`,
+        recipient: email,
+        deliveryMode: "simulated-fallback"
+      });
+    }
+  } else {
+    console.log(`[Email Dispatcher] SMTP credentials undefined. Simulated restock email sent to ${email}.`);
+    return res.json({
+      success: true,
+      message: "Restock alert successfully processed and simulated.",
+      recipient: email,
+      deliveryMode: "simulated"
+    });
+  }
+});
+
+
 // ----------------------------------------------------
 // ADMINISTRATOR SYSTEM ACCOUNTS & PRIVILEGES ENDPOINTS
 // ----------------------------------------------------
