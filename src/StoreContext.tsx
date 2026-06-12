@@ -296,38 +296,55 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // 1. Authentication State Change & Synced User profile creation
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    let unsubscribeProfile: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+        unsubscribeProfile = null;
+      }
+
       if (currentUser) {
         try {
           const userDocRef = doc(db, "users", currentUser.uid);
           const userDocSnap = await getDoc(userDocRef);
           
-          let profile: UserProfile;
-          
-          // Kenya Admin bootstrapping helper
           const isAdminEmail = 
             currentUser.email === "techgadgetsk@gmail.com" || 
             currentUser.email === "admin@techgadgetskenya.co.ke";
             
-          if (userDocSnap.exists()) {
-            profile = userDocSnap.data() as UserProfile;
-            // Ensure if current user email is part of admin set, their profile reflects it dynamically
-            if (isAdminEmail && profile.role !== "admin") {
-              profile.role = "admin";
-              await updateDoc(userDocRef, { role: "admin" });
-            }
-          } else {
-            profile = {
+          let initialProfile: UserProfile;
+
+          if (!userDocSnap.exists()) {
+            initialProfile = {
               uid: currentUser.uid,
               email: currentUser.email || "",
               name: currentUser.displayName || "Valued Client",
               role: isAdminEmail ? "admin" : "customer",
               createdAt: new Date().toISOString(),
             };
-            await setDoc(userDocRef, profile);
+            await setDoc(userDocRef, initialProfile);
+            setUserProfile(initialProfile);
+          } else {
+            initialProfile = userDocSnap.data() as UserProfile;
+            if (isAdminEmail && initialProfile.role !== "admin") {
+              await updateDoc(userDocRef, { role: "admin" });
+              initialProfile.role = "admin";
+            }
+            setUserProfile(initialProfile);
           }
-          setUserProfile(profile);
+
+          // Real-time listener for the user profile document so database role promotion takes effect instantly
+          unsubscribeProfile = onSnapshot(userDocRef, (snap) => {
+            if (snap.exists()) {
+              setUserProfile(snap.data() as UserProfile);
+            }
+          }, (error) => {
+            console.error("Real-time profile sync error:", error);
+          });
+
         } catch (error) {
           console.error("Error loading user profile: ", error);
         } finally {
@@ -339,7 +356,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeProfile) unsubscribeProfile();
+    };
   }, []);
 
   // Real-time Affiliates listener
@@ -455,7 +475,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const userIsAdmin = user.email === "techgadgetsk@gmail.com" || userProfile?.role === "admin";
+    const userIsAdmin = 
+      user.email === "techgadgetsk@gmail.com" || 
+      userProfile?.role === "admin" ||
+      userProfile?.["admin-claims"] === true ||
+      userProfile?.["admin-claims"] === "admin";
     
     // Non-admin customer accounts must only retrieve their own orders to conform with security rules
     const targetRef = userIsAdmin

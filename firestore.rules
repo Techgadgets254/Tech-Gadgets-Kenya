@@ -28,8 +28,11 @@ service cloud.firestore {
       return isSignedIn() && (
         request.auth.token.email == 'techgadgetsk@gmail.com' || 
         request.auth.token.email == 'admin@techgadgetskenya.co.ke' ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data['admin-claims'] == true ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data['admin-claims'] == 'admin'
+        ))
       );
     }
 
@@ -69,7 +72,8 @@ service cloud.firestore {
     function isValidUser(data) {
       return data.email is string && data.email.size() > 0 && data.email.size() <= 300
         && data.name is string && data.name.size() <= 200
-        && data.role is string && (data.role == 'customer' || data.role == 'admin');
+        && data.role is string && (data.role == 'customer' || data.role == 'admin')
+        && (!data.keys().hasAll(['admin-claims']) || data['admin-claims'] is bool || data['admin-claims'] is string);
     }
 
     function isValidNewsletter(data) {
@@ -138,6 +142,12 @@ service cloud.firestore {
         incoming().diff(existing()).affectedKeys().hasOnly(['receiptNo', 'mpesaPhone', 'updatedAt'])
       );
       allow delete: if isAdmin();
+    }
+
+    match /transactions/{transactionId} {
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow read, list, get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update, delete: if isAdmin();
     }
 
     // Users collection:

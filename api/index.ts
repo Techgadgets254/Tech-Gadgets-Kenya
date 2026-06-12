@@ -6,7 +6,16 @@ import fs from "fs";
 import path from "path";
 import nodemailer from "nodemailer";
 import { initializeApp as serverInitApp } from "firebase/app";
-import { getFirestore as serverGetFS, doc as serverDoc, updateDoc as serverUpdateDoc, collection as serverCollection, addDoc as serverAddDoc } from "firebase/firestore";
+import { 
+  getFirestore as serverGetFS, 
+  doc as serverDoc, 
+  getDoc as serverGetDoc,
+  setDoc as serverSetDoc,
+  updateDoc as serverUpdateDoc, 
+  collection as serverCollection, 
+  addDoc as serverAddDoc,
+  getDocs as serverGetDocs 
+} from "firebase/firestore";
 
 dotenv.config();
 
@@ -110,18 +119,27 @@ app.post("/api/ai/describe", async (req, res) => {
 
   try {
     const prompt = `
-Generate a highly polished, professional product description and its corresponding technical specifications for the product "${name || "Generic Product"}".
-
-Product Context:
-- Brand: ${brand || "General Hardware"}
+Generate a highly polished, professional product profile based on the details provided:
+- Given Headline Name: ${name || "Not set/infer from outline"}
+- Given Manufacturer Brand: ${brand || "Not set/infer from outline"}
 - Category: ${category || "Electronics"}
 - Outline Idea: ${commodityDescription}
-- Specifications: ${specifications || "none"}
+- Specifications Outline: ${specifications || "none"}
+
+Your task:
+1. Identify/generate a high-end, precise retail product headline commercial name (e.g., "Apple MacBook Pro 14 M3", "Epson EcoTank L3250 Wifi Printer", "HP EliteBook 840 G10"). If the Given Headline Name is set and meaningful, reuse or polish it.
+2. Identify/generate the manufacturer brand name (e.g. "Apple", "Epson", "HP", "Samsung").
+3. Determine a stock-keeping SKU prefix based on the FIRST WORD of the product name (e.g., "APPLE", "EPSON", "HP", "SAMSUNG"), translated to uppercase, alphanumeric, no spaces or symbols.
+4. Generate a highly polished, professional product description paragraph highlighting the hardware's capabilities, target user group, and value. Keep it natural, do not use markdown bold, asterisks (*), or formatting stars.
+5. Create a clean newline-separated list of technical specifications. Format each item on a new line as 'Key: Value' (e.g. 'Processor: Core i7 13th Gen\\nMemory: 16GB LPDDR5\\nStorage: 512GB PCIe NVMe SSD\\nGraphics: Intel Iris Xe'). Do NOT include any asterisks (*) or star bullet points.
 
 Return a strictly valid JSON object structured exactly like this:
 {
-  "description": "A refined, narrative description paragraph highlighting the hardware's capabilities, target user group (developers, designers, enterprise), and value. This MUST NOT contain any markdown bold characters, asterisks (*), or formatting stars.",
-  "specifications": "A clean newline-separated list of technical specifications. Format each item on a new line as 'Key: Value' (e.g. 'Processor: Core i7 13th Gen\\nMemory: 16GB LPDDR5\\nStorage: 512GB PCIe NVMe SSD\\nGraphics: Intel Iris Xe'). This must contain standard key/value fields appropriate for the defined Category. Do NOT include any asterisks (*) or star bullet points."
+  "name": "The polished retail headline name",
+  "brand": "The manufacturer brand name",
+  "sku_base": "The uppercase first word of product name to use as SKU prefix",
+  "description": "Refined descriptive narrative...",
+  "specifications": "Key: Value\\nKey2: Value2..."
 }
 `;
 
@@ -135,20 +153,29 @@ Return a strictly valid JSON object structured exactly like this:
     });
 
     const resultText = response.text || "{}";
-    let parsedResult;
+    let parsedResult: any;
     try {
       parsedResult = JSON.parse(resultText);
     } catch (e) {
       parsedResult = {
+        name: name || "Premium Product",
+        brand: brand || "Premium Brand",
+        sku_base: (brand || name || "PROD").split(" ")[0].toUpperCase().replace(/[^A-Z0-9]/g, ""),
         description: resultText.replace(/\*/g, ""),
         specifications: "Processor: Premium Specs\nGraphics: High Performance"
       };
     }
 
+    const cleanedName = (parsedResult.name || name || "Premium Product").replace(/\*/g, "");
+    const cleanedBrand = (parsedResult.brand || brand || "Premium Brand").replace(/\*/g, "");
+    const cleanedSkuBase = (parsedResult.sku_base || "PROD").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
     const cleanedDescription = (parsedResult.description || "").replace(/\*/g, "");
     const cleanedSpecifications = (parsedResult.specifications || "").replace(/\*/g, "");
 
     res.json({ 
+      name: cleanedName,
+      brand: cleanedBrand,
+      sku_base: cleanedSkuBase,
       description: cleanedDescription,
       specifications: cleanedSpecifications
     });
@@ -318,6 +345,183 @@ app.post("/api/email/send-receipt", async (req, res) => {
       recipient: email,
       deliveryMode: "simulated"
     });
+  }
+});
+
+// ----------------------------------------------------
+// ADMINISTRATOR SYSTEM ACCOUNTS & PRIVILEGES ENDPOINTS
+// ----------------------------------------------------
+
+// Ensure default admin exists on server launch
+async function ensureDefaultAdmin() {
+  try {
+    const adminRef = serverDoc(serverDb, "admin_accounts", "techgadgetsk@gmail.com");
+    const adminSnap = await serverGetDoc(adminRef);
+    if (!adminSnap.exists()) {
+      await serverSetDoc(adminRef, {
+        username: "techgadgetsk@gmail.com",
+        password: "admin123",
+        createdAt: new Date().toISOString()
+      });
+      console.log("[Admin Setup] Seeded default administrator account successfully.");
+    }
+  } catch (e: any) {
+    console.error("[Admin Setup] Failed to seed default administrator:", e.message || e);
+  }
+}
+ensureDefaultAdmin();
+
+app.get("/api/admin/setup", async (req, res) => {
+  try {
+    await ensureDefaultAdmin();
+    res.json({ success: true, message: "Admin system check/seeding executed successfully." });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to setup admin account." });
+  }
+});
+
+app.post("/api/admin/login", async (req, res) => {
+  const { username, password, firebaseUid } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: "Username and password are required." });
+  }
+
+  try {
+    const sanitizedUsername = username.trim().toLowerCase();
+    const adminRef = serverDoc(serverDb, "admin_accounts", sanitizedUsername);
+    const adminSnap = await serverGetDoc(adminRef);
+
+    let isValid = false;
+    if (adminSnap.exists()) {
+      const data = adminSnap.data();
+      if (data.password === password) {
+        isValid = true;
+      }
+    } else if (sanitizedUsername === "techgadgetsk@gmail.com" && password === "admin123") {
+      isValid = true;
+      await serverSetDoc(adminRef, {
+        username: sanitizedUsername,
+        password: "admin123",
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    if (isValid) {
+      if (firebaseUid) {
+        // Promote logged-in client account to admin role dynamically in Firestore
+        const userRef = serverDoc(serverDb, "users", firebaseUid);
+        await serverSetDoc(userRef, {
+          role: "admin",
+          email: sanitizedUsername,
+          name: "Administrator",
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+        console.log(`[Admin Promotion] Dynamically updated role="admin" for current Firebase Session: ${firebaseUid}`);
+      }
+
+      return res.json({
+        success: true,
+        message: "Administrator credentials verified.",
+        username: sanitizedUsername
+      });
+    } else {
+      return res.status(401).json({ success: false, error: "Invalid username or password credentials." });
+    }
+  } catch (err: any) {
+    console.error("Admin login crash:", err);
+    return res.status(500).json({ error: err.message || "Internal server error during login check." });
+  }
+});
+
+app.post("/api/admin/accounts/list", async (req, res) => {
+  const { requestorUsername, requestorPassword } = req.body;
+  if (!requestorUsername || !requestorPassword) {
+    return res.status(400).json({ error: "Requestor credentials are required." });
+  }
+
+  try {
+    const adminRef = serverDoc(serverDb, "admin_accounts", requestorUsername.trim().toLowerCase());
+    const adminSnap = await serverGetDoc(adminRef);
+    if (!adminSnap.exists() || adminSnap.data()?.password !== requestorPassword) {
+      return res.status(401).json({ error: "Access Denied: Invalid requestor credentials." });
+    }
+
+    const querySnapshot = await serverGetDocs(serverCollection(serverDb, "admin_accounts"));
+    const accounts: any[] = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      accounts.push({
+        username: doc.id,
+        createdAt: data.createdAt || ""
+      });
+    });
+
+    res.json({ success: true, accounts });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to fetch administrator listings." });
+  }
+});
+
+app.post("/api/admin/accounts/change-password", async (req, res) => {
+  const { adminUsername, currentPassword, newPassword } = req.body;
+  if (!adminUsername || !currentPassword || !newPassword) {
+    return res.status(400).json({ error: "username, currentPassword, and newPassword are required parameters." });
+  }
+
+  try {
+    const sanitizedUsername = adminUsername.trim().toLowerCase();
+    const adminRef = serverDoc(serverDb, "admin_accounts", sanitizedUsername);
+    const adminSnap = await serverGetDoc(adminRef);
+
+    if (!adminSnap.exists() || adminSnap.data()?.password !== currentPassword) {
+      return res.status(401).json({ error: "Authentication failed. Invalid current password." });
+    }
+
+    await serverSetDoc(adminRef, {
+      password: newPassword,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    console.log(`[Admin Account] Password successfully changed for ${sanitizedUsername}`);
+    res.json({ success: true, message: "Password updated successfully." });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to change admin password." });
+  }
+});
+
+app.post("/api/admin/accounts/create", async (req, res) => {
+  const { newUsername, newPassword, requestorUsername, requestorPassword } = req.body;
+  if (!newUsername || !newPassword || !requestorUsername || !requestorPassword) {
+    return res.status(400).json({ error: "All parameters (newUsername, newPassword, requestorUsername, requestorPassword) are required." });
+  }
+
+  try {
+    const sanitizedRequestor = requestorUsername.trim().toLowerCase();
+    const requestorRef = serverDoc(serverDb, "admin_accounts", sanitizedRequestor);
+    const requestorSnap = await serverGetDoc(requestorRef);
+
+    if (!requestorSnap.exists() || requestorSnap.data()?.password !== requestorPassword) {
+      return res.status(401).json({ error: "Access Denied: Invalid requestor credentials." });
+    }
+
+    const sanitizedNewUsername = newUsername.trim().toLowerCase();
+    const newAdminRef = serverDoc(serverDb, "admin_accounts", sanitizedNewUsername);
+    const newAdminSnap = await serverGetDoc(newAdminRef);
+
+    if (newAdminSnap.exists()) {
+      return res.status(400).json({ error: "An administrator with that username/email already exists." });
+    }
+
+    await serverSetDoc(newAdminRef, {
+      username: sanitizedNewUsername,
+      password: newPassword,
+      createdAt: new Date().toISOString()
+    });
+
+    console.log(`[Admin Account] New administrator created: ${sanitizedNewUsername}`);
+    res.json({ success: true, message: `Administrator account ${sanitizedNewUsername} created successfully.` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to register new administrator account." });
   }
 });
 

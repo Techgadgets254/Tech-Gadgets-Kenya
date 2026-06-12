@@ -35,13 +35,15 @@ import {
   QrCode,
   Award,
   Share2,
-  Copy
+  Copy,
+  Search
 } from "lucide-react";
 import { Product, Order } from "../types";
 import { PAYSTACK_GATEWAYS } from "../data";
 import { db } from "../firebase";
+import AdminCredentialManager from "./AdminCredentialManager";
 import { collection, getDocs, onSnapshot, addDoc, setDoc, deleteDoc, doc } from "firebase/firestore";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
 
 export default function AdminDashboard() {
   const { 
@@ -62,6 +64,11 @@ export default function AdminDashboard() {
   } = useStore();
 
   const [showCreds, setShowCreds] = useState(false);
+
+  // States for stock controls and transaction queue filters
+  const [lowStockThreshold, setLowStockThreshold] = useState(5);
+  const [orderSearchQuery, setOrderSearchQuery] = useState("");
+  const [orderStatusFilter, setOrderStatusFilter] = useState("All");
 
   const stockChartData = useMemo(() => {
     return products.map(p => ({
@@ -125,7 +132,35 @@ export default function AdminDashboard() {
   }, [products, productSortField, productSortDirection]);
 
   const sortedOrders = useMemo(() => {
-    return [...orders].sort((a, b) => {
+    let filtered = [...orders];
+
+    // Filter by search query (checks orderId, customerName, customerEmail, mpesaPhone, receiptNo, etc)
+    if (orderSearchQuery.trim()) {
+      const q = orderSearchQuery.toLowerCase();
+      filtered = filtered.filter(o => 
+        o.id.toLowerCase().includes(q) ||
+        (o.customerName || "").toLowerCase().includes(q) ||
+        (o.customerEmail || "").toLowerCase().includes(q) ||
+        (o.customerPhone || "").toLowerCase().includes(q) ||
+        (o.mpesaPhone || "").toLowerCase().includes(q) ||
+        (o.receiptNo || "").toLowerCase().includes(q)
+      );
+    }
+
+    // Filter by status (handles paymentStatus and shippingStatus)
+    if (orderStatusFilter !== "All") {
+      filtered = filtered.filter(o => {
+        if (orderStatusFilter === "Paid") return o.paymentStatus === "Paid";
+        if (orderStatusFilter === "Pending") return o.paymentStatus === "Pending";
+        if (orderStatusFilter === "Failed") return o.paymentStatus === "Failed";
+        if (orderStatusFilter === "Processing") return o.shippingStatus === "Processing";
+        if (orderStatusFilter === "Shipped") return o.shippingStatus === "Shipped";
+        if (orderStatusFilter === "Delivered") return o.shippingStatus === "Delivered";
+        return true;
+      });
+    }
+
+    return filtered.sort((a, b) => {
       let valA: any = a[orderSortField];
       let valB: any = b[orderSortField];
 
@@ -140,10 +175,10 @@ export default function AdminDashboard() {
       if (valA > valB) return orderSortDirection === "asc" ? 1 : -1;
       return 0;
     });
-  }, [orders, orderSortField, orderSortDirection]);
+  }, [orders, orderSortField, orderSortDirection, orderSearchQuery, orderStatusFilter]);
 
-  // Active sub-view ("overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence")
-  const [activeSubTab, setActiveSubTab] = useState<"overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence">("overview");
+  // Active sub-view ("overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings")
+  const [activeSubTab, setActiveSubTab] = useState<"overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings">("overview");
 
   // Affiliate creation form state
   const [affiliateName, setAffiliateName] = useState("");
@@ -403,16 +438,166 @@ export default function AdminDashboard() {
   const [adminSecurityPassword, setAdminSecurityPassword] = useState("");
   const [adminPasscodePassed, setAdminPasscodePassed] = useState(false);
   const [adminAuthErr, setAdminAuthErr] = useState("");
+  const [isAdminAuthenticating, setIsAdminAuthenticating] = useState(false);
 
-  const handleSecureTerminalSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (adminUsername === "techgadgetsk@gmail.com" && adminSecurityPassword === "admin123") {
-      setAdminPasscodePassed(true);
-      setAdminAuthErr("");
-    } else {
-      setAdminAuthErr("Invalid credentials. Please use authentic administrator credentials.");
+  // States for system administrative operators directory
+  const [adminAccounts, setAdminAccounts] = useState<{ username: string; createdAt: string }[]>([]);
+  const [activeAdminTab, setActiveAdminTab] = useState<"admin_list" | "change_pw">("admin_list");
+  
+  // States for creating a new admin account
+  const [newAdminEmail, setNewAdminEmail] = useState("");
+  const [newAdminPassword, setNewAdminPassword] = useState("");
+  const [newAdminStatus, setNewAdminStatus] = useState("");
+  const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
+
+  // States for changing password of the current admin
+  const [changePwCurrent, setChangePwCurrent] = useState("");
+  const [changePwNew, setChangePwNew] = useState("");
+  const [changePwConfirm, setChangePwConfirm] = useState("");
+  const [changePwStatus, setChangePwStatus] = useState("");
+  const [isChangingPw, setIsChangingPw] = useState(false);
+
+  const fetchAdminAccountsList = async (reqUsername = adminUsername, reqPassword = adminSecurityPassword) => {
+    try {
+      const response = await fetch("/api/admin/accounts/list", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestorUsername: reqUsername,
+          requestorPassword: reqPassword
+        })
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setAdminAccounts(data.accounts || []);
+      }
+    } catch (err) {
+      console.error("Failed fetching admins list:", err);
     }
   };
+
+  const handleCreateNewAdminAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAdminEmail || !newAdminPassword) {
+      setNewAdminStatus("Please fill in all security parameter details.");
+      return;
+    }
+    setIsCreatingAdmin(true);
+    setNewAdminStatus("");
+    try {
+      const response = await fetch("/api/admin/accounts/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          newUsername: newAdminEmail,
+          newPassword: newAdminPassword,
+          requestorUsername: adminUsername,
+          requestorPassword: adminSecurityPassword
+        })
+      });
+      const result = await response.json();
+      if (response.ok && result.success) {
+        setNewAdminStatus("✔ Admin account registered perfectly!");
+        setNewAdminEmail("");
+        setNewAdminPassword("");
+        fetchAdminAccountsList();
+      } else {
+        setNewAdminStatus(`❌ Error: ${result.error || "Could not register admin."}`);
+      }
+    } catch (err: any) {
+      setNewAdminStatus(`❌ Network error: ${err.message || String(err)}`);
+    } finally {
+      setIsCreatingAdmin(false);
+    }
+  };
+
+  const handleChangeAdminPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!changePwCurrent || !changePwNew || !changePwConfirm) {
+      setChangePwStatus("All parameter entries are required.");
+      return;
+    }
+    if (changePwNew !== changePwConfirm) {
+      setChangePwStatus("New configurations do not match. Re-enter password.");
+      return;
+    }
+    setIsChangingPw(true);
+    setChangePwStatus("");
+    try {
+      const response = await fetch("/api/admin/accounts/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminUsername: adminUsername,
+          currentPassword: changePwCurrent,
+          newPassword: changePwNew
+        })
+      });
+      const result = await response.json();
+      if (response.ok && result.success) {
+        setChangePwStatus("✔ Password updated successfully in database!");
+        setAdminSecurityPassword(changePwNew); // update active password reference
+        setChangePwCurrent("");
+        setChangePwNew("");
+        setChangePwConfirm("");
+      } else {
+        setChangePwStatus(`❌ Error: ${result.error || "Password change rejected."}`);
+      }
+    } catch (err: any) {
+      setChangePwStatus(`❌ Network error: ${err.message || String(err)}`);
+    } finally {
+      setIsChangingPw(false);
+    }
+  };
+
+  const handleSecureTerminalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminUsername || !adminSecurityPassword) {
+      setAdminAuthErr("Please enter both username and password.");
+      return;
+    }
+
+    setIsAdminAuthenticating(true);
+    setAdminAuthErr("");
+
+    try {
+      const response = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: adminUsername,
+          password: adminSecurityPassword,
+          firebaseUid: user?.uid
+        })
+      });
+
+      const result = await response.json();
+      if (response.ok && result.success) {
+        setAdminPasscodePassed(true);
+        setAdminAuthErr("");
+        fetchAdminAccountsList(adminUsername, adminSecurityPassword);
+      } else {
+        setAdminAuthErr(result.error || "Invalid credentials. Please use authentic administrator credentials.");
+      }
+    } catch (err: any) {
+      console.error("[Admin Signin Error]:", err);
+      // Absolute fallback using hardcoded credentials if server cannot compute / boot delay
+      if (adminUsername === "techgadgetsk@gmail.com" && adminSecurityPassword === "admin123") {
+        setAdminPasscodePassed(true);
+        setAdminAuthErr("");
+      } else {
+        setAdminAuthErr("Communication failure with authentication service. Try standard default key.");
+      }
+    } finally {
+      setIsAdminAuthenticating(false);
+    }
+  };
+
+  useEffect(() => {
+    if (adminPasscodePassed) {
+      fetchAdminAccountsList();
+    }
+  }, [adminPasscodePassed]);
 
   // Product addition state (Supporting up to 5 total image attachments)
   const [isEditing, setIsEditing] = useState<string | null>(null); // holds productId while editing
@@ -495,7 +680,7 @@ export default function AdminDashboard() {
     setAiGeneratingDescription(true);
     setAiError("");
     try {
-      let data: { description?: string; specifications?: string } = {};
+      let data: { name?: string; brand?: string; sku_base?: string; description?: string; specifications?: string } = {};
       let handledByServer = false;
 
       // 1. First choice: Use full-stack express server proxy
@@ -535,18 +720,27 @@ export default function AdminDashboard() {
           const clientAi = new GoogleGenAI({ apiKey: clientApiKey });
 
           const prompt = `
-Generate a highly polished, professional product description and its corresponding technical specifications for the product "${productForm.name || "Generic Product"}".
-
-Product Context:
-- Brand: ${productForm.brand || "General Hardware"}
+Generate a highly polished, professional product profile based on the details provided:
+- Given Headline Name: ${productForm.name || "Not set/infer from outline"}
+- Given Manufacturer Brand: ${productForm.brand || "Not set/infer from outline"}
 - Category: ${productForm.category || "Electronics"}
 - Outline Idea: ${productForm.description}
-- Specifications: ${productForm.specificationsStr || "none"}
+- Specifications Outline: ${productForm.specificationsStr || "none"}
+
+Your task:
+1. Identify/generate a high-end, precise retail product headline commercial name (e.g., "Apple MacBook Pro 14 M3", "Epson EcoTank L3250 Wifi Printer", "HP EliteBook 840 G10"). If the Given Headline Name is set and meaningful, reuse or polish it.
+2. Identify/generate the manufacturer brand name (e.g. "Apple", "Epson", "HP", "Samsung").
+3. Determine a stock-keeping SKU prefix based on the FIRST WORD of the product name (e.g., "APPLE", "EPSON", "HP", "SAMSUNG"), translated to uppercase, alphanumeric, no spaces or symbols.
+4. Generate a highly polished, professional product description paragraph highlighting the hardware's capabilities, target user group, and value. Keep it natural, do not use markdown bold, asterisks (*), or formatting stars.
+5. Create a clean newline-separated list of technical specifications. Format each item on a new line as 'Key: Value' (e.g. 'Processor: Core i7 13th Gen\\nMemory: 16GB LPDDR5\\nStorage: 512GB PCIe NVMe SSD\\nGraphics: Intel Iris Xe'). Do NOT include any asterisks (*) or star bullet points.
 
 Return a strictly valid JSON object structured exactly like this:
 {
-  "description": "A refined, narrative description paragraph highlighting the hardware's capabilities, target user group (developers, designers, enterprise), and value. This MUST NOT contain any markdown bold characters, asterisks (*), or formatting stars.",
-  "specifications": "A clean newline-separated list of technical specifications. Format each item on a new line as 'Key: Value' (e.g. 'Processor: Core i7 13th Gen\\nMemory: 16GB LPDDR5\\nStorage: 512GB PCIe NVMe SSD\\nGraphics: Intel Iris Xe'). This must contain standard key/value fields appropriate for the defined Category. Do NOT include any asterisks (*) or star bullet points."
+  "name": "The polished retail headline name",
+  "brand": "The manufacturer brand name",
+  "sku_base": "The uppercase first word of product name to use as SKU prefix",
+  "description": "Refined descriptive narrative...",
+  "specifications": "Key: Value\\nKey2: Value2..."
 }
 `;
 
@@ -560,17 +754,23 @@ Return a strictly valid JSON object structured exactly like this:
           });
 
           const resultText = response.text || "{}";
-          let parsedResult;
+          let parsedResult: any;
           try {
             parsedResult = JSON.parse(resultText);
           } catch (e) {
             parsedResult = {
+              name: productForm.name || "Premium Product",
+              brand: productForm.brand || "Premium Brand",
+              sku_base: (productForm.brand || productForm.name || "PROD").split(" ")[0].toUpperCase().replace(/[^A-Z0-9]/g, ""),
               description: resultText.replace(/\*/g, ""),
               specifications: "Processor: Premium Specs\nGraphics: High Performance"
             };
           }
 
           data = {
+            name: (parsedResult.name || "").replace(/\*/g, ""),
+            brand: (parsedResult.brand || "").replace(/\*/g, ""),
+            sku_base: (parsedResult.sku_base || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase(),
             description: (parsedResult.description || "").replace(/\*/g, ""),
             specifications: (parsedResult.specifications || "").replace(/\*/g, "")
           };
@@ -583,11 +783,35 @@ Return a strictly valid JSON object structured exactly like this:
       }
 
       if (data.description) {
+        // Calculate sequence number for SKU: count products having SKUs starting with sku_base prefix
+        const basePrefix = (data.sku_base || data.brand || "PROD").split(" ")[0].replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+        const matchedProducts = products.filter(p => p.sku && p.sku.toUpperCase().startsWith(`${basePrefix}-`));
+        const seqNumber = matchedProducts.length + 1;
+        const finalGeneratedSku = `${basePrefix}-${String(seqNumber).padStart(3, "0")}`; // e.g., APPLE-001, EPSON-002
+
+        // Automatically change the categories base condition setup if brand or name changes to keep categories clean
+        let finalBaseCategory = adminBaseCategory;
+        const nameAndBrandText = `${data.brand} ${data.name}`.toLowerCase();
+        if (nameAndBrandText.includes("laptop")) finalBaseCategory = "Laptops";
+        else if (nameAndBrandText.includes("phone")) finalBaseCategory = "Phones";
+        else if (nameAndBrandText.includes("desktop")) finalBaseCategory = "Desktops";
+        else if (nameAndBrandText.includes("printer")) finalBaseCategory = "Printers";
+        else if (nameAndBrandText.includes("accessory") || nameAndBrandText.includes("accessories")) finalBaseCategory = "Accessories";
+        else if (nameAndBrandText.includes("all-in-one")) finalBaseCategory = "All-in-One PCs";
+
         setProductForm(prev => ({
           ...prev,
+          name: data.name || prev.name,
+          brand: data.brand || prev.brand,
+          sku: finalGeneratedSku,
           description: data.description!,
           specificationsStr: data.specifications || prev.specificationsStr
         }));
+        
+        if (finalBaseCategory !== adminBaseCategory) {
+          setAdminBaseCategory(finalBaseCategory);
+          handleCategoryChoiceChange(finalBaseCategory, adminCondition);
+        }
       } else {
         throw new Error("Invalid response format from generator.");
       }
@@ -638,6 +862,68 @@ Return a strictly valid JSON object structured exactly like this:
     } catch (e: any) {
       console.error(e);
       alert("Error generating inventory CSV export: " + e.message);
+    }
+  };
+
+  const handleExportOrdersCSV = () => {
+    try {
+      const headers = [
+        "orderId", 
+        "customerName", 
+        "customerEmail", 
+        "customerPhone",
+        "shippingAddress", 
+        "paymentStatus", 
+        "shipmentStatus", 
+        "totalAmount", 
+        "paymentProvider", 
+        "receiptNo", 
+        "createdAt", 
+        "itemCount", 
+        "items"
+      ];
+      
+      const escapeCSVField = (field: any) => {
+        const str = String(field || "");
+        if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      const csvRows = [headers.join(",")];
+      for (const ord of orders) {
+        const itemsSummary = (ord.items || []).map((it: any) => `${it.brand} ${it.name} (x${it.quantity})`).join(" | ");
+        const row = [
+          escapeCSVField(ord.id),
+          escapeCSVField(ord.customerName),
+          escapeCSVField(ord.customerEmail),
+          escapeCSVField(ord.customerPhone),
+          escapeCSVField(ord.shippingAddress),
+          escapeCSVField(ord.paymentStatus),
+          escapeCSVField(ord.shippingStatus || "Processing"),
+          ord.totalAmount,
+          escapeCSVField(ord.paymentProvider || "Paystack"),
+          escapeCSVField(ord.receiptNo || "N/A"),
+          escapeCSVField(ord.createdAt),
+          (ord.items || []).reduce((sum: number, it: any) => sum + (it.quantity || 1), 0),
+          escapeCSVField(itemsSummary)
+        ];
+        csvRows.push(row.join(","));
+      }
+
+      const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `tech_gadgets_transactions_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e: any) {
+      console.error("Failed exporting transactions CSV:", e);
+      alert("Failed to export transactions report: " + e.message);
     }
   };
 
@@ -864,7 +1150,7 @@ Return a strictly valid JSON object structured exactly like this:
   const metrics = useMemo(() => {
     const paidOrders = orders.filter(o => o.paymentStatus === "Paid");
     const totalSalesValue = paidOrders.reduce((sum, o) => sum + o.totalAmount, 0);
-    const lowStockCount = products.filter(p => p.stock <= 5).length;
+    const lowStockCount = products.filter(p => p.stock <= lowStockThreshold).length;
     const pendingOrdersCount = orders.filter(o => o.paymentStatus === "Pending").length;
 
     const referralOrders = orders.filter(o => o.referralCode);
@@ -948,7 +1234,35 @@ Return a strictly valid JSON object structured exactly like this:
       brandSalesValues,
       categorySalesData
     };
-  }, [products, orders]);
+  }, [products, orders, lowStockThreshold]);
+
+  const hourlyOrDailyRevenueData = useMemo(() => {
+    // Generate dates for the last 30 days
+    const days: { [dateStr: string]: number } = {};
+    const now = new Date();
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const dateKey = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      days[dateKey] = 0;
+    }
+
+    // Aggregate paid orders total amounts by date
+    orders.forEach((or) => {
+      if (or.paymentStatus === "Paid" && or.createdAt) {
+        const orderDate = new Date(or.createdAt);
+        const dateKey = orderDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        if (days[dateKey] !== undefined) {
+          days[dateKey] += or.totalAmount || 0;
+        }
+      }
+    });
+
+    // Map to recharts format
+    return Object.keys(days).map((date) => ({
+      formattedDate: date,
+      revenue: days[date]
+    }));
+  }, [orders]);
 
   // Security Gate: Ensure user email matches our target permission setup in the rules
   const userIsAdmin = user?.email === "techgadgetsk@gmail.com" || user?.email === "admin@techgadgetskenya.co.ke" || userProfile?.role === "admin";
@@ -1189,6 +1503,7 @@ Return a strictly valid JSON object structured exactly like this:
             { id: "affiliates", label: "Affiliate Codes" },
             { id: "price_alerts", label: `Price Alerts (${priceAlerts.length})` },
             { id: "intelligence", label: "Store Intelligence" },
+            { id: "admin_settings", label: "Admin Credentials" },
             { id: "trash", label: `Trash Bin (${trashItems.length})` }
           ].map(tab => (
             <button
@@ -1261,7 +1576,7 @@ Return a strictly valid JSON object structured exactly like this:
               <p className="text-white/30 text-[10px] mt-3 font-mono">Live on storefront grids</p>
             </div>
 
-            <div className="bg-red-500/5 border border-red-500/25 p-6 rounded-3xl shadow-xs">
+            <div className="bg-red-500/5 border border-red-500/25 p-6 rounded-3xl shadow-xs relative overflow-hidden">
               <div className="flex justify-between items-start">
                 <div>
                   <span className="text-[10px] text-red-400 font-mono block tracking-wider uppercase">STOCK WARNINGS</span>
@@ -1273,7 +1588,20 @@ Return a strictly valid JSON object structured exactly like this:
                   <AlertTriangle className="w-5 h-5 text-red-400" />
                 </div>
               </div>
-              <p className="text-red-400 text-[10px] mt-3 font-mono font-bold">Item counts &le; 5 units pool</p>
+              <div className="mt-3 flex items-center justify-between gap-1.5 border-t border-red-500/10 pt-3">
+                <span className="text-red-400/60 text-[9px] font-mono font-bold uppercase">THRESHOLD:</span>
+                <div className="flex items-center gap-1 bg-black/40 border border-red-500/20 rounded-md px-1.5 py-0.5">
+                  <input 
+                    type="number" 
+                    min="1" 
+                    max="100"
+                    value={lowStockThreshold}
+                    onChange={(e) => setLowStockThreshold(Math.max(1, Number(e.target.value)))}
+                    className="w-10 text-center bg-transparent border-none text-red-400 font-mono text-xs font-black focus:outline-hidden"
+                  />
+                  <span className="text-[10px] text-red-400/45 font-mono">units</span>
+                </div>
+              </div>
             </div>
 
           </div>
@@ -1294,7 +1622,7 @@ Return a strictly valid JSON object structured exactly like this:
               <div className="flex gap-4 text-xs font-mono">
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-3 bg-red-500/80 rounded-sm inline-block" />
-                  <span className="text-white/50">Low Stock (&le; 5)</span>
+                  <span className="text-white/50">Low Stock (&le; {lowStockThreshold})</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-3 bg-[#C5A059]/40 rounded-sm inline-block" />
@@ -1326,7 +1654,7 @@ Return a strictly valid JSON object structured exactly like this:
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
-                        const isLow = data.stock <= 5;
+                        const isLow = data.stock <= lowStockThreshold;
                         return (
                           <div 
                             style={{ backgroundColor: tooltipBg, borderColor: tooltipBorder }}
@@ -1350,7 +1678,7 @@ Return a strictly valid JSON object structured exactly like this:
                   />
                   <Bar dataKey="stock" fill="#C5A059" radius={[4, 4, 0, 0]} maxBarSize={32}>
                     {stockChartData.map((entry, index) => {
-                      const isLow = entry.stock <= 5;
+                      const isLow = entry.stock <= lowStockThreshold;
                       return (
                         <Cell 
                           key={`cell-${index}`} 
@@ -1361,6 +1689,67 @@ Return a strictly valid JSON object structured exactly like this:
                     })}
                   </Bar>
                 </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* 30-DAY DAILY REVENUE TRENDS LINE GRAPH */}
+          <div className="bg-[#0F0F0F] border border-white/10 p-6 rounded-3xl shadow-xs animate-fadeIn">
+            <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-white/10 pb-4">
+              <div>
+                <h3 className="text-white font-semibold text-base font-sans flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-[#C5A059]" />
+                  <span>30-Day Daily Revenue Trends (KES)</span>
+                </h3>
+                <p className="text-white/40 text-xs mt-1">
+                  Visualize sales growth and daily inbound revenue generated from successfully processed Paystack orders.
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] text-white/40 block font-mono uppercase">TOTAL LAST 30 DAYS</span>
+                <span className="text-md font-sans text-emerald-400 font-bold">
+                  KES {hourlyOrDailyRevenueData.reduce((acc, curr) => acc + curr.revenue, 0).toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            <div className="w-full h-80 pt-2 font-mono">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                <LineChart data={hourlyOrDailyRevenueData} margin={{ top: 15, right: 30, left: -10, bottom: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
+                  <XAxis 
+                    dataKey="formattedDate" 
+                    stroke={axisColor} 
+                    fontSize={10} 
+                    tickLine={false} 
+                    dy={10}
+                  />
+                  <YAxis 
+                    stroke={axisColor} 
+                    fontSize={10} 
+                    tickLine={false} 
+                    dx={-5}
+                    tickFormatter={(val) => `KES ${val >= 1000 ? (val / 1000).toFixed(0) + 'k' : val}`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: tooltipBg, 
+                      borderColor: tooltipBorder,
+                      borderRadius: "12px"
+                    }}
+                    itemStyle={{ color: tooltipTextColor }}
+                    labelStyle={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}
+                    formatter={(value: any) => [`KES ${value.toLocaleString()}`, "Inbound Revenue"]}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="revenue" 
+                    stroke="#C5A059" 
+                    strokeWidth={3} 
+                    dot={{ r: 4, strokeWidth: 1, stroke: "#151515" }} 
+                    activeDot={{ r: 6, strokeWidth: 2 }}
+                  />
+                </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
@@ -2114,10 +2503,57 @@ Return a strictly valid JSON object structured exactly like this:
 
       {/* FULFILLMENT QUEUE QUEUE STATE */}
       {activeSubTab === "orders" && (
-        <div className="space-y-4">
+        <div className="space-y-4 animate-fadeIn">
           <div className="flex justify-between items-center text-xs font-mono text-white/40 font-bold">
             <span>DISPATCH QUEUE PROCESSING FLOW</span>
             <span>REAL-TIME SNAPSHOT CONNECTED</span>
+          </div>
+
+          {/* SEARCH BAR AND FILTERS ROW */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/[0.02] p-4 rounded-3xl border border-white/5 shadow-inner">
+            <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center flex-1">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-white/30 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search orders (ID, client name, email, phone, paycode)..."
+                  value={orderSearchQuery}
+                  onChange={(e) => setOrderSearchQuery(e.target.value)}
+                  className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder:text-white/30 focus:border-[#C5A059] focus:outline-hidden transition-all font-mono"
+                />
+                {orderSearchQuery && (
+                  <button 
+                    onClick={() => setOrderSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white text-xs font-bold font-mono"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <select
+                  value={orderStatusFilter}
+                  onChange={(e) => setOrderStatusFilter(e.target.value)}
+                  className="bg-[#0A0A0A] border border-white/10 text-white rounded-xl px-3 py-2 text-xs focus:border-[#C5A059] focus:outline-hidden font-mono cursor-pointer"
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="Pending">Pending Payments</option>
+                  <option value="Paid">Paid (Verified)</option>
+                  <option value="Failed">Failed Payments</option>
+                  <option value="Processing">Processing Shipment</option>
+                  <option value="Shipped">Shipped Goods</option>
+                  <option value="Delivered">Delivered Cargo</option>
+                </select>
+              </div>
+            </div>
+            
+            <button
+              onClick={handleExportOrdersCSV}
+              className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 text-emerald-400 font-mono text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all select-none cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export Transactions CSV</span>
+            </button>
           </div>
 
           <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl overflow-hidden shadow-xs">
@@ -2125,6 +2561,11 @@ Return a strictly valid JSON object structured exactly like this:
               <div className="py-20 text-center font-mono text-xs text-white/30">
                 <FolderMinus className="w-10 h-10 text-white/20 mx-auto mb-2" />
                 <span>No active client purchases in fulfillment collections.</span>
+              </div>
+            ) : sortedOrders.length === 0 ? (
+              <div className="py-20 text-center font-mono text-xs text-white/30">
+                <FolderMinus className="w-10 h-10 text-white/20 mx-auto mb-2" />
+                <span>No transaction records match specified search terms or status conditions.</span>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -3144,6 +3585,26 @@ Return a strictly valid JSON object structured exactly like this:
               </>
             );
           })()}
+        </div>
+      )}
+
+      {/* SYSTEM ADMINISTRATOR CREDENTIALS PANEL */}
+      {activeSubTab === "admin_settings" && (
+        <div className="space-y-8 animate-fadeIn text-[#E0E0E0]">
+          
+          {/* Section Header */}
+          <div className="bg-[#111111] border border-white/10 p-6 rounded-3xl text-left">
+            <h2 className="text-sm font-sans font-semibold text-[#C5A059] flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-[#C5A059]" />
+              <span>Privilege Configuration & Credentials Management</span>
+            </h2>
+            <p className="text-[11px] font-mono text-white/40 mt-1 uppercase tracking-wider">
+              Rotate key security codes, register joint operators, update Firebase auth credentials, and audit administrative claims.
+            </p>
+          </div>
+
+          <AdminCredentialManager currentAdminEmail={adminUsername} />
+
         </div>
       )}
 
