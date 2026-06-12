@@ -5,6 +5,7 @@
 
 import React, { useState } from "react";
 import { useStore } from "../StoreContext";
+import { motion } from "motion/react";
 import { 
   Laptop, 
   Smartphone, 
@@ -37,6 +38,15 @@ export default function HomeView() {
   } = useStore();
 
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
+
+  const sectionVariants: any = {
+    hidden: { opacity: 0, y: 25 },
+    visible: { 
+      opacity: 1, 
+      y: 0, 
+      transition: { duration: 0.6, ease: "easeOut" } 
+    }
+  };
 
   const faqData = [
     {
@@ -83,7 +93,12 @@ export default function HomeView() {
   return (
     <div id="home-view-container" className="animate-fadeIn">
       {/* 1. Interactive Premium Hero Banner */}
-      <section className="bg-gradient-to-br from-[#0F0F0F] via-[#121212] to-[#0A0A0A] border border-white/10 text-white rounded-3xl overflow-hidden p-6 sm:p-12 relative shadow-2xl mb-12">
+      <motion.section
+        initial="hidden"
+        animate="visible"
+        variants={sectionVariants}
+        className="bg-gradient-to-br from-[#0F0F0F] via-[#121212] to-[#0A0A0A] border border-white/10 text-white rounded-3xl overflow-hidden p-6 sm:p-12 relative shadow-2xl mb-12"
+      >
         <div className="absolute top-4 right-4 bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/30 px-3 py-1 rounded-full text-xs font-mono font-bold flex items-center gap-1.5 backdrop-blur-xs z-20">
           <Sparkles className="w-3.5 h-3.5" />
           <span>Safaricom STK-Push Online</span>
@@ -173,10 +188,16 @@ export default function HomeView() {
 
         {/* Ambient backdrop gradient glow */}
         <div className="absolute right-0 bottom-0 top-0 w-1/2 bg-gradient-to-l from-[#C5A059]/10 to-transparent pointer-events-none hidden md:block z-0" />
-      </section>
+      </motion.section>
 
       {/* 2. Structured Category Selection Grid */}
-      <section className="mb-14">
+      <motion.section
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-50px" }}
+        variants={sectionVariants}
+        className="mb-14"
+      >
         <div className="flex justify-between items-end mb-6">
           <div>
             <h2 className="font-sans font-medium text-2xl tracking-tight text-white">
@@ -230,10 +251,16 @@ export default function HomeView() {
             );
           })}
         </div>
-      </section>
+      </motion.section>
 
       {/* 3. Featured Premium Products Selector */}
-      <section className="mb-14">
+      <motion.section
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-50px" }}
+        variants={sectionVariants}
+        className="mb-14"
+      >
         <div className="flex justify-between items-end mb-6">
           <div>
             <h2 className="font-sans font-medium text-2xl tracking-tight text-white">
@@ -366,10 +393,16 @@ export default function HomeView() {
             })}
           </div>
         )}
-      </section>
+      </motion.section>
 
       {/* 4. Dedicated Premium Laptops Listings Showcase */}
-      <section className="mb-14">
+      <motion.section
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-50px" }}
+        variants={sectionVariants}
+        className="mb-14"
+      >
         <div className="flex justify-between items-end mb-6">
           <div>
             <h2 className="font-sans font-medium text-2xl tracking-tight text-white flex items-center gap-2">
@@ -510,10 +543,17 @@ export default function HomeView() {
               })}
           </div>
         )}
-      </section>
+      </motion.section>
 
       {/* 3. Interactive FAQ Section */}
-      <section id="distribution-faq" className="mb-12">
+      <motion.section
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-50px" }}
+        variants={sectionVariants}
+        id="distribution-faq"
+        className="mb-12"
+      >
         <div className="flex items-center gap-3 mb-6">
           <div className="p-2 bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/30 rounded-xl">
             <HelpCircle className="w-5 h-5 text-[#C5A059]" />
@@ -557,10 +597,16 @@ export default function HomeView() {
             );
           })}
         </div>
-      </section>
+      </motion.section>
 
       {/* 4. Trust Banner */}
-      <section className="bg-[#0F0F0F] border border-white/10 rounded-2xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+      <motion.section
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-50px" }}
+        variants={sectionVariants}
+        className="bg-[#0F0F0F] border border-white/10 rounded-2xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6"
+      >
         <div className="max-w-xl">
           <h3 className="font-serif italic text-lg font-light tracking-wide text-white">
             Secure Safaricom Till Verification
@@ -583,7 +629,7 @@ export default function HomeView() {
             </p>
           </div>
         </div>
-      </section>
+      </motion.section>
     </div>
   );
 }

@@ -865,6 +865,48 @@ Return a strictly valid JSON object structured exactly like this:
     }
   };
 
+  const handleExportWhatsAppJSON = () => {
+    try {
+      const formattedProducts = products.map((p) => {
+        // Inferred condition based on category
+        const categoryLower = p.category.toLowerCase();
+        let condition = "new";
+        if (categoryLower.includes("refurbished") || categoryLower.includes("pre-owned") || categoryLower.includes("used")) {
+          condition = "refurbished";
+        }
+
+        // Availability map
+        const availability = p.stock > 0 ? "in stock" : "out of stock";
+
+        return {
+          id: p.id || p.sku || `PROD-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+          title: p.name.length > 150 ? p.name.substring(0, 147) + "..." : p.name,
+          description: p.description || `${p.brand} ${p.name} premium hardware`,
+          availability: availability,
+          condition: condition,
+          price: `${p.price} KES`,
+          link: `${window.location.origin}/?view=product-details&id=${p.id}`,
+          image_link: p.image || "https://images.unsplash.com/photo-1546868871-7041f2a55e12",
+          brand: p.brand || "Tech Gadgets"
+        };
+      });
+
+      const jsonString = JSON.stringify(formattedProducts, null, 2);
+      const blob = new Blob([jsonString], { type: "application/json;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `whatsapp_business_catalog_${new Date().toISOString().slice(0, 10)}.json`);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e: any) {
+      console.error(e);
+      alert("Error generating WhatsApp Business Catalog JSON export: " + e.message);
+    }
+  };
+
   const handleExportOrdersCSV = () => {
     try {
       const headers = [
@@ -2265,6 +2307,17 @@ Return a strictly valid JSON object structured exactly like this:
                   >
                     <Download className="w-3.5 h-3.5 text-[#C5A059]" />
                     <span>Export CSV</span>
+                  </button>
+
+                  {/* WhatsApp Business Catalog JSON Export Button */}
+                  <button
+                    type="button"
+                    onClick={handleExportWhatsAppJSON}
+                    className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/25 font-sans text-xs font-semibold py-2 px-3 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                    title="Export current inventory into structured JSON compatible with WhatsApp Business Catalog import format"
+                  >
+                    <Download className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>WhatsApp Catalog JSON</span>
                   </button>
 
                   {/* Import CSV File Selector */}
