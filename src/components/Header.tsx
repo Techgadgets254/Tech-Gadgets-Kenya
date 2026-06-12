@@ -105,7 +105,11 @@ export default function Header() {
   return (
     <header 
       id="storefront-header" 
-      className="sticky top-0 z-50 bg-[#0F0F0F]/95 backdrop-blur-md border-b border-white/10 shadow-xl transition-all"
+      className={`sticky top-0 z-50 backdrop-blur-md border-b shadow-xl transition-all ${
+        theme === "light"
+          ? "bg-white/95 border-[#E7E2D8] text-[#1c1917]"
+          : "bg-[#0F0F0F]/95 border-white/10 text-white"
+      }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="h-16 flex items-center justify-between gap-4">
@@ -323,7 +327,11 @@ export default function Header() {
             {/* Theme Toggle Button */}
             <button
               onClick={toggleTheme}
-              className="p-2.5 text-white/70 hover:text-[#C5A059] rounded-xl transition-all border border-white/10 hover:bg-[#1A1A1A] group focus:outline-none cursor-pointer"
+              className={`p-2.5 rounded-xl transition-all border focus:outline-none cursor-pointer group ${
+                theme === "light"
+                  ? "text-[#a0782c] border-[#D0C9BD] hover:bg-[#F3EFE7]"
+                  : "text-white/70 hover:text-[#C5A059] border-white/10 hover:bg-[#1A1A1A]"
+              }`}
               title={`Switch to ${theme === "dark" ? "Light" : "Dark"} Mode`}
             >
               {theme === "dark" ? (
@@ -455,7 +463,11 @@ export default function Header() {
       </div>
 
       {/* Mobile Search Bar Block (Optimized experience) */}
-      <div className="md:hidden px-4 pb-3 pt-1 bg-[#0F0F0F] border-b border-white/10">
+      <div className={`md:hidden px-4 pb-3 pt-1 border-b ${
+        theme === "light"
+          ? "bg-white border-[#E7E2D8]"
+          : "bg-[#0F0F0F] border-white/10"
+      }`}>
         <div id="mobile-search-bar" className="relative flex items-center group">
           <Search className="w-3.5 h-3.5 text-white/30 absolute left-3 pointer-events-none group-focus-within:text-[#C5A059]" />
           <input

@@ -129,6 +129,19 @@ export default function AdminCredentialManager({ currentAdminEmail }: AdminCrede
       const syncResult = await syncResponse.json();
 
       if (isFirebaseAuthRotated || (syncResponse.ok && syncResult.success)) {
+        // Safe, indelible audit log entry
+        try {
+          await setDoc(doc(collection(db, "audit_logs")), {
+            action: "password_change",
+            details: `Rotated administrative credentials for operator: '${authUserEmail || currentAdminEmail}'`,
+            adminEmail: auth.currentUser?.email || currentAdminEmail || "unknown@admin.com",
+            adminUid: auth.currentUser?.uid || "N/A",
+            createdAt: new Date().toISOString()
+          });
+        } catch (logErr) {
+          console.error("Failed writing credentials rotation audit log:", logErr);
+        }
+
         setRotateStatus({
           success: true,
           message: `✔ Credentials rotated safely! ${isFirebaseAuthRotated ? "Firebase Auth system synced." : ""} ${syncResponse.ok ? "Local terminal db passcode active." : ""}`
@@ -197,6 +210,19 @@ export default function AdminCredentialManager({ currentAdminEmail }: AdminCrede
         password: newPassword,
         createdAt: new Date().toISOString()
       });
+
+      // Write secure, indelible audit log
+      try {
+        await setDoc(doc(collection(db, "audit_logs")), {
+          action: "admin_create",
+          details: `Provisioned and registered new administrative joint operator: '${sanitizedEmail}'`,
+          adminEmail: auth.currentUser?.email || currentAdminEmail || "unknown@admin.com",
+          adminUid: auth.currentUser?.uid || "N/A",
+          createdAt: new Date().toISOString()
+        });
+      } catch (logErr) {
+        console.error("Failed writing co-operator creation audit log:", logErr);
+      }
 
       setRegisterStatus({
         success: true,

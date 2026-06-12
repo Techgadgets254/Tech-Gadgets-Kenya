@@ -111,6 +111,19 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["productId", "userId", "userName", "rating", "comment", "createdAt"]
+    },
+    "audit_log": {
+      "title": "Audit Log",
+      "description": "Tracks administrative actions like product updates, password changes, and exports for accountability",
+      "type": "object",
+      "properties": {
+        "action": { "type": "string", "description": "The administrative action category (e.g. product_creation, password_change, bulk_export)" },
+        "details": { "type": "string", "description": "Explanatory human-readable details of the action" },
+        "adminEmail": { "type": "string", "description": "Email of the administrative personnel performing the action" },
+        "adminUid": { "type": "string", "description": "User UID of the admin if signed in" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["action", "details", "adminEmail", "createdAt"]
     }
   },
   "firestore": {
@@ -145,6 +158,10 @@
     "/reviews/{reviewId}": {
       "schema": "review",
       "description": "Product reviews and ratings submitted by store customers"
+    },
+    "/audit_logs/{logId}": {
+      "schema": "audit_log",
+      "description": "Comprehensive security and operational logs tracking administrative actions"
     }
   }
 }

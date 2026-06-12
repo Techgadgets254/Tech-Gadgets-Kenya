@@ -178,3 +178,27 @@ html.light-theme .text-red-400 {
   color: #b91c1c !important;
 }
 
+/* Strict Content Protection - Prevent selection, copy, and downloading/dragging of page contents */
+* {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Allow selection in text input and editable content fields for standard forms */
+input, textarea, select, [contenteditable="true"] {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+/* Lock images from being dragged or downloaded */
+img {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+
+

@@ -28,6 +28,29 @@ function StoreLayout() {
     window.scrollTo(0, 0);
   }, [activeView]);
 
+  React.useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "c" || e.key === "u" || e.key === "s" || e.key === "x")) {
+        e.preventDefault();
+      }
+      if (e.key === "F12") {
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener("contextmenu", handleContextMenu);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("contextmenu", handleContextMenu);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
   const seoData = React.useMemo(() => {
     switch (activeView) {
       case "home":

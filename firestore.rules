@@ -113,6 +113,14 @@ service cloud.firestore {
         && data.createdAt is string && data.createdAt.size() <= 100;
     }
 
+    function isValidAuditLog(data) {
+      return data.action is string && data.action.size() > 0 && data.action.size() <= 100
+        && data.details is string && data.details.size() > 0 && data.details.size() <= 1000
+        && data.adminEmail is string && data.adminEmail.size() > 0 && data.adminEmail.size() <= 300
+        && (!data.keys().hasAll(['adminUid']) || (data.adminUid is string && data.adminUid.size() <= 128))
+        && data.createdAt is string && data.createdAt.size() <= 100;
+    }
+
     // --- Collection Routes ---
 
     // Products collection: anybody can browse (read/list), only admins can edit products
@@ -210,6 +218,13 @@ service cloud.firestore {
       allow read, list: if true;
       allow create: if isSignedIn() && isValidReview(incoming()) && incoming().userId == request.auth.uid;
       allow delete, update: if isAdmin();
+    }
+
+    // Audit logs:
+    // - Secure and indelible. Only admin can retrieve and record audit logs.
+    match /audit_logs/{logId} {
+      allow create, read, list: if isAdmin() && isValidAuditLog(incoming());
+      allow update, delete: if false;
     }
   }
 }

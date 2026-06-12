@@ -42,7 +42,7 @@ import { Product, Order } from "../types";
 import { PAYSTACK_GATEWAYS } from "../data";
 import { db } from "../firebase";
 import AdminCredentialManager from "./AdminCredentialManager";
-import { collection, getDocs, onSnapshot, addDoc, setDoc, deleteDoc, doc } from "firebase/firestore";
+import { collection, getDocs, onSnapshot, addDoc, setDoc, deleteDoc, doc, query, orderBy, limit } from "firebase/firestore";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
 
 export default function AdminDashboard() {
@@ -177,8 +177,63 @@ export default function AdminDashboard() {
     });
   }, [orders, orderSortField, orderSortDirection, orderSearchQuery, orderStatusFilter]);
 
-  // Active sub-view ("overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings")
-  const [activeSubTab, setActiveSubTab] = useState<"overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings">("overview");
+  // Active sub-view ("overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs")
+  const [activeSubTab, setActiveSubTab] = useState<"overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs">("overview");
+
+  // Secure Audit Logs tracking state
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [loadingAuditLogs, setLoadingAuditLogs] = useState(false);
+  const [auditLogSearch, setAuditLogSearch] = useState("");
+
+  const logAdminAction = async (action: string, details: string) => {
+    try {
+      if (!user) return;
+      await addDoc(collection(db, "audit_logs"), {
+        action,
+        details,
+        adminEmail: user.email || "unknown@admin.com",
+        adminUid: user.uid,
+        createdAt: new Date().toISOString()
+      });
+    } catch (err) {
+      console.error("Failed to write audit log:", err);
+    }
+  };
+
+  // Live synchronizer for Audit Logs registry
+  useEffect(() => {
+    if (activeSubTab !== "audit_logs") return;
+    setLoadingAuditLogs(true);
+    const q = query(
+      collection(db, "audit_logs"),
+      orderBy("createdAt", "desc"),
+      limit(250)
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const logs = snapshot.docs.map(docSnap => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      }));
+      setAuditLogs(logs);
+      setLoadingAuditLogs(false);
+    }, (error) => {
+      console.error("Failed reading audit logs in realtime:", error);
+      setLoadingAuditLogs(false);
+    });
+    return () => unsubscribe();
+  }, [activeSubTab]);
+
+  // Derived filtered security audit logs matching query search inputs
+  const filteredAuditLogs = useMemo(() => {
+    return auditLogs.filter(log => {
+      const q = auditLogSearch.toLowerCase();
+      return (
+        (log.action || "").toLowerCase().includes(q) ||
+        (log.details || "").toLowerCase().includes(q) ||
+        (log.adminEmail || "").toLowerCase().includes(q)
+      );
+    });
+  }, [auditLogs, auditLogSearch]);
 
   // Affiliate creation form state
   const [affiliateName, setAffiliateName] = useState("");
@@ -411,7 +466,7 @@ export default function AdminDashboard() {
     setCampaignModalOpen(false);
   };
 
-  const handleExportNewslettersCSV = () => {
+  const handleExportNewslettersCSV = async () => {
     try {
       const headers = ["email", "subscribedAt", "status"];
       const csvRows = [headers.join(",")];
@@ -427,6 +482,7 @@ export default function AdminDashboard() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      await logAdminAction("bulk_export", `Exported newsletter subscriber catalog: ${subscribers.length} profiles (CSV format)`);
     } catch (e) {
       console.error(e);
       alert("Failed exporting subscriber databases.");
@@ -823,7 +879,7 @@ Return a strictly valid JSON object structured exactly like this:
     }
   };
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     try {
       const headers = ["id", "name", "brand", "category", "price", "stock", "description", "image", "tags"];
       const escapeCSVField = (field: any) => {
@@ -859,13 +915,14 @@ Return a strictly valid JSON object structured exactly like this:
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      await logAdminAction("bulk_export", `Exported active product inventory: ${products.length} records (CSV format)`);
     } catch (e: any) {
       console.error(e);
       alert("Error generating inventory CSV export: " + e.message);
     }
   };
 
-  const handleExportWhatsAppJSON = () => {
+  const handleExportWhatsAppJSON = async () => {
     try {
       const formattedProducts = products.map((p) => {
         // Inferred condition based on category
@@ -901,13 +958,14 @@ Return a strictly valid JSON object structured exactly like this:
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      await logAdminAction("bulk_export", `Exported WhatsApp Business Catalog: ${products.length} items (JSON format)`);
     } catch (e: any) {
       console.error(e);
       alert("Error generating WhatsApp Business Catalog JSON export: " + e.message);
     }
   };
 
-  const handleExportOrdersCSV = () => {
+  const handleExportOrdersCSV = async () => {
     try {
       const headers = [
         "orderId", 
@@ -963,6 +1021,7 @@ Return a strictly valid JSON object structured exactly like this:
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      await logAdminAction("bulk_export", `Exported transactions ledger registry: ${orders.length} transaction records (CSV format)`);
     } catch (e: any) {
       console.error("Failed exporting transactions CSV:", e);
       alert("Failed to export transactions report: " + e.message);
@@ -979,6 +1038,7 @@ Return a strictly valid JSON object structured exactly like this:
       try {
         const text = reader.result as string;
         const insertedCount = await importProductsCSV(text);
+        await logAdminAction("bulk_import", `Bulk ingested and live-synchronized ${insertedCount} catalog records from CSV document`);
         setCsvUploadState({
           loading: false,
           successMsg: `Successfully imported ${insertedCount} custom products bulk into live databases!`,
@@ -1042,6 +1102,7 @@ Return a strictly valid JSON object structured exactly like this:
         const pids = [...selectedProductIds];
         setSelectedProductIds([]); // Clear early
         await Promise.all(pids.map(id => removeProduct(id)));
+        await logAdminAction("bulk_delete", `Moved ${pids.length} products to Trash bin directory. IDs: ${pids.join(", ")}`);
         setActionSuccessNotification("Bulk deletion completed! Items moved to Trash.");
         setTimeout(() => setActionSuccessNotification(""), 5000);
       } catch (err: any) {
@@ -1077,6 +1138,7 @@ Return a strictly valid JSON object structured exactly like this:
 
       await setDoc(doc(db, "products", docId), cleanProductData);
       await deleteDoc(doc(db, "trash", trashId));
+      await logAdminAction("product_restore", `Restored catalog profile for "${pName}" (ID: ${docId}) from Trash back to active stock`);
       
       setActionSuccessNotification(`Product "${pName}" restored successfully!`);
       setTimeout(() => setActionSuccessNotification(""), 5000);
@@ -1477,9 +1539,11 @@ Return a strictly valid JSON object structured exactly like this:
     try {
       if (isEditing) {
         await editProduct(isEditing, payload);
+        await logAdminAction("product_edit", `Edited product "${payload.name}" (Price: ${payload.price} KES, Stock: ${payload.stock})`);
         setActionSuccessNotification(`✓ Product updated successfully! "${payload.name}" has been refreshed.`);
       } else {
         await addProduct(payload);
+        await logAdminAction("product_creation", `Created product "${payload.name}" (Price: ${payload.price} KES, Stock: ${payload.stock})`);
         setActionSuccessNotification(`✓ Product added successfully! "${payload.name}" is now live on the storefront.`);
       }
       setTimeout(() => setActionSuccessNotification(""), 5000);
@@ -1499,6 +1563,7 @@ Return a strictly valid JSON object structured exactly like this:
       const receiptNo = payStatus === "Paid" && !currentOrder.receiptNo ? "ADM" + Math.floor(Math.random() * 10000000) : currentOrder.receiptNo;
       
       await updateOrderStatus(orderId, payStatus, shipStatus, receiptNo);
+      await logAdminAction("order_update", `Fulfillment queue update on Order #${orderId}: Payment set to "${payStatus}", Shipping set to "${shipStatus}"`);
     } catch (e) {
       console.error(e);
       alert("Authentication error updating order states.");
@@ -1546,6 +1611,7 @@ Return a strictly valid JSON object structured exactly like this:
             { id: "price_alerts", label: `Price Alerts (${priceAlerts.length})` },
             { id: "intelligence", label: "Store Intelligence" },
             { id: "admin_settings", label: "Admin Credentials" },
+            { id: "audit_logs", label: "Audit Logs" },
             { id: "trash", label: `Trash Bin (${trashItems.length})` }
           ].map(tab => (
             <button
@@ -2524,6 +2590,7 @@ Return a strictly valid JSON object structured exactly like this:
                                     try {
                                       setActionSuccessNotification(`Removing "${p.name}"...`);
                                       await removeProduct(p.id);
+                                      await logAdminAction("product_delete", `Deleted product "${p.name}" (ID: ${p.id}) and moved it to Trash`);
                                       setSelectedProductIds(prev => prev.filter(id => id !== p.id));
                                       setActionSuccessNotification(`Product "${p.name}" removed and moved to Trash.`);
                                       setTimeout(() => setActionSuccessNotification(""), 5000);
@@ -3163,6 +3230,7 @@ Return a strictly valid JSON object structured exactly like this:
                         discountValue: Number(affiliateDiscountValue),
                         active: true
                       });
+                      await logAdminAction("affiliate_create", `Registered affiliate partner "${affiliateName}" with coupon code "${affiliateCode.trim().toUpperCase()}"`);
                       setActionSuccessNotification(`Affiliate "${affiliateCode.toUpperCase()}" registered successfully!`);
                       setTimeout(() => setActionSuccessNotification(""), 4000);
                       setAffiliateName("");
@@ -3308,7 +3376,10 @@ Return a strictly valid JSON object structured exactly like this:
                           <td className="p-4 text-center">
                             <button
                               type="button"
-                              onClick={() => toggleAffiliate(aff.id, !aff.active)}
+                              onClick={async () => {
+                                await toggleAffiliate(aff.id, !aff.active);
+                                await logAdminAction("affiliate_toggle", `Configured affiliate partner status for "${aff.name}" (Code: ${aff.code}) to ${!aff.active ? "Active" : "Disabled"}`);
+                              }}
                               className={`px-2 py-1 rounded-md text-[9px] font-mono tracking-wider font-bold capitalize transition-all cursor-pointer ${
                                 aff.active
                                   ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
@@ -3324,6 +3395,7 @@ Return a strictly valid JSON object structured exactly like this:
                               onClick={async () => {
                                 if (confirm(`Decommission and delete affiliate partner code for ${aff.name}?`)) {
                                   await deleteAffiliate(aff.id);
+                                  await logAdminAction("affiliate_delete", `Decommissioned and purged affiliate partner: "${aff.name}" (Code: ${aff.code})`);
                                   setActionSuccessNotification("Partner record purged from system registry.");
                                   setTimeout(() => setActionSuccessNotification(""), 3000);
                                 }
@@ -3658,6 +3730,101 @@ Return a strictly valid JSON object structured exactly like this:
 
           <AdminCredentialManager currentAdminEmail={adminUsername} />
 
+        </div>
+      )}
+
+      {/* SYSTEM OPERATIONS REGISTRY (AUDIT LOGS) */}
+      {activeSubTab === "audit_logs" && (
+        <div id="admin-audit-logs-tab" className="space-y-6 animate-fadeIn text-[#E0E0E0] text-left">
+          
+          {/* Section Header */}
+          <div className="bg-[#111111] border border-white/10 p-6 rounded-3xl">
+            <h2 className="text-sm font-sans font-semibold text-[#C5A059] flex items-center gap-2">
+              <ShieldAlert className="w-4.5 h-4.5 text-[#C5A059]" />
+              <span>Access Security Audit Registry</span>
+            </h2>
+            <p className="text-[11px] font-mono text-white/40 mt-1 uppercase tracking-wider">
+              Secure, indelible legal ledger documenting administrative action logs, bulk catalog operations, credential rotations, and data exports.
+            </p>
+          </div>
+
+          <div className="bg-[#0b0b0b] border border-white/5 p-6 rounded-3xl space-y-6">
+            {/* Filter controls */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="relative flex-1 w-full">
+                <Search className="w-4 h-4 text-white/30 absolute left-4 top-1/2 -translate-y-1/2 text-left" />
+                <input
+                  type="text"
+                  value={auditLogSearch}
+                  onChange={(e) => setAuditLogSearch(e.target.value)}
+                  placeholder="Search logs by action category, operators, or event details..."
+                  className="w-full bg-white/[0.02] border border-white/10 focus:border-[#C5A059] focus:outline-none rounded-xl pl-11 pr-4 py-2.5 text-xs text-white placeholder:text-white/20 transition-all text-left font-sans"
+                />
+              </div>
+              <span className="text-[10px] uppercase font-mono text-white/30 shrink-0 bg-white/5 border border-white/5 px-3 py-1.5 rounded-lg">
+                Loaded {filteredAuditLogs.length} Records (most recent 250)
+              </span>
+            </div>
+
+            {loadingAuditLogs ? (
+              <div className="py-20 flex flex-col items-center justify-center gap-3">
+                <Loader2 className="w-6 h-6 animate-spin text-[#C5A059]" />
+                <p className="text-[11px] font-mono text-white/30 uppercase tracking-wider">Retrieving forensic log ledger...</p>
+              </div>
+            ) : filteredAuditLogs.length === 0 ? (
+              <div className="py-20 text-center">
+                <p className="text-xs text-white/30 font-mono">No security records match your current filter query.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-white/5">
+                <table className="w-full text-left border-collapse" id="audit-logs-ledger-table">
+                  <thead>
+                    <tr className="bg-white/[0.02] border-b border-white/10 text-[9px] font-mono tracking-wider text-white/45 uppercase">
+                      <th className="p-3.5">Security Timestamp</th>
+                      <th className="p-3.5">Action Event</th>
+                      <th className="p-3.5">Audit Trails / Mutation Details</th>
+                      <th className="p-3.5">Authorized Administrator</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5 text-xs font-sans">
+                    {filteredAuditLogs.map((log, idx) => {
+                      let badgeStyle = "bg-zinc-500/15 text-zinc-400 border border-zinc-500/20";
+                      if (log.action === "product_creation") badgeStyle = "bg-emerald-500/15 text-emerald-400 border border-emerald-500/15";
+                      else if (log.action === "product_edit") badgeStyle = "bg-blue-500/15 text-blue-400 border border-blue-500/15";
+                      else if (log.action === "product_delete" || log.action === "bulk_delete") badgeStyle = "bg-red-500/15 text-red-400 border border-red-500/15";
+                      else if (log.action === "password_change") badgeStyle = "bg-amber-500/15 text-amber-500 border border-amber-500/15";
+                      else if (log.action === "bulk_export") badgeStyle = "bg-purple-500/15 text-purple-400 border border-purple-500/15";
+                      else if (log.action === "bulk_import") badgeStyle = "bg-sky-500/15 text-[#0EA5E9] border border-sky-500/15";
+                      else if (log.action === "admin_create") badgeStyle = "bg-indigo-500/15 text-indigo-400 border border-indigo-500/15";
+                      else if (log.action === "affiliate_create") badgeStyle = "bg-teal-500/15 text-teal-400 border border-teal-500/15";
+                      else if (log.action === "affiliate_toggle") badgeStyle = "bg-yellow-500/15 text-yellow-400 border border-yellow-500/15";
+                      else if (log.action === "affiliate_delete") badgeStyle = "bg-rose-500/15 text-rose-400 border border-rose-500/15";
+
+                      return (
+                        <tr key={log.id || idx} className="hover:bg-white/[0.01] transition-colors leading-relaxed">
+                          <td className="p-3.5 font-mono text-white/30 text-[10px] whitespace-nowrap">
+                            {new Date(log.createdAt).toLocaleDateString("en-KE")} at {new Date(log.createdAt).toLocaleTimeString("en-KE", { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          </td>
+                          <td className="p-3.5 whitespace-nowrap">
+                            <span className={`px-2.5 py-1 rounded-md font-mono text-[9px] uppercase tracking-wider font-bold ${badgeStyle}`}>
+                              {log.action || "MUTATION"}
+                            </span>
+                          </td>
+                          <td className="p-3.5 font-medium text-white/90 font-mono text-[11px] max-w-sm break-all">
+                            {log.details || "Administrative modification"}
+                          </td>
+                          <td className="p-3.5 font-mono text-[10px]">
+                            <div className="text-white/80 font-bold">{log.adminEmail}</div>
+                            <div className="text-white/20 text-[8px] mt-0.5 truncate max-w-[150px]">UID: {log.adminUid || "N/A"}</div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
