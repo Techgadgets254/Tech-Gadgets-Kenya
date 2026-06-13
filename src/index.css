@@ -61,6 +61,9 @@ html.light-theme #storefront-footer a:hover {
   color: #a0782c !important;
 }
 
+/* Base blocks */
+html.light-theme section,
+html.light-theme article,
 html.light-theme .bg-[#050505],
 html.light-theme .bg-[#0A0A0A],
 html.light-theme .bg-[#0C0C0C],
@@ -86,6 +89,25 @@ html.light-theme .bg-neutral-900 {
   color: #1c1917 !important;
 }
 
+/* Gradient backgrounds (e.g. Hero banner, cards styling) */
+html.light-theme .bg-gradient-to-br,
+html.light-theme .bg-gradient-to-b,
+html.light-theme .bg-gradient-to-r,
+html.light-theme .bg-gradient-to-t {
+  background-image: linear-gradient(to bottom right, #FCFBF9, #F4F1EB) !important;
+  color: #1c1917 !important;
+  border-color: #D6CFCE !important;
+}
+
+/* Semi-transparent sands/clays */
+html.light-theme .bg-[#050505]/95,
+html.light-theme .bg-[#0F0F0F]/95,
+html.light-theme .bg-[#0E0E0E]/95,
+html.light-theme .bg-[#0C0C0C]/95,
+html.light-theme .bg-black/80,
+html.light-theme .bg-black/85,
+html.light-theme .bg-black/95,
+html.light-theme .bg-black/50,
 html.light-theme .bg-black\/40,
 html.light-theme .bg-black\/30,
 html.light-theme .bg-black\/60,
@@ -98,10 +120,13 @@ html.light-theme .bg-white\/\[0\.06\],
 html.light-theme .bg-white\/\[0\.08\],
 html.light-theme .bg-white\/5,
 html.light-theme .bg-white\/10 {
-  background-color: #F1ECE2 !important; /* Elegant Warm Sand */
+  background-color: #F8F5EE !important; /* Premium Warm Sand Alabaster */
   color: #1c1917 !important;
 }
 
+/* Borders mapping */
+html.light-theme border,
+html.light-theme .border,
 html.light-theme .border-white\/20,
 html.light-theme .border-white\/10,
 html.light-theme .border-white\/5,
@@ -109,9 +134,16 @@ html.light-theme .border-zinc-800,
 html.light-theme .border-zinc-700,
 html.light-theme .border-white\/15,
 html.light-theme .border-neutral-800 {
-  border-color: #DCD6CD !important; /* Elegant sandstone boundaries */
+  border-color: #E2DDD5 !important; /* Soft sandstone bounds */
 }
 
+/* Texts contrast */
+html.light-theme h1,
+html.light-theme h2,
+html.light-theme h3,
+html.light-theme h4,
+html.light-theme h5,
+html.light-theme h6,
 html.light-theme .text-white,
 html.light-theme .text-zinc-100,
 html.light-theme .text-zinc-200 {
@@ -132,10 +164,19 @@ html.light-theme .text-white\/90,
 html.light-theme .text-zinc-300,
 html.light-theme .text-zinc-400,
 html.light-theme .text-zinc-500 {
-  color: #3e3a35 !important; /* Premium Readable Warm Charcoal grey (WCAG 4.5:1 ratio compliant) */
+  color: #514B42 !important; /* Ultra-readable WCAG contrast ratio criteria compliant */
 }
 
-/* Accessible Light Theme Button Background Overrides */
+/* Header & Glass Navigations */
+html.light-theme header,
+html.light-theme nav,
+html.light-theme .sticky {
+  background-color: rgba(252, 251, 249, 0.94) !important;
+  border-bottom-color: #E2DDD5 !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+/* Accessible Light Theme Button Background Overrides - White Text */
 html.light-theme .bg-\[\#C5A059\] {
   background-color: #835c17 !important; /* Deep WCAG-compliant active bronze-gold for white-text buttons */
   color: #ffffff !important;
@@ -155,6 +196,18 @@ html.light-theme button.bg-\[\#C5A059\]:hover {
   background-color: #704e12 !important;
 }
 
+/* Maintain crisp white text inside gold active badges and links */
+html.light-theme .bg-\[\#C5A059\] *,
+html.light-theme button.bg-\[\#C5A059\] *,
+html.light-theme .bg-emerald-600,
+html.light-theme .bg-red-600,
+html.light-theme button.bg-emerald-600,
+html.light-theme button.bg-red-600,
+html.light-theme a.bg-\[\#C5A059\],
+html.light-theme .bg-\[\#835c17\] {
+  color: #ffffff !important;
+}
+
 /* Dividers & Borders Compatibility */
 html.light-theme .divide-white\/5,
 html.light-theme .divide-white\/10,
@@ -165,16 +218,25 @@ html.light-theme .divide-zinc-700 {
 
 /* Hover highlights to match Light Sandpaper Warmth */
 html.light-theme .hover\:bg-white\/\[0\.01\]:hover,
-html.light-theme .hover\:bg-white\/5:hover {
+html.light-theme .hover\:bg-white\/5:hover,
+html.light-theme .hover\:bg-\[\#0C0C0C\]:hover {
   background-color: #EFECE6 !important;
 }
 
+/* Form parameters and elements */
 html.light-theme input,
 html.light-theme textarea,
 html.light-theme select {
-  background-color: #ffffff !important;
+  background-color: #FCFBF9 !important;
   color: #1c1917 !important;
-  border-color: #D0C9BD !important;
+  border: 1px solid #CFC7B9 !important;
+}
+
+html.light-theme input:focus,
+html.light-theme textarea:focus,
+html.light-theme select:focus {
+  border-color: #835c17 !important;
+  background-color: #ffffff !important;
 }
 
 html.light-theme input::placeholder {

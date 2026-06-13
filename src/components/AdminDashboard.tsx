@@ -1240,7 +1240,15 @@ Return a strictly valid JSON object structured exactly like this:
         deleted: false
       };
 
-      await setDoc(doc(db, "products", docId), cleanProductData);
+      const productRef = doc(db, "products", docId);
+      // We set deleted: false explicitly on Firestore and merge it with any existing fields 
+      // of the original product so we preserve custom reviews, stats, and metadata perfectly
+      await setDoc(productRef, {
+        ...cleanProductData,
+        deleted: false,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
       await deleteDoc(doc(db, "trash", trashId));
       await logAdminAction("product_restore", `Restored catalog profile for "${pName}" (ID: ${docId}) from Trash back to active stock`);
       
@@ -1523,22 +1531,10 @@ Return a strictly valid JSON object structured exactly like this:
           </button>
         </form>
 
-        <div className="mt-6 border-t border-white/5 pt-4">
-          <button
-            type="button"
-            onClick={() => setShowCreds(prev => !prev)}
-            className="text-[10px] font-mono text-[#C5A059] hover:underline cursor-pointer flex items-center gap-1 uppercase tracking-wider text-left bg-transparent border-0 p-0"
-          >
-            <span>{showCreds ? "Hide" : "Show"} sandbox admin credentials</span>
-          </button>
-          
-          {showCreds && (
-            <p className="text-[10px] text-white/35 font-mono mt-2.5 leading-relaxed bg-black/40 p-3 rounded-xl border border-white/5 animate-fadeIn">
-              Default administrative credentials:<br/>
-              Email: <span className="text-[#C5A059] font-bold">techgadgetsk@gmail.com</span><br/>
-              Passphrase: <span className="text-[#C5A059] font-bold">admin123</span>
-            </p>
-          )}
+        <div className="mt-6 border-t border-white/5 pt-2 text-center">
+          <p className="text-[10px] text-white/20 font-mono">
+            Authorized access only. Terminal sessions are actively monitored and logged.
+          </p>
         </div>
       </div>
     );

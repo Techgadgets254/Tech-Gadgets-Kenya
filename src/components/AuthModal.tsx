@@ -175,7 +175,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
 
   return (
     <div 
-      className="fixed inset-0 z-[160] overflow-y-auto flex items-center justify-center p-4 sm:p-6" 
+      className="fixed inset-0 z-[1000] overflow-y-auto" 
       id="auth-modal-overlay"
     >
       {/* Dark overlay backdrop */}
@@ -184,21 +184,22 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={handleClose}
-        className="fixed inset-0 bg-black/80 backdrop-blur-md"
+        className="fixed inset-0 bg-black/80 backdrop-blur-md z-0"
       />
 
-      {/* Centering bounds scroll container with max-h and flex constraints */}
-      <div className="relative z-10 w-full max-w-md my-auto flex items-center justify-center">
-        {/* Floating Modal Card */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 15 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          className={`w-full ${
-            isLight ? "bg-white border-[#DCD6CD] text-zinc-900" : "bg-[#0F0F0F] border-white/10 text-white"
-          } border rounded-3xl p-6 sm:p-8 shadow-2xl relative text-left max-h-[92vh] overflow-y-auto flex flex-col`}
-          id="auth-modal-card"
-        >
+      {/* Center content wrapper with relative positioning, padding and top z-index */}
+      <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 relative z-10">
+        <div className="w-full max-w-md relative">
+          {/* Floating Modal Card */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 15 }}
+            className={`w-full ${
+              isLight ? "bg-white border-[#DCD6CD] text-zinc-900" : "bg-[#0F0F0F] border-white/10 text-white"
+            } border rounded-3xl p-6 sm:p-8 shadow-2xl relative text-left max-h-[85vh] sm:max-h-[90vh] overflow-y-auto flex flex-col`}
+            id="auth-modal-card"
+          >
           {/* Subtle gold line accent */}
           <div className="absolute top-0 left-12 w-32 h-1 bg-[#C5A059] blur-md opacity-40" />
 
@@ -471,5 +472,6 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
         </motion.div>
       </div>
     </div>
+  </div>
   );
 }
