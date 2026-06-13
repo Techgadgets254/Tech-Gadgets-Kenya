@@ -129,7 +129,7 @@ export default function LoginModal({ isOpen, onClose, onGoogleLogin }: LoginModa
   };
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto flex items-start sm:items-center justify-center p-4" id="login-modal-overlay">
+    <div className="fixed inset-0 z-[100] overflow-y-auto flex items-center justify-center p-4 sm:p-6" id="login-modal-overlay">
       {/* Dark overlay backdrop */}
       <motion.div 
         initial={{ opacity: 0 }}
@@ -139,14 +139,16 @@ export default function LoginModal({ isOpen, onClose, onGoogleLogin }: LoginModa
         className="fixed inset-0 bg-black/80 backdrop-blur-md"
       />
 
-      {/* Floating Modal Card */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 15 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 15 }}
-        className="w-full max-w-md bg-[#0A0A0A] border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl relative z-10 text-left overflow-hidden text-white my-auto"
-        id="login-modal-card"
-      >
+      {/* Centering bounds scroll container with max-h and flex constraints */}
+      <div className="relative z-10 w-full max-w-md my-auto flex items-center justify-center">
+        {/* Floating Modal Card */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 15 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 15 }}
+          className="w-full bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl relative text-left text-white max-h-[90vh] overflow-y-auto"
+          id="login-modal-card"
+        >
         {/* Subtle decorative glow effect */}
         <div className="absolute top-0 left-12 w-32 h-1 bg-[#C5A059] blur-md opacity-30" />
 
@@ -325,6 +327,7 @@ export default function LoginModal({ isOpen, onClose, onGoogleLogin }: LoginModa
           <span className="text-[9px] text-white/20">Secure OAuth 2.0 Enabled</span>
         </div>
       </motion.div>
+      </div>
     </div>
   );
 }

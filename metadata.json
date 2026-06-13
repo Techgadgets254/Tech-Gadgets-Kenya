@@ -1,5 +1,5 @@
 {
-  "name": "Remix: Tech Gadgets Kenya",
+  "name": "Tech Gadgets Kenya",
   "description": "Premium electronics store with live inventory management, user authentication, M-Pesa tracking, and a client dashboard with downloadable invoices.",
   "requestFramePermissions": [
     "camera"

@@ -66,10 +66,21 @@ html.light-theme .bg-[#0A0A0A],
 html.light-theme .bg-[#0C0C0C],
 html.light-theme .bg-[#0D0D0D],
 html.light-theme .bg-[#0F0F0F],
-html.light-theme .bg-[#1A1A1A],
+html.light-theme .bg-[#111],
+html.light-theme .bg-[#111111],
+html.light-theme .bg-[#121212],
+html.light-theme .bg-[#141414],
+html.light-theme .bg-[#151515],
+html.light-theme .bg-[#161616],
+html.light-theme .bg-[#181818],
+html.light-theme .bg-[#1a1a1a],
+html.light-theme .bg-[#1c1c1c],
+html.light-theme .bg-[#1e1e1e],
+html.light-theme .bg-[#222],
 html.light-theme .bg-black,
 html.light-theme .bg-zinc-950,
 html.light-theme .bg-zinc-900,
+html.light-theme .bg-zinc-800,
 html.light-theme .bg-neutral-900 {
   background-color: #ffffff !important;
   color: #1c1917 !important;
@@ -78,19 +89,27 @@ html.light-theme .bg-neutral-900 {
 html.light-theme .bg-black\/40,
 html.light-theme .bg-black\/30,
 html.light-theme .bg-black\/60,
+html.light-theme .bg-white\/\[0\.01\],
+html.light-theme .bg-white\/\[0\.02\],
 html.light-theme .bg-white\/\[0\.03\],
+html.light-theme .bg-white\/\[0\.04\],
+html.light-theme .bg-white\/\[0\.05\],
+html.light-theme .bg-white\/\[0\.06\],
+html.light-theme .bg-white\/\[0\.08\],
 html.light-theme .bg-white\/5,
 html.light-theme .bg-white\/10 {
-  background-color: #F3EFE7 !important; /* Elegant Warm Sand */
+  background-color: #F1ECE2 !important; /* Elegant Warm Sand */
+  color: #1c1917 !important;
 }
 
+html.light-theme .border-white\/20,
 html.light-theme .border-white\/10,
 html.light-theme .border-white\/5,
 html.light-theme .border-zinc-800,
 html.light-theme .border-zinc-700,
 html.light-theme .border-white\/15,
 html.light-theme .border-neutral-800 {
-  border-color: #E7E2D8 !important; /* Elegant sandstone boundaries */
+  border-color: #DCD6CD !important; /* Elegant sandstone boundaries */
 }
 
 html.light-theme .text-white,

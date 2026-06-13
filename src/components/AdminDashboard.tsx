@@ -1233,7 +1233,8 @@ Return a strictly valid JSON object structured exactly like this:
         reviews: Array.isArray(productData.reviews) ? productData.reviews : [],
         tags: Array.isArray(productData.tags) ? productData.tags : [],
         createdAt: productData.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        deleted: false
       };
 
       await setDoc(doc(db, "products", docId), cleanProductData);

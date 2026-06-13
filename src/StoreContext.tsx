@@ -483,11 +483,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const unsubscribe = onSnapshot(productsQuery, async (snapshot) => {
         const items: Product[] = [];
         snapshot.forEach((d) => {
-          items.push({ id: d.id, ...d.data() } as Product);
+          const data = d.data();
+          if (data.deleted !== true) {
+            items.push({ id: d.id, ...data } as Product);
+          }
         });
         
-        // Seed if zero products exist (Dynamic Store Self-Seeding)
-        if (items.length === 0) {
+        // Seed if zero products exist in the entire collection (snapshot is completely empty)
+        if (snapshot.empty) {
           console.log("No products found in Firestore. Seeding premium selection...");
           try {
             for (const item of DEFAULT_PRODUCTS) {
@@ -501,7 +504,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             handleFirestoreError(e, OperationType.WRITE, "products");
           }
         } else {
-          // Since we ordered the query, items are already sorted, but let's ensure order
+          // Since we ordered the query, active items are sorted, but let's ensure order
           const sorted = [...items].sort((a, b) => {
             const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
             const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
@@ -962,9 +965,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
       }
       const productRef = doc(db, "products", id);
-      await deleteDoc(productRef);
+      // Merely update product with deleted: true
+      await updateDoc(productRef, {
+        deleted: true,
+        updatedAt: new Date().toISOString()
+      });
     } catch (e) {
-      handleFirestoreError(e, OperationType.DELETE, `products/${id}`);
+      handleFirestoreError(e, OperationType.UPDATE, `products/${id}`);
     }
   };
 
