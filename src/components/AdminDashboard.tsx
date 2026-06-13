@@ -71,6 +71,68 @@ export default function AdminDashboard() {
   const [orderSearchQuery, setOrderSearchQuery] = useState("");
   const [orderStatusFilter, setOrderStatusFilter] = useState("All");
 
+  // Real-time onSnapshot listeners specifically for the Quick Snapshot widget
+  const [snapshotOrders, setSnapshotOrders] = useState<Order[]>([]);
+  const [snapshotLoading, setSnapshotLoading] = useState(true);
+
+  useEffect(() => {
+    const ordersCol = collection(db, "orders");
+    const unsubscribe = onSnapshot(ordersCol, (snapshot) => {
+      const list: Order[] = [];
+      snapshot.forEach((d) => {
+        list.push({ id: d.id, ...d.data() } as Order);
+      });
+      setSnapshotOrders(list);
+      setSnapshotLoading(false);
+    }, (error) => {
+      console.error("Snapshot error for Quick Snapshot widget:", error);
+    });
+    return unsubscribe;
+  }, []);
+
+  const quickSnapshotMetrics = useMemo(() => {
+    const todayStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    
+    // Revenue for orders created today that are successfully Paid
+    const todayOrders = snapshotOrders.filter(o => {
+      if (!o.createdAt) return false;
+      const orderDateStr = typeof o.createdAt === "string" 
+        ? o.createdAt.split("T")[0] 
+        : new Date((o.createdAt as any)?.seconds * 1000).toISOString().split("T")[0];
+      return orderDateStr === todayStr && o.paymentStatus === "Paid";
+    });
+    
+    const todayRevenue = todayOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    const pendingOrdersCount = snapshotOrders.filter(o => o.paymentStatus === "Pending").length;
+    
+    // Top 3 selling products aggregated across all orders
+    const productCounts: Record<string, { name: string; quantity: number; brand: string }> = {};
+    snapshotOrders.forEach(o => {
+      if (o.items) {
+        o.items.forEach(item => {
+          if (!productCounts[item.productId]) {
+            productCounts[item.productId] = {
+              name: item.name,
+              brand: item.brand,
+              quantity: 0
+            };
+          }
+          productCounts[item.productId].quantity += (item.quantity || 1);
+        });
+      }
+    });
+    
+    const topProducts = Object.values(productCounts)
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 3);
+      
+    return {
+      todayRevenue,
+      pendingOrdersCount,
+      topProducts
+    };
+  }, [snapshotOrders]);
+
   const stockChartData = useMemo(() => {
     return products.map(p => ({
       name: p.name.length > 15 ? p.name.substring(0, 13) + "..." : p.name,
@@ -761,8 +823,8 @@ export default function AdminDashboard() {
   const [aiError, setAiError] = useState("");
 
   const handleGenerateAIDescription = async () => {
-    if (!productForm.description.trim()) {
-      setAiError("Please write a commodity description first so Gemini can generate the technical details.");
+    if (!productForm.name.trim()) {
+      setAiError("Please write a Product Name first so Gemini can advisor-generate the technical details and description.");
       return;
     }
     setAiGeneratingDescription(true);
@@ -812,14 +874,14 @@ Generate a highly polished, professional product profile based on the details pr
 - Given Headline Name: ${productForm.name || "Not set/infer from outline"}
 - Given Manufacturer Brand: ${productForm.brand || "Not set/infer from outline"}
 - Category: ${productForm.category || "Electronics"}
-- Outline Idea: ${productForm.description}
+- Outline Idea: ${productForm.description || "High performance standard hardware"}
 - Specifications Outline: ${productForm.specificationsStr || "none"}
 
 Your task:
 1. Identify/generate a high-end, precise retail product headline commercial name (e.g., "Apple MacBook Pro 14 M3", "Epson EcoTank L3250 Wifi Printer", "HP EliteBook 840 G10"). If the Given Headline Name is set and meaningful, reuse or polish it.
 2. Identify/generate the manufacturer brand name (e.g. "Apple", "Epson", "HP", "Samsung").
 3. Determine a stock-keeping SKU prefix based on the FIRST WORD of the product name (e.g., "APPLE", "EPSON", "HP", "SAMSUNG"), translated to uppercase, alphanumeric, no spaces or symbols.
-4. Generate a highly polished, professional product description paragraph highlighting the hardware's capabilities, target user group, and value. Keep it natural, do not use markdown bold, asterisks (*), or formatting stars.
+4. Generate a highly polished, professional, and SEO-friendly product description highlighting the hardware's capabilities, target user group, and value. You MUST output a detailed 'Product Overview' followed by a specialized 'About Product' section detailing the craftsmanship, premium durability, and enterprise value. Do NOT use markdown bold, asterisks (*), or formatting stars anywhere.
 5. Create a clean newline-separated list of technical specifications. Format each item on a new line as 'Key: Value' (e.g. 'Processor: Core i7 13th Gen\\nMemory: 16GB LPDDR5\\nStorage: 512GB PCIe NVMe SSD\\nGraphics: Intel Iris Xe'). Do NOT include any asterisks (*) or star bullet points.
 
 Return a strictly valid JSON object structured exactly like this:
@@ -827,7 +889,7 @@ Return a strictly valid JSON object structured exactly like this:
   "name": "The polished retail headline name",
   "brand": "The manufacturer brand name",
   "sku_base": "The uppercase first word of product name to use as SKU prefix",
-  "description": "Refined descriptive narrative...",
+  "description": "Refined descriptive narrative & About Product section copy...",
   "specifications": "Key: Value\\nKey2: Value2..."
 }
 `;
@@ -1744,6 +1806,116 @@ Return a strictly valid JSON object structured exactly like this:
               </div>
             </div>
 
+          </div>
+
+          {/* QUICK SNAPSHOT WIDGET (REAL-TIME ON_SNAPSHOT SYNCED) */}
+          <div className="bg-black/40 border border-[#C5A059]/30 rounded-3xl p-6 shadow-xl relative overflow-hidden backdrop-blur-md">
+            <div className="absolute top-0 right-0 p-4 opacity-[0.02] pointer-events-none">
+              <Sparkles className="w-48 h-48 text-[#C5A059]" />
+            </div>
+            
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-white/5 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  <h4 className="font-sans font-black text-xs text-white uppercase tracking-wider">
+                    Admin Quick Snapshot
+                  </h4>
+                </div>
+                <p className="text-[9px] font-mono text-white/40 mt-1">
+                  Active Direct real-time live-stream database listener
+                </p>
+              </div>
+              <div className="text-left sm:text-right">
+                <span className="font-mono text-[8px] font-bold text-white/30 block uppercase">
+                  Server Reference Time
+                </span>
+                <span className="font-mono text-[9px] text-[#C5A059] font-bold">
+                  {new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Today's Total Revenue */}
+              <div className="bg-[#0A0A0A]/80 border border-white/5 p-5 rounded-2xl flex flex-col justify-between">
+                <div>
+                  <span className="text-[9px] font-mono font-bold text-white/45 block uppercase tracking-wider">
+                    Today's Total Revenue
+                  </span>
+                  {snapshotLoading ? (
+                    <div className="h-8 w-24 bg-white/5 animate-pulse rounded-md mt-2" />
+                  ) : (
+                    <span className="font-sans font-black text-xl text-white block mt-3">
+                      KES {quickSnapshotMetrics.todayRevenue.toLocaleString()}
+                    </span>
+                  )}
+                </div>
+                <div className="text-[9px] font-mono text-green-400 font-bold mt-4 flex items-center gap-1.5">
+                  <CheckSquare className="w-3.5 h-3.5" />
+                  <span>Clears instantly from real-time cash receipts</span>
+                </div>
+              </div>
+
+              {/* Pending Orders */}
+              <div className="bg-[#0A0A0A]/80 border border-white/5 p-5 rounded-2xl flex flex-col justify-between">
+                <div>
+                  <span className="text-[9px] font-mono font-bold text-white/45 block uppercase tracking-wider">
+                    Outstanding Queue
+                  </span>
+                  {snapshotLoading ? (
+                    <div className="h-8 w-24 bg-white/5 animate-pulse rounded-md mt-2" />
+                  ) : (
+                    <span className="font-sans font-black text-xl text-[#C5A059] block mt-3">
+                      {quickSnapshotMetrics.pendingOrdersCount} Pending
+                    </span>
+                  )}
+                </div>
+                <div className="text-[9px] font-mono text-white/40 mt-4">
+                  Awaiting Paystack checkout settling validation
+                </div>
+              </div>
+
+              {/* Top 3 Selling Products */}
+              <div className="bg-[#0A0A0A]/80 border border-white/5 p-5 rounded-2xl">
+                <span className="text-[9px] font-mono font-bold text-white/45 block uppercase tracking-wider mb-3">
+                  Top 3 Selling Products
+                </span>
+                {snapshotLoading ? (
+                  <div className="space-y-2 mt-2">
+                    <div className="h-4 w-full bg-white/5 animate-pulse rounded-md" />
+                    <div className="h-4 w-full bg-white/5 animate-pulse rounded-md" />
+                    <div className="h-4 w-full bg-white/5 animate-pulse rounded-md" />
+                  </div>
+                ) : quickSnapshotMetrics.topProducts.length === 0 ? (
+                  <p className="text-[10px] font-mono text-white/30 italic py-2">
+                    No active sales logged yet
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {quickSnapshotMetrics.topProducts.map((p, index) => (
+                      <div key={index} className="flex justify-between items-center bg-white/[0.02] hover:bg-white/[0.04] p-1.5 rounded-lg border border-transparent hover:border-white/5 transition-all">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className={`w-4 h-4 rounded-full flex items-center justify-center font-mono text-[8px] font-bold ${
+                            index === 0 ? 'bg-amber-500/20 text-amber-500 border border-amber-500/30' :
+                            index === 1 ? 'bg-slate-400/20 text-slate-300 border border-slate-400/30' :
+                            'bg-amber-700/20 text-amber-600 border border-amber-700/30'
+                          }`}>
+                            {index + 1}
+                          </span>
+                          <span className="text-[10px] font-mono text-white/80 font-medium truncate">
+                            {p.brand} {p.name}
+                          </span>
+                        </div>
+                        <span className="text-[9px] font-mono text-[#C5A059] font-bold whitespace-nowrap ml-2">
+                          {p.quantity} sold
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* INVENTORY STOCK LEVELS LEVEL BAR CHART CARD */}

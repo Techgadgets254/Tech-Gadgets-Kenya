@@ -47,9 +47,39 @@
         "email": { "type": "string", "description": "Verified user email address" },
         "name": { "type": "string", "description": "Display name" },
         "role": { "type": "string", "description": "Privilege level: admin, customer" },
+        "wishlist": { "type": "array", "description": "Array of product ids liked/favorited by client" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["email", "name", "role"]
+    },
+    "transaction_feedback": {
+      "title": "Transaction Feedback",
+      "description": "Post-purchase customer ratings of their checkout, payment, and delivery experience",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string", "description": "ID of the associated order" },
+        "userId": { "type": "string", "description": "Auth UID of the buyer" },
+        "userName": { "type": "string", "description": "Buyer's display name" },
+        "rating": { "type": "number", "description": "Rating score out of 5 stars" },
+        "comment": { "type": "string", "description": "Feedback message" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["orderId", "userId", "userName", "rating", "comment", "createdAt"]
+    },
+    "company_profile": {
+      "title": "Company Profile",
+      "description": "Company branding details including name, tax registration number, logo and support contacts",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "The registered company business name" },
+        "logoUrl": { "type": "string", "description": "Official company logo image URL or base64 data" },
+        "taxPin": { "type": "string", "description": "VAT or KRA tax registration PIN" },
+        "address": { "type": "string", "description": "Business physical address and office location" },
+        "email": { "type": "string", "description": "Official admin and billing contact email" },
+        "phone": { "type": "string", "description": "Primary customer service phone number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "taxPin"]
     },
     "newsletter": {
       "title": "Newsletter",
@@ -158,6 +188,14 @@
     "/reviews/{reviewId}": {
       "schema": "review",
       "description": "Product reviews and ratings submitted by store customers"
+    },
+    "/transaction_feedback/{feedbackId}": {
+      "schema": "transaction_feedback",
+      "description": "Post-purchase customer ratings of their delivery and transaction experience"
+    },
+    "/company_profile/{profileId}": {
+      "schema": "company_profile",
+      "description": "The enterprise operational details, tax codes, and printable logo for custom PDF invoice generations"
     },
     "/audit_logs/{logId}": {
       "schema": "audit_log",

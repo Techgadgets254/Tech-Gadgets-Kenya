@@ -73,7 +73,26 @@ service cloud.firestore {
       return data.email is string && data.email.size() > 0 && data.email.size() <= 300
         && data.name is string && data.name.size() <= 200
         && data.role is string && (data.role == 'customer' || data.role == 'admin')
+        && (!data.keys().hasAll(['wishlist']) || data.wishlist is list)
         && (!data.keys().hasAll(['admin-claims']) || data['admin-claims'] is bool || data['admin-claims'] is string);
+    }
+
+    function isValidTransactionFeedback(data) {
+      return data.orderId is string && data.orderId.size() > 0
+        && data.userId is string && data.userId.size() <= 128
+        && data.userName is string && data.userName.size() > 0 && data.userName.size() <= 200
+        && data.rating is number && data.rating >= 1 && data.rating <= 5
+        && data.comment is string && data.comment.size() <= 2000
+        && data.createdAt is string && data.createdAt.size() <= 100;
+    }
+
+    function isValidCompanyProfile(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 200
+        && data.taxPin is string && data.taxPin.size() > 0 && data.taxPin.size() <= 100
+        && (!data.keys().hasAll(['logoUrl']) || data.logoUrl is string)
+        && (!data.keys().hasAll(['address']) || (data.address is string && data.address.size() <= 500))
+        && (!data.keys().hasAll(['email']) || (data.email is string && data.email.size() <= 300))
+        && (!data.keys().hasAll(['phone']) || (data.phone is string && data.phone.size() <= 100));
     }
 
     function isValidNewsletter(data) {
@@ -218,6 +237,24 @@ service cloud.firestore {
       allow read, list: if true;
       allow create: if isSignedIn() && isValidReview(incoming()) && incoming().userId == request.auth.uid;
       allow delete, update: if isAdmin();
+    }
+
+    // Transaction Feedback collection:
+    // - Anyone can read review aggregations (read/list)
+    // - Authenticated users can write transaction experience updates
+    match /transaction_feedback/{feedbackId} {
+      allow read, list, get: if true;
+      allow create: if isSignedIn() && isValidTransactionFeedback(incoming()) && incoming().userId == request.auth.uid;
+      allow delete, update: if isAdmin();
+    }
+
+    // Company Profile settings collection:
+    // - Readable by anyone (to populate printable invoices and PDFs)
+    // - Only editable by administrators
+    match /company_profile/{profileId} {
+      allow read, list, get: if true;
+      allow create, update: if isAdmin() && isValidCompanyProfile(incoming());
+      allow delete: if isAdmin();
     }
 
     // Audit logs:

@@ -93,3 +93,25 @@ export interface ActivityLog {
   createdAt: string;
 }
 
+export interface TransactionFeedback {
+  id?: string;
+  orderId: string;
+  userId: string;
+  userName: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+
+export interface CompanyProfile {
+  id?: string;
+  name: string;
+  logoUrl: string;
+  taxPin: string;
+  address: string;
+  email: string;
+  phone: string;
+  updatedAt: string;
+}
+
+

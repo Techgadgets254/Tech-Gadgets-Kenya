@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from "react";
+import { motion } from "motion/react";
 import { useStore } from "../StoreContext";
 import { 
   SlidersHorizontal, 
@@ -64,6 +65,29 @@ export default function ShopView() {
     hasMoreProducts,
     loadMoreProducts
   } = useStore();
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.05
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 15 },
+    show: { 
+      opacity: 1, 
+      y: 0,
+      transition: {
+        type: "spring",
+        stiffness: 120,
+        damping: 14
+      }
+    }
+  };
 
   const [selectedMainCategory, setSelectedMainCategory] = useState<string>("All");
   const [selectedCondition, setSelectedCondition] = useState<"All" | "New" | "Refurbished">("All");
@@ -432,14 +456,20 @@ export default function ShopView() {
                 <span>PAYSTACK SECURE SYSTEM</span>
               </div>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <motion.div 
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+              >
                 {filteredProducts.map((p) => {
                   const isLowStock = p.stock <= 5;
                   const isOutOfStock = p.stock === 0;
 
                   return (
-                    <div
+                    <motion.div
                       key={p.id}
+                      variants={itemVariants}
                       className="bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden hover:border-[#C5A059]/40 transition-all flex flex-col group shadow-lg"
                     >
                       {/* Product image with click trigger */}
@@ -597,10 +627,10 @@ export default function ShopView() {
                         </div>
 
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
-              </div>
+              </motion.div>
 
               {hasMoreProducts && (
                 <div className="flex justify-center mt-12 pb-6">

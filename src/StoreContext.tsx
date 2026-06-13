@@ -27,7 +27,7 @@ import {
   orderBy
 } from "firebase/firestore";
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from "./firebase";
-import { Product, Order, OrderItem, UserProfile, Affiliate, ProductReview } from "./types";
+import { Product, Order, OrderItem, UserProfile, Affiliate, ProductReview, TransactionFeedback, CompanyProfile } from "./types";
 import { DEFAULT_PRODUCTS } from "./data";
 
 interface ToastNotification {
@@ -119,6 +119,10 @@ interface StoreContextType {
   hasMoreProducts: boolean;
   loadMoreProducts: () => void;
   productReviews: ProductReview[];
+  transactionFeedback: TransactionFeedback[];
+  submitTransactionFeedback: (orderId: string, rating: number, comment: string) => Promise<void>;
+  companyProfile: CompanyProfile | null;
+  updateCompanyProfile: (data: Omit<CompanyProfile, "id" | "updatedAt">) => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -144,6 +148,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [invoiceOrderId, setInvoiceOrderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [productReviews, setProductReviews] = useState<ProductReview[]>([]);
+  const [transactionFeedback, setTransactionFeedback] = useState<TransactionFeedback[]>([]);
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
 
   // Real-time live-sync for the new Product Reviews collection
   useEffect(() => {
@@ -158,6 +164,37 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setProductReviews(items);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, "reviews");
+    });
+    return unsubscribe;
+  }, []);
+
+  // Real-time live-sync for transaction feedback
+  useEffect(() => {
+    const feedbackColRef = collection(db, "transaction_feedback");
+    const unsubscribe = onSnapshot(feedbackColRef, (snapshot) => {
+      const items: TransactionFeedback[] = [];
+      snapshot.forEach((d) => {
+        items.push({ id: d.id, ...d.data() } as TransactionFeedback);
+      });
+      items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setTransactionFeedback(items);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, "transaction_feedback");
+    });
+    return unsubscribe;
+  }, []);
+
+  // Real-time live-sync for company profile settings document
+  useEffect(() => {
+    const companyProfileDocRef = doc(db, "company_profile", "default");
+    const unsubscribe = onSnapshot(companyProfileDocRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setCompanyProfile({ id: snapshot.id, ...snapshot.data() } as CompanyProfile);
+      } else {
+        setCompanyProfile(null);
+      }
+    }, (error) => {
+      console.warn("Company profile snapshot listener warning:", error);
     });
     return unsubscribe;
   }, []);
@@ -232,26 +269,38 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const prevStatusesRef = React.useRef<Record<string, { shipping: string; payment: string }>>({});
   const isFirstLoadRef = React.useRef(true);
 
-  // Sync Wishlist to localStorage
+  // Sync Wishlist to localStorage and User Profile
   useEffect(() => {
-    const cachedWish = localStorage.getItem("tech_gadgets_ke_wishlist");
-    if (cachedWish) {
-      try {
-        setWishlist(JSON.parse(cachedWish));
-      } catch (e) {
-        console.error(e);
+    if (userProfile && userProfile.wishlist) {
+      setWishlist(userProfile.wishlist);
+    } else {
+      const cachedWish = localStorage.getItem("tech_gadgets_ke_wishlist");
+      if (cachedWish) {
+        try {
+          setWishlist(JSON.parse(cachedWish));
+        } catch (e) {
+          console.error(e);
+        }
       }
     }
-  }, []);
+  }, [userProfile]);
 
-  const toggleWishlist = (productId: string) => {
-    setWishlist((prev) => {
-      const updated = prev.includes(productId)
-        ? prev.filter((id) => id !== productId)
-        : [...prev, productId];
-      localStorage.setItem("tech_gadgets_ke_wishlist", JSON.stringify(updated));
-      return updated;
-    });
+  const toggleWishlist = async (productId: string) => {
+    const updated = wishlist.includes(productId)
+      ? wishlist.filter((id) => id !== productId)
+      : [...wishlist, productId];
+    
+    setWishlist(updated);
+    localStorage.setItem("tech_gadgets_ke_wishlist", JSON.stringify(updated));
+
+    if (user) {
+      try {
+        const userDocRef = doc(db, "users", user.uid);
+        await updateDoc(userDocRef, { wishlist: updated });
+      } catch (err) {
+        console.warn("Soft non-blocking error syncing wishlist to Firestore:", err);
+      }
+    }
   };
 
   const toggleCompare = (product: Product) => {
@@ -1111,6 +1160,36 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const submitTransactionFeedback = async (orderId: string, rating: number, comment: string) => {
+    if (!user) throw new Error("You must be logged in to submit feedback");
+    try {
+      const feedbackCol = collection(db, "transaction_feedback");
+      const newFeedback: TransactionFeedback = {
+        orderId,
+        userId: user.uid,
+        userName: user.displayName || userProfile?.name || "Anonymous Client",
+        rating,
+        comment,
+        createdAt: new Date().toISOString()
+      };
+      await addDoc(feedbackCol, newFeedback);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.WRITE, "transaction_feedback");
+    }
+  };
+
+  const updateCompanyProfile = async (data: Omit<CompanyProfile, "id" | "updatedAt">) => {
+    try {
+      const companyProfileDocRef = doc(db, "company_profile", "default");
+      await setDoc(companyProfileDocRef, {
+        ...data,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.WRITE, "company_profile");
+    }
+  };
+
   return (
     <StoreContext.Provider
       value={{
@@ -1167,6 +1246,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         hasMoreProducts,
         loadMoreProducts,
         productReviews,
+        transactionFeedback,
+        submitTransactionFeedback,
+        companyProfile,
+        updateCompanyProfile,
       }}
     >
       {children}

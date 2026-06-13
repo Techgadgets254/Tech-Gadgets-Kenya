@@ -113,8 +113,9 @@ app.post("/api/ai/describe", async (req, res) => {
 
   const { name, brand, category, commodityDescription, specifications } = req.body;
 
-  if (!commodityDescription) {
-    return res.status(400).json({ error: "Commodity outline / description is required to generate technical details." });
+  let finalOutline = commodityDescription;
+  if (!finalOutline || !finalOutline.trim()) {
+    finalOutline = `High performance ${category || "electronics"} hardware`;
   }
 
   try {
@@ -123,14 +124,14 @@ Generate a highly polished, professional product profile based on the details pr
 - Given Headline Name: ${name || "Not set/infer from outline"}
 - Given Manufacturer Brand: ${brand || "Not set/infer from outline"}
 - Category: ${category || "Electronics"}
-- Outline Idea: ${commodityDescription}
+- Outline Idea: ${finalOutline}
 - Specifications Outline: ${specifications || "none"}
 
 Your task:
 1. Identify/generate a high-end, precise retail product headline commercial name (e.g., "Apple MacBook Pro 14 M3", "Epson EcoTank L3250 Wifi Printer", "HP EliteBook 840 G10"). If the Given Headline Name is set and meaningful, reuse or polish it.
 2. Identify/generate the manufacturer brand name (e.g. "Apple", "Epson", "HP", "Samsung").
 3. Determine a stock-keeping SKU prefix based on the FIRST WORD of the product name (e.g., "APPLE", "EPSON", "HP", "SAMSUNG"), translated to uppercase, alphanumeric, no spaces or symbols.
-4. Generate a highly polished, professional product description paragraph highlighting the hardware's capabilities, target user group, and value. Keep it natural, do not use markdown bold, asterisks (*), or formatting stars.
+4. Generate a highly polished, professional, and SEO-friendly product description highlighting the hardware's capabilities, target user group, and value. You MUST output a detailed 'Product Overview' followed by a specialized 'About Product' section detailing the craftsmanship, premium durability, and enterprise value. Do NOT use markdown bold, asterisks (*), or formatting stars anywhere.
 5. Create a clean newline-separated list of technical specifications. Format each item on a new line as 'Key: Value' (e.g. 'Processor: Core i7 13th Gen\\nMemory: 16GB LPDDR5\\nStorage: 512GB PCIe NVMe SSD\\nGraphics: Intel Iris Xe'). Do NOT include any asterisks (*) or star bullet points.
 
 Return a strictly valid JSON object structured exactly like this:
@@ -138,7 +139,7 @@ Return a strictly valid JSON object structured exactly like this:
   "name": "The polished retail headline name",
   "brand": "The manufacturer brand name",
   "sku_base": "The uppercase first word of product name to use as SKU prefix",
-  "description": "Refined descriptive narrative...",
+  "description": "Refined descriptive narrative & About Product section copy...",
   "specifications": "Key: Value\\nKey2: Value2..."
 }
 `;
