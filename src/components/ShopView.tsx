@@ -19,7 +19,10 @@ import {
   Scale,
   Star,
   Tag,
-  Loader2
+  Loader2,
+  Minus,
+  Plus,
+  X
 } from "lucide-react";
 import { Product } from "../types";
 
@@ -94,6 +97,71 @@ export default function ShopView() {
   const [selectedBrand, setSelectedBrand] = useState<string>("All");
   const [sortBy, setSortBy] = useState<string>("default");
   const [onlyShowWishlist, setOnlyShowWishlist] = useState<boolean>(false);
+
+  // Quick Buy interactive modal configurations
+  const [quickBuyProduct, setQuickBuyProduct] = useState<Product | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<string>("");
+  const [quickBuyQuantity, setQuickBuyQuantity] = useState<number>(1);
+
+  const getProductVariants = (product: Product) => {
+    const cat = product.category.toLowerCase();
+    if (cat.includes("laptop")) {
+      return {
+        label: "RAM / System Performance Configuration",
+        options: ["16GB Unified RAM | 512GB SSD", "32GB Unified RAM | 1TB SSD (+ KES 25,000)", "64GB Unified RAM | 2TB SSD (+ KES 60,000)"]
+      };
+    }
+    if (cat.includes("phone")) {
+      return {
+        label: "Flash Storage Capacity Unit",
+        options: ["12GB RAM | 128GB Storage", "12GB RAM | 256GB Storage (+ KES 12,500)", "16GB RAM | 512GB Storage (+ KES 28,000)"]
+      };
+    }
+    if (cat.includes("printer")) {
+      return {
+        label: "Hardware Paper Feed Model",
+        options: ["Standard Direct Workgroup Print", "Enterprise Network Duplex Feed (+ KES 8,500)"]
+      };
+    }
+    if (cat.includes("desktop")) {
+      return {
+        label: "Graphics Card Processing Accelerator",
+        options: ["NVIDIA RTX 4070 12GB G6X", "NVIDIA RTX 4095 VR-Ready Studio (+ KES 75,000)"]
+      };
+    }
+    return {
+      label: "Device Customization Bundle Option",
+      options: ["Standard Retail Box Edition", "Extended Premium Care Warranty Bundle (+ KES 4,500)"]
+    };
+  };
+
+  useEffect(() => {
+    if (quickBuyProduct) {
+      const variants = getProductVariants(quickBuyProduct).options;
+      setSelectedVariant(variants[0]);
+      setQuickBuyQuantity(1);
+    }
+  }, [quickBuyProduct]);
+
+  const handleQuickBuySubmit = () => {
+    if (!quickBuyProduct) return;
+    
+    let finalPrice = quickBuyProduct.price;
+    const priceMatch = selectedVariant.match(/\+\s*KES\s*([\d,]+)/i);
+    if (priceMatch) {
+      const premium = parseInt(priceMatch[1].replace(/,/g, ""), 10);
+      finalPrice += premium;
+    }
+
+    const modifiedProduct = {
+      ...quickBuyProduct,
+      name: `${quickBuyProduct.name} (${selectedVariant.split(" (+")[0]})`,
+      price: finalPrice
+    };
+
+    addToCart(modifiedProduct, quickBuyQuantity);
+    setQuickBuyProduct(null);
+  };
 
   // Helper mapping to extract core category name
   const getProductMainCategory = (category: string) => {
@@ -219,6 +287,12 @@ export default function ShopView() {
       result.sort((a, b) => a.price - b.price);
     } else if (sortBy === "price-high") {
       result.sort((a, b) => b.price - a.price);
+    } else if (sortBy === "newest") {
+      result.sort((a, b) => {
+        const valA = (a as any).createdAt || (a as any).updatedAt || a.id || "";
+        const valB = (b as any).createdAt || (b as any).updatedAt || b.id || "";
+        return valB.localeCompare(valA);
+      });
     } else if (sortBy === "name-az") {
       result.sort((a, b) => a.name.localeCompare(b.name));
     } else if (sortBy === "name-za") {
@@ -396,6 +470,7 @@ export default function ShopView() {
                   <option value="default" className="bg-[#0F0F0F] text-white">Default Sort</option>
                   <option value="price-low" className="bg-[#0F0F0F] text-white">Price: Low to High</option>
                   <option value="price-high" className="bg-[#0F0F0F] text-white">Price: High to Low</option>
+                  <option value="newest" className="bg-[#0F0F0F] text-white">Newest Arrivals First</option>
                   <option value="name-az" className="bg-[#0F0F0F] text-white">Name: A to Z</option>
                   <option value="name-za" className="bg-[#0F0F0F] text-white">Name: Z to A</option>
                 </select>
@@ -410,6 +485,77 @@ export default function ShopView() {
 
         {/* PRODUCTS DIRECT GRID VIEW */}
         <div className="lg:col-span-3">
+
+          {/* TOP CONTROLS AND DROPDOWNS BAR */}
+          <div className="bg-[#0F0F0F] border border-white/10 rounded-2xl p-4 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between shadow-md">
+            <div className="flex flex-wrap gap-4 items-center w-full md:w-auto">
+              <div className="flex flex-col gap-1 w-full sm:w-auto">
+                <label className="text-[10px] font-mono font-bold text-white/40 uppercase tracking-wider">Category Dropdown</label>
+                <div className="relative">
+                  <select
+                    value={selectedMainCategory}
+                    onChange={(e) => {
+                      setSelectedMainCategory(e.target.value);
+                      setSelectedBrand("All");
+                    }}
+                    className="bg-white/[0.03] border border-white/10 text-xs py-2 pl-3 pr-8 rounded-lg focus:outline-hidden focus:border-[#C5A059] text-white font-sans cursor-pointer appearance-none w-full sm:w-48"
+                  >
+                    {mainCategoriesList.map(cat => (
+                      <option key={cat} value={cat} className="bg-[#0F0F0F] text-white">
+                        {cat === "All" ? "All Electronics" : cat}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/40">
+                    <ArrowUpDown className="w-3 h-3" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1 w-full sm:w-auto">
+                <label className="text-[10px] font-mono font-bold text-white/40 uppercase tracking-wider">Manufacturer Brand</label>
+                <div className="relative">
+                  <select
+                    value={selectedBrand}
+                    onChange={(e) => setSelectedBrand(e.target.value)}
+                    className="bg-white/[0.03] border border-white/10 text-xs py-2 pl-3 pr-8 rounded-lg focus:outline-hidden focus:border-[#C5A059] text-white font-sans cursor-pointer appearance-none w-full sm:w-40"
+                  >
+                    {brands.map(brand => (
+                      <option key={brand} value={brand} className="bg-[#0F0F0F] text-white">
+                        {brand === "All" ? "All Brands" : brand}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/40">
+                    <ArrowUpDown className="w-3 h-3" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-4 items-center w-full md:w-auto justify-end">
+              <div className="flex flex-col gap-1 w-full sm:w-auto">
+                <label className="text-[10px] font-mono font-bold text-white/40 uppercase tracking-wider">Sorting Order</label>
+                <div className="relative">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="bg-white/[0.03] border border-white/10 text-xs py-2 pl-3 pr-8 rounded-lg focus:outline-hidden focus:border-[#C5A059] text-white font-sans cursor-pointer appearance-none w-full sm:w-48"
+                  >
+                    <option value="default" className="bg-[#0F0F0F] text-white">Default Sorting</option>
+                    <option value="price-low" className="bg-[#0F0F0F] text-white">Price: Low to High</option>
+                    <option value="price-high" className="bg-[#0F0F0F] text-white">Price: High to Low</option>
+                    <option value="newest" className="bg-[#0F0F0F] text-white">Newest Arrivals First</option>
+                    <option value="name-az" className="bg-[#0F0F0F] text-white">Name: A to Z</option>
+                    <option value="name-za" className="bg-[#0F0F0F] text-white">Name: Z to A</option>
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/40">
+                    <ArrowUpDown className="w-3 h-3" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
           
           {productsLoading && products.length === 0 ? (
             <div>
@@ -475,8 +621,7 @@ export default function ShopView() {
                       {/* Product image with click trigger */}
                       <div
                         onClick={() => {
-                          setSelectedProductId(p.id);
-                          setActiveView("product-details");
+                          setQuickBuyProduct(p);
                         }}
                         className="relative h-44 sm:h-48 bg-[#1A1A1A] overflow-hidden cursor-pointer shrink-0"
                       >
@@ -558,8 +703,7 @@ export default function ShopView() {
 
                           <h3
                             onClick={() => {
-                              setSelectedProductId(p.id);
-                              setActiveView("product-details");
+                              setQuickBuyProduct(p);
                             }}
                             className="font-sans font-semibold text-sm text-white mt-1 cursor-pointer hover:text-[#C5A059] line-clamp-2 leading-tight"
                           >

@@ -37,7 +37,8 @@ import {
   Award,
   Share2,
   Copy,
-  Search
+  Search,
+  Keyboard
 } from "lucide-react";
 import { Product, Order } from "../types";
 import { PAYSTACK_GATEWAYS } from "../data";
@@ -347,6 +348,57 @@ export default function AdminDashboard() {
   const [campaignBody, setCampaignBody] = useState("");
   const [dispatchingCampaign, setDispatchingCampaign] = useState(false);
   const [campaignSuccessToast, setCampaignSuccessToast] = useState("");
+
+  // Keyboard navigation shortcuts
+  const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
+
+  useEffect(() => {
+    if (!adminPasscodePassed) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in form inputs or contenteditable fields
+      if (
+        document.activeElement?.tagName === "INPUT" ||
+        document.activeElement?.tagName === "TEXTAREA" ||
+        document.activeElement?.tagName === "SELECT" ||
+        document.activeElement?.getAttribute("contenteditable") === "true"
+      ) {
+        if (e.key === "Escape") {
+          (document.activeElement as HTMLElement).blur();
+        }
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+
+      if (key === "?" || key === "h") {
+        e.preventDefault();
+        setShortcutHelpOpen((prev) => !prev);
+      } else if (key === "escape") {
+        setShortcutHelpOpen(false);
+      } else if (key === "o") {
+        setActiveSubTab("overview");
+      } else if (key === "i") {
+        setActiveSubTab("inventory");
+      } else if (key === "r") {
+        setActiveSubTab("orders");
+      } else if (key === "t") {
+        setActiveSubTab("trash");
+      } else if (key === "a") {
+        setActiveSubTab("affiliates");
+      } else if (key === "s") {
+        setActiveSubTab("seo_settings");
+      } else if (key === "l") {
+        setActiveSubTab("audit_logs");
+      } else if (key === "n" && activeSubTab === "inventory") {
+        e.preventDefault();
+        setShowAddForm(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [adminPasscodePassed, activeSubTab]);
 
   useEffect(() => {
     if (activeSubTab === "newsletters" || activeSubTab === "overview") {
@@ -1695,8 +1747,16 @@ Return a strictly valid JSON object structured exactly like this:
           <span className="font-mono text-xs font-bold text-[#C5A059] bg-[#C5A059]/10 rounded-md border border-[#C5A059]/35 px-2 py-0.5 uppercase tracking-wide">
             Enterprise Operations Center
           </span>
-          <h1 className="font-sans font-semibold text-2xl sm:text-3xl tracking-tight text-white mt-3">
+          <h1 className="font-sans font-semibold text-2xl sm:text-3xl tracking-tight text-white mt-3 flex items-center gap-3">
             Operations Management Console
+            <button
+              onClick={() => setShortcutHelpOpen(true)}
+              className="text-[10px] font-mono font-bold text-[#C5A059] bg-[#C5A059]/10 border border-[#C5A059]/30 rounded-md px-2 py-1 hover:bg-[#C5A059]/20 transition-all flex items-center gap-1.5 cursor-pointer select-none shrink-0"
+              title="Keyboard shortcuts help (Press ?)"
+            >
+              <Keyboard className="w-3.5 h-3.5" />
+              <span>Shortcuts (?)</span>
+            </button>
           </h1>
         </div>
 
@@ -4076,6 +4136,77 @@ Return a strictly valid JSON object structured exactly like this:
       {activeSubTab === "seo_settings" && (
         <div id="admin-seo-settings-tab" className="space-y-6 animate-fadeIn">
           <MetadataEditor />
+        </div>
+      )}
+
+      {/* Keyboard Shortcuts Help Modal */}
+      {shortcutHelpOpen && (
+        <div id="shortcuts-help-modal" className="fixed inset-0 z-[60] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn font-sans">
+          <div className="bg-[#111] border border-white/10 rounded-3xl p-6 sm:p-8 max-w-md w-full relative space-y-6 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-white/10 pb-4">
+              <div className="flex items-center gap-2">
+                <Keyboard className="w-5 h-5 text-[#C5A059]" />
+                <h3 className="font-sans font-bold text-lg text-white">Keyboard Navigation</h3>
+              </div>
+              <button
+                onClick={() => setShortcutHelpOpen(false)}
+                className="text-white/40 hover:text-white p-1 rounded-md hover:bg-white/5 transition-all cursor-pointer bg-transparent border-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-white/50 leading-relaxed">
+              Streamline admin operations with global hotkeys. Shortcuts are automatic, but disabled while typing in textareas or inputs.
+            </p>
+
+            <div className="space-y-3 font-mono text-xs text-white">
+              <div className="flex justify-between items-center py-1.5 border-b border-white/5">
+                <span className="text-white/40">Toggle Help Guide</span>
+                <kbd className="px-2 py-0.5 bg-white/10 text-white rounded border border-white/20 shadow-sm font-bold font-mono">?</kbd>
+              </div>
+              <div className="flex justify-between items-center py-1.5 border-b border-white/5 relational-shortcut">
+                <span className="text-white/40">Switch to Overview</span>
+                <kbd className="px-2 py-0.5 bg-white/10 text-white rounded border border-white/20 shadow-sm font-bold font-mono">O</kbd>
+              </div>
+              <div className="flex justify-between items-center py-1.5 border-b border-white/5 relational-shortcut">
+                <span className="text-white/40">Manage Inventory</span>
+                <kbd className="px-2 py-0.5 bg-white/10 text-white rounded border border-white/20 shadow-sm font-bold font-mono">I</kbd>
+              </div>
+              <div className="flex justify-between items-center py-1.5 border-b border-white/5 relational-shortcut">
+                <span className="text-white/40">Fulfillment Queue</span>
+                <kbd className="px-2 py-0.5 bg-white/10 text-white rounded border border-white/20 shadow-sm font-bold font-mono">R</kbd>
+              </div>
+              <div className="flex justify-between items-center py-1.5 border-b border-white/5 relational-shortcut">
+                <span className="text-white/40">System Activity Logs</span>
+                <kbd className="px-2 py-0.5 bg-white/10 text-white rounded border border-white/20 shadow-sm font-bold font-mono">L</kbd>
+              </div>
+              <div className="flex justify-between items-center py-1.5 border-b border-white/5 relational-shortcut">
+                <span className="text-white/40">SEO Settings</span>
+                <kbd className="px-2 py-0.5 bg-white/10 text-white rounded border border-white/20 shadow-sm font-bold font-mono">S</kbd>
+              </div>
+              <div className="flex justify-between items-center py-1.5 border-b border-white/5 relational-shortcut">
+                <span className="text-white/40">Trash Bin</span>
+                <kbd className="px-2 py-0.5 bg-white/10 text-white rounded border border-white/20 shadow-sm font-bold font-mono">T</kbd>
+              </div>
+              <div className="flex justify-between items-center py-1.5 relational-shortcut">
+                <span className="text-white/40">New Product Form</span>
+                <span className="flex gap-1.5 items-center">
+                  <span className="text-[10px] text-white/30 italic">when in Inventory:</span>
+                  <kbd className="px-2 py-0.5 bg-white/10 text-white rounded border border-white/20 shadow-sm font-bold font-mono">N</kbd>
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                onClick={() => setShortcutHelpOpen(false)}
+                className="w-full bg-[#C5A059] hover:bg-[#C5A0C0] text-black py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md border-0"
+              >
+                Dismiss Help
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

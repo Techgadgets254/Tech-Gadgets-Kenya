@@ -39,6 +39,29 @@ export default function ProductDetailsView() {
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState<string | null>(null);
 
+  // Hover zoom magnifier state
+  const [zoomStyle, setZoomStyle] = useState<React.CSSProperties>({
+    transformOrigin: "center center",
+    transform: "scale(1)"
+  });
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - left) / width) * 100;
+    const y = ((e.clientY - top) / height) * 100;
+    setZoomStyle({
+      transformOrigin: `${x}% ${y}%`,
+      transform: "scale(2.2)"
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setZoomStyle({
+      transformOrigin: "center center",
+      transform: "scale(1)"
+    });
+  };
+
   // Form states for new review submission
   const [revName, setRevName] = useState("");
   const [revComment, setRevComment] = useState("");
@@ -197,12 +220,17 @@ export default function ProductDetailsView() {
         
         {/* Left Side: Media Display with interactive multi-image switcher - Medium sized */}
         <div className="lg:col-span-6 space-y-4 flex flex-col items-center">
-          <div className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-2xl h-64 sm:h-80 w-full max-w-sm sm:max-w-md mx-auto">
+          <div 
+            className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-2xl h-64 sm:h-80 w-full max-w-sm sm:max-w-md mx-auto relative cursor-zoom-in group/zoom container-zoom-magnifier"
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+          >
             <img
               src={activeImage || product.image}
               alt={product.name}
               referrerPolicy="no-referrer"
-              className="w-full h-full object-contain p-3 transition-all duration-300"
+              className="w-full h-full object-contain p-3 transition-transform duration-75 ease-out"
+              style={zoomStyle}
             />
           </div>
           
