@@ -32,6 +32,8 @@ import {
 } from "lucide-react";
 import { Order } from "../types";
 import { jsPDF } from "jspdf";
+import { User as UserIcon } from "lucide-react";
+import ProfileEditor from "./ProfileEditor";
 
 export default function ClientDashboard() {
   const { 
@@ -46,7 +48,7 @@ export default function ClientDashboard() {
   const [orderSearchQuery, setOrderSearchQuery] = useState("");
 
   // Tabs for ClientDashboard
-  const [activeTab, setActiveTab] = useState<"transactions" | "settings">("transactions");
+  const [activeTab, setActiveTab] = useState<"transactions" | "settings" | "profile">("transactions");
 
   // Account Settings state
   const [settingsKraPin, setSettingsKraPin] = useState(() => localStorage.getItem("tgk_kra_pin") || "");
@@ -642,6 +644,17 @@ export default function ClientDashboard() {
         >
           <Monitor className="w-3.5 h-3.5" />
           <span>ACCOUNT SETTINGS</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("profile")}
+          className={`px-4 py-2.5 font-sans font-bold text-xs rounded-xl tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === "profile"
+              ? "bg-[#C5A059] text-black shadow-md font-extrabold"
+              : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white"
+          }`}
+        >
+          <UserIcon className="w-3.5 h-3.5" />
+          <span>MY PROFILE</span>
         </button>
       </div>
 
@@ -1418,6 +1431,11 @@ export default function ClientDashboard() {
           )}
 
         </div>
+      )}
+
+      {/* Tab Contents: Profile */}
+      {activeTab === "profile" && (
+        <ProfileEditor />
       )}
 
     </div>

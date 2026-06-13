@@ -43,6 +43,8 @@ import { Product, Order } from "../types";
 import { PAYSTACK_GATEWAYS } from "../data";
 import { db } from "../firebase";
 import AdminCredentialManager from "./AdminCredentialManager";
+import AuditLogTable from "./AuditLogTable";
+import MetadataEditor from "./MetadataEditor";
 import { collection, getDocs, onSnapshot, addDoc, setDoc, deleteDoc, doc, query, orderBy, limit } from "firebase/firestore";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
 
@@ -240,8 +242,8 @@ export default function AdminDashboard() {
     });
   }, [orders, orderSortField, orderSortDirection, orderSearchQuery, orderStatusFilter]);
 
-  // Active sub-view ("overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs")
-  const [activeSubTab, setActiveSubTab] = useState<"overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs">("overview");
+  // Active sub-view ("overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings")
+  const [activeSubTab, setActiveSubTab] = useState<"overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings">("overview");
 
   // Secure Audit Logs tracking state
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
@@ -1227,6 +1229,10 @@ Return a strictly valid JSON object structured exactly like this:
         image: String(productData.image || "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=600"),
         gallery: Array.isArray(productData.gallery) ? productData.gallery : [],
         specifications: productData.specifications || {},
+        rating: Number(productData.rating || 5),
+        reviews: Array.isArray(productData.reviews) ? productData.reviews : [],
+        tags: Array.isArray(productData.tags) ? productData.tags : [],
+        createdAt: productData.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
 
@@ -1706,6 +1712,8 @@ Return a strictly valid JSON object structured exactly like this:
             { id: "intelligence", label: "Store Intelligence" },
             { id: "admin_settings", label: "Admin Credentials" },
             { id: "audit_logs", label: "System Activity" },
+            { id: "auth_audit", label: "Security Auth Log" },
+            { id: "seo_settings", label: "SEO Settings" },
             { id: "trash", label: `Trash Bin (${trashItems.length})` }
           ].map(tab => (
             <button
@@ -4056,6 +4064,18 @@ Return a strictly valid JSON object structured exactly like this:
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {activeSubTab === "auth_audit" && (
+        <div id="admin-auth-audit-tab" className="space-y-6 animate-fadeIn">
+          <AuditLogTable />
+        </div>
+      )}
+
+      {activeSubTab === "seo_settings" && (
+        <div id="admin-seo-settings-tab" className="space-y-6 animate-fadeIn">
+          <MetadataEditor />
         </div>
       )}
 

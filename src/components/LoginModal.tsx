@@ -1,19 +1,35 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Mail, Lock, LogIn, AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
-import { auth, googleProvider } from "../firebase";
+import { auth, googleProvider, db } from "../firebase";
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   sendPasswordResetEmail,
   signInWithPopup 
 } from "firebase/auth";
+import { collection, addDoc } from "firebase/firestore";
 
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
   onGoogleLogin: () => Promise<void>;
 }
+
+const logAuthEvent = async (eventType: string, status: string, email: string, userId?: string, error?: string) => {
+  try {
+    await addDoc(collection(db, "auth_events"), {
+      eventType,
+      status,
+      email,
+      userId: userId || "",
+      errorMessage: error || "",
+      createdAt: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error("Failed to write auth event log:", err);
+  }
+};
 
 export default function LoginModal({ isOpen, onClose, onGoogleLogin }: LoginModalProps) {
   const [email, setEmail] = useState("");
@@ -53,10 +69,12 @@ export default function LoginModal({ isOpen, onClose, onGoogleLogin }: LoginModa
       setLoading(true);
       try {
         await sendPasswordResetEmail(auth, email);
+        await logAuthEvent("password_reset", "success", email);
         setSuccessMsg("✔ A secure password-reset link has been dispatched to your inbox. Check your email!");
         setErrorMsg("");
       } catch (err: any) {
         console.error("Password reset error:", err);
+        await logAuthEvent("password_reset", "failed", email, undefined, err.message);
         if (err?.code === "auth/user-not-found") {
           setErrorMsg("We could not find an account matching that email address.");
         } else {
@@ -81,13 +99,15 @@ export default function LoginModal({ isOpen, onClose, onGoogleLogin }: LoginModa
     setLoading(true);
     try {
       if (isSignUp) {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const userCred = await createUserWithEmailAndPassword(auth, email, password);
+        await logAuthEvent("signup", "success", email, userCred.user.uid);
         setSuccessMsg("✔ Space registry complete! Account initialized successfully.");
         setTimeout(() => {
           onClose();
         }, 1500);
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        const userCred = await signInWithEmailAndPassword(auth, email, password);
+        await logAuthEvent("login", "success", email, userCred.user.uid);
         setSuccessMsg("✔ Authentication successful! Back to the command deck.");
         setTimeout(() => {
           onClose();
@@ -95,6 +115,7 @@ export default function LoginModal({ isOpen, onClose, onGoogleLogin }: LoginModa
       }
     } catch (err: any) {
       console.error("Auth process error:", err);
+      await logAuthEvent(isSignUp ? "signup" : "login", "failed", email, undefined, err.message);
       if (err?.code === "auth/user-not-found" || err?.code === "auth/wrong-password" || err?.code === "auth/invalid-credential") {
         setErrorMsg("Invalid authorization credentials. Please verify your email and password.");
       } else if (err?.code === "auth/email-already-in-use") {
@@ -108,14 +129,14 @@ export default function LoginModal({ isOpen, onClose, onGoogleLogin }: LoginModa
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" id="login-modal-overlay">
+    <div className="fixed inset-0 z-[100] overflow-y-auto flex items-start sm:items-center justify-center p-4" id="login-modal-overlay">
       {/* Dark overlay backdrop */}
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="absolute inset-0 bg-black/80 backdrop-blur-md"
+        className="fixed inset-0 bg-black/80 backdrop-blur-md"
       />
 
       {/* Floating Modal Card */}
@@ -123,7 +144,7 @@ export default function LoginModal({ isOpen, onClose, onGoogleLogin }: LoginModa
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 15 }}
-        className="w-full max-w-md bg-[#0A0A0A] border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl relative z-10 text-left overflow-hidden text-white"
+        className="w-full max-w-md bg-[#0A0A0A] border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl relative z-10 text-left overflow-hidden text-white my-auto"
         id="login-modal-card"
       >
         {/* Subtle decorative glow effect */}

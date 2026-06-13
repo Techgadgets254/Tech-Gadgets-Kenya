@@ -199,6 +199,40 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return unsubscribe;
   }, []);
 
+  // Real-time live-sync for site-wide SEO metadata
+  useEffect(() => {
+    const seoDocRef = doc(db, "seo_metadata", "site");
+    const unsubscribe = onSnapshot(seoDocRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data.title) {
+          document.title = data.title;
+        }
+        if (data.description) {
+          let metaDesc = document.querySelector('meta[name="description"]');
+          if (!metaDesc) {
+            metaDesc = document.createElement("meta");
+            metaDesc.setAttribute("name", "description");
+            document.head.appendChild(metaDesc);
+          }
+          metaDesc.setAttribute("content", data.description);
+        }
+        if (data.keywords) {
+          let metaKey = document.querySelector('meta[name="keywords"]');
+          if (!metaKey) {
+            metaKey = document.createElement("meta");
+            metaKey.setAttribute("name", "keywords");
+            document.head.appendChild(metaKey);
+          }
+          metaKey.setAttribute("content", data.keywords);
+        }
+      }
+    }, (error) => {
+      console.warn("Seo metadata listener warning:", error);
+    });
+    return unsubscribe;
+  }, []);
+
   // Lightweight activity logger that tracks page view counts in Firestore
   useEffect(() => {
     const logPageView = async () => {
@@ -620,9 +654,33 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Auth Functions
   const loginWithGoogle = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      try {
+        await addDoc(collection(db, "auth_events"), {
+          eventType: "google_login",
+          status: "success",
+          email: result.user.email || "google-user",
+          userId: result.user.uid,
+          errorMessage: "",
+          createdAt: new Date().toISOString()
+        });
+      } catch (err) {
+        console.error("Failed to write auth event log:", err);
+      }
     } catch (e: any) {
       console.error("Sign in failed:", e);
+      try {
+        await addDoc(collection(db, "auth_events"), {
+          eventType: "google_login",
+          status: "failed",
+          email: "google-handshake",
+          userId: "",
+          errorMessage: e?.message || e?.code || "Google sign-in popup aborted",
+          createdAt: new Date().toISOString()
+        });
+      } catch (err) {
+        console.error("Failed to write auth event log:", err);
+      }
       if (e?.code === "auth/unauthorized-domain") {
         alert(
           "Firebase Authentication Domain Restriction:\n\n" +
@@ -889,7 +947,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             specifications: matched.specifications || {},
             tags: matched.tags || [],
             rating: matched.rating || 5,
-            reviews: matched.reviews || []
+            reviews: matched.reviews || [],
+            createdAt: matched.createdAt || new Date().toISOString(),
+            updatedAt: matched.updatedAt || new Date().toISOString()
           },
           deletedAt: new Date().toISOString(),
           expiresAt // added 60-day explicit retention duration index to record

@@ -140,6 +140,23 @@ service cloud.firestore {
         && data.createdAt is string && data.createdAt.size() <= 100;
     }
 
+    function isValidAuthEvent(data) {
+      return data.eventType is string && data.eventType.size() > 0 && data.eventType.size() <= 60
+        && data.status is string && data.status.size() > 0 && data.status.size() <= 30
+        && data.email is string && data.email.size() <= 300
+        && (!data.keys().hasAll(['userId']) || (data.userId is string && data.userId.size() <= 128))
+        && (!data.keys().hasAll(['ip']) || (data.ip is string && data.ip.size() <= 64))
+        && (!data.keys().hasAll(['errorMessage']) || (data.errorMessage is string && data.errorMessage.size() <= 1000))
+        && data.createdAt is string && data.createdAt.size() <= 100;
+    }
+
+    function isValidSeoMetadata(data) {
+      return data.title is string && data.title.size() > 0 && data.title.size() <= 200
+        && data.description is string && data.description.size() > 0 && data.description.size() <= 1000
+        && data.keywords is string && data.keywords.size() <= 1000
+        && data.updatedAt is string && data.updatedAt.size() <= 100;
+    }
+
     // --- Collection Routes ---
 
     // Products collection: anybody can browse (read/list), only admins can edit products
@@ -262,6 +279,22 @@ service cloud.firestore {
     match /audit_logs/{logId} {
       allow create, read, list: if isAdmin() && isValidAuditLog(incoming());
       allow update, delete: if false;
+    }
+
+    // User Authentication Events Logs collection (Auditing and Security Monitor)
+    match /auth_events/{eventId} {
+      allow create: if isValidAuthEvent(incoming());
+      allow read, list, delete: if isAdmin();
+      allow update: if false;
+    }
+
+    // SEO Site-wide Metadata settings:
+    // - Anyone can read this (to set head tags in real-time)
+    // - Only administrators can write/update this
+    match /seo_metadata/{docId} {
+      allow read, get, list: if true;
+      allow create, update: if isAdmin() && isValidSeoMetadata(incoming());
+      allow delete: if isAdmin();
     }
   }
 }

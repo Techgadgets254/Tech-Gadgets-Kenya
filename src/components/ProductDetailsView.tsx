@@ -134,7 +134,7 @@ export default function ProductDetailsView() {
   if (!product) {
     return (
       <div className="text-center py-16 text-white bg-[#0A0A0A]">
-        <p className="text-white/40 font-mono text-sm">Product record not found.</p>
+        <p className="text-white/70 font-mono text-sm">Product record not found.</p>
         <button 
           onClick={() => setActiveView("shop")} 
           className="mt-4 bg-[#C5A059] hover:bg-[#C5A059]/90 text-black rounded-xl px-4 py-2 text-xs font-bold transition-all cursor-pointer"
@@ -186,7 +186,7 @@ export default function ProductDetailsView() {
       {/* Return to shop banner link */}
       <button
         onClick={() => setActiveView("shop")}
-        className="flex items-center gap-2 text-xs font-semibold text-white/40 hover:text-[#C5A059] mb-8 transition-colors cursor-pointer"
+        className="flex items-center gap-2 text-xs font-semibold text-white/70 hover:text-[#C5A059] mb-8 transition-colors cursor-pointer"
       >
         <ArrowLeft className="w-4 h-4" />
         <span>Back to live inventory catalog</span>
@@ -234,7 +234,7 @@ export default function ProductDetailsView() {
             </span>
             <div>
               <p className="text-xs font-bold text-white leading-tight">Authentic East African Warranty Verified</p>
-              <p className="text-[11px] text-white/40 mt-0.5">This {product.brand} packaging is factory sealed and covered by standard 12-month manufacturer backing.</p>
+              <p className="text-[11px] text-white/70 mt-0.5">This {product.brand} packaging is factory sealed and covered by standard 12-month manufacturer backing.</p>
             </div>
           </div>
         </div>
@@ -262,7 +262,7 @@ export default function ProductDetailsView() {
                   );
                 })}
               </div>
-              <span className="text-xs font-medium text-white/40">({ratingAverage} Average • {displayedReviews.length} verified reviews)</span>
+              <span className="text-xs font-medium text-white/70">({ratingAverage} Average • {displayedReviews.length} verified reviews)</span>
             </div>
           </div>
 
@@ -273,7 +273,7 @@ export default function ProductDetailsView() {
           {/* Pricing and Stock Level metrics */}
           <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5 flex items-center justify-between gap-4 animate-scaleUp">
             <div>
-              <span className="text-[10px] text-white/30 font-mono block leading-none mb-1">UNIT RETAIL PRICE</span>
+              <span className="text-[10px] text-gray-300 font-mono block leading-none mb-1">UNIT RETAIL PRICE</span>
               <span className="font-sans font-black text-2xl tracking-tight text-white block leading-none">
                 KES {product.price.toLocaleString()}
               </span>
@@ -281,12 +281,12 @@ export default function ProductDetailsView() {
 
             <div className="text-right shrink-0">
               {isOutOfStock ? (
-                <div className="bg-white/5 text-white/30 font-mono text-[10px] font-bold px-3 py-1.5 rounded-lg border border-white/10">
+                <div className="bg-white/5 text-gray-300 font-mono text-[10px] font-bold px-3 py-1.5 rounded-lg border border-white/10">
                   OUT OF STOCK
                 </div>
               ) : (
                 <div className="text-right">
-                  <span className="text-[10px] text-white/30 font-mono block mb-1">WAREHOUSE STOCK</span>
+                  <span className="text-[10px] text-gray-300 font-mono block mb-1">WAREHOUSE STOCK</span>
                   <span className={`font-mono text-xs font-bold px-2.5 py-1 rounded-md border inline-block leading-none ${
                     isLowStock 
                       ? "bg-red-500/10 text-red-500 border-red-500/20" 
@@ -474,7 +474,7 @@ export default function ProductDetailsView() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {Object.entries(product.specifications || {}).map(([key, val]) => (
             <div key={key} className="flex border-b border-white/5 pb-2 text-xs">
-              <span className="font-mono font-bold text-white/40 w-1/3 truncate uppercase tracking-wider shrink-0 mr-4">
+              <span className="font-mono font-bold text-white/70 w-1/3 truncate uppercase tracking-wider shrink-0 mr-4">
                 {key}
               </span>
               <span className="font-mono text-white flex-1 break-words font-medium">
@@ -612,7 +612,7 @@ export default function ProductDetailsView() {
             ) : (
               <form onSubmit={handleReviewSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-[10px] font-mono font-bold tracking-wider text-white/40 uppercase mb-1">
+                  <label className="block text-[10px] font-mono font-bold tracking-wider text-white/70 uppercase mb-1">
                     CLIENT NAME
                   </label>
                   <input
@@ -625,7 +625,7 @@ export default function ProductDetailsView() {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-mono font-bold tracking-wider text-white/40 uppercase mb-1">
+                  <label className="block text-[10px] font-mono font-bold tracking-wider text-white/70 uppercase mb-1">
                     PRODUCT RATING
                   </label>
                   <div className="flex items-center gap-1.5 py-1">
@@ -644,7 +644,7 @@ export default function ProductDetailsView() {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-mono font-bold tracking-wider text-white/40 uppercase mb-1">
+                  <label className="block text-[10px] font-mono font-bold tracking-wider text-white/70 uppercase mb-1">
                     DETAILED COMMENTS
                   </label>
                   <textarea
