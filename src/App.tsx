@@ -5,6 +5,7 @@
 
 import React from "react";
 import { StoreProvider, useStore } from "./StoreContext";
+import { AdminStoreProvider } from "./components/AdminStore";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import HomeView from "./components/HomeView";
@@ -18,11 +19,12 @@ import NotificationCenter from "./components/NotificationCenter";
 import AIAdvisor from "./components/AIAdvisor";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { Helmet } from "./components/Helmet";
+import AuthModal from "./components/AuthModal";
 import { Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 function StoreLayout() {
-  const { activeView, authLoading } = useStore();
+  const { activeView, authLoading, isAuthModalOpen } = useStore();
 
   React.useEffect(() => {
     window.scrollTo(0, 0);
@@ -213,6 +215,11 @@ function StoreLayout() {
       {/* Floating Grounded AI Advisor and Product Comparison matrix */}
       <AIAdvisor />
 
+      {/* Centralized Sign In & Registration Auth Modal */}
+      <AnimatePresence>
+        {isAuthModalOpen && <AuthModal />}
+      </AnimatePresence>
+
       {/* Persistent Floating WhatsApp Chat Button */}
       <a
         href="https://wa.me/254792620789"
@@ -248,7 +255,9 @@ function StoreLayout() {
 export default function App() {
   return (
     <StoreProvider>
-      <StoreLayout />
+      <AdminStoreProvider>
+        <StoreLayout />
+      </AdminStoreProvider>
     </StoreProvider>
   );
 }

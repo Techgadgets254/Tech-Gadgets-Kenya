@@ -123,6 +123,10 @@ interface StoreContextType {
   submitTransactionFeedback: (orderId: string, rating: number, comment: string) => Promise<void>;
   companyProfile: CompanyProfile | null;
   updateCompanyProfile: (data: Omit<CompanyProfile, "id" | "updatedAt">) => Promise<void>;
+  isAuthModalOpen: boolean;
+  setIsAuthModalOpen: (open: boolean) => void;
+  authModalMode: "login" | "signup" | "reset";
+  setAuthModalMode: (mode: "login" | "signup" | "reset") => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -135,6 +139,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsLimit, setProductsLimit] = useState(12);
   const [hasMoreProducts, setHasMoreProducts] = useState(true);
+
+  // Global Auth Modal States
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<"login" | "signup" | "reset">("login");
 
   const loadMoreProducts = () => {
     setProductsLimit((prev) => prev + 12);
@@ -1317,6 +1325,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         submitTransactionFeedback,
         companyProfile,
         updateCompanyProfile,
+        isAuthModalOpen,
+        setIsAuthModalOpen,
+        authModalMode,
+        setAuthModalMode,
       }}
     >
       {children}

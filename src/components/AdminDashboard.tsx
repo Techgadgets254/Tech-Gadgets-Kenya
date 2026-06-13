@@ -45,15 +45,15 @@ import { db } from "../firebase";
 import AdminCredentialManager from "./AdminCredentialManager";
 import AuditLogTable from "./AuditLogTable";
 import MetadataEditor from "./MetadataEditor";
+import { useAdminStore } from "./AdminStore";
 import { collection, getDocs, onSnapshot, addDoc, setDoc, deleteDoc, doc, query, orderBy, limit } from "firebase/firestore";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
 
 export default function AdminDashboard() {
+  const { liveProducts, liveOrders } = useAdminStore();
   const { 
     user, 
     userProfile, 
-    products, 
-    orders, 
     addProduct, 
     editProduct, 
     removeProduct, 
@@ -65,6 +65,9 @@ export default function AdminDashboard() {
     deleteAffiliate,
     theme
   } = useStore();
+
+  const products = liveProducts;
+  const orders = liveOrders;
 
   const [showCreds, setShowCreds] = useState(false);
 
