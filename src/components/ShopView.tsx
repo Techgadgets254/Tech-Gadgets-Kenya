@@ -82,7 +82,7 @@ export default function ShopView() {
       opacity: 1, 
       y: 0,
       transition: {
-        type: "spring",
+        type: "spring" as const,
         stiffness: 120,
         damping: 14
       }

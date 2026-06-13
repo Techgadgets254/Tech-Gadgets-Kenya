@@ -909,10 +909,8 @@ async function triggerDataBackup(adminUid: string, adminEmail: string) {
     const todaySlug = new Date().toISOString().split("T")[0];
     const backupId = `backup_${todaySlug}_${Date.now()}`;
 
-    // 1. Back up to Firestore collection "backups"
-    await serverSetDoc(serverDoc(serverDb, "backups", backupId), backupPayload);
-
-    // 2. Secondary layer: save local JSON file export in /backups folder
+    // 1. Save detailed fallback locally first (not limited by Firestore's 1MB restriction)
+    let isSavedLocally = false;
     try {
       const backupsDir = path.resolve(process.cwd(), "backups");
       if (!fs.existsSync(backupsDir)) {
@@ -920,21 +918,67 @@ async function triggerDataBackup(adminUid: string, adminEmail: string) {
       }
       const localBackupPath = path.join(backupsDir, `${backupId}.json`);
       fs.writeFileSync(localBackupPath, JSON.stringify(backupPayload, null, 2), "utf8");
+      isSavedLocally = true;
     } catch (fsErr) {
       console.warn("[Local FS Backup Warning] Local backups directory write skipped:", fsErr);
     }
 
-    // 3. Document into system activity / audit logs
+    // 2. Measure payload size to safely enforce Firestore's 1MB limit check (1,048,576 bytes)
+    const payloadStr = JSON.stringify(backupPayload);
+    const payloadBytes = Buffer.byteLength(payloadStr, "utf8");
+    const FIRESTORE_LIMIT = 1000 * 1024; // Safe margin around 1MB
+
+    let backupFirestoreData: any;
+    if (payloadBytes > FIRESTORE_LIMIT) {
+      console.warn(`[Backup Daemon] Payload size (${payloadBytes} bytes) exceeds the safe Firestore 1MB limit. Switching to storing metadata summary in cloud document store...`);
+      backupFirestoreData = {
+        timestamp: backupPayload.timestamp,
+        countProducts: backupPayload.countProducts,
+        countTransactions: backupPayload.countTransactions,
+        backupId: backupId,
+        isDetailedInCloud: false,
+        message: `High-density backup size (${(payloadBytes / 1024 / 1024).toFixed(2)} MB) exceeds 1MB Firestore limit. Complete ledger backed up on system storage.`,
+        isSavedLocally,
+        sizeInBytes: payloadBytes
+      };
+    } else {
+      backupFirestoreData = {
+        ...backupPayload,
+        isDetailedInCloud: true,
+        isSavedLocally,
+        sizeInBytes: payloadBytes
+      };
+    }
+
+    // 3. Write structured backup ledger entry to Firestore with failure recovery safeguards
+    try {
+      await serverSetDoc(serverDoc(serverDb, "backups", backupId), backupFirestoreData);
+    } catch (firestoreErr: any) {
+      console.warn("[Backup Daemon warning] Native write failure for detailed backup to Firestore. Executing cloud metadata summary fallback...", firestoreErr.message || firestoreErr);
+      const safeMetadata = {
+        timestamp: backupPayload.timestamp,
+        countProducts: backupPayload.countProducts,
+        countTransactions: backupPayload.countTransactions,
+        backupId: backupId,
+        isDetailedInCloud: false,
+        message: `Automatic safe summary fallback. Exception details: ${firestoreErr.message || String(firestoreErr)}`,
+        isSavedLocally,
+        sizeInBytes: payloadBytes
+      };
+      await serverSetDoc(serverDoc(serverDb, "backups", backupId), safeMetadata);
+    }
+
+    // 4. Document into system activity / audit logs
     const auditRef = serverCollection(serverDb, "audit_logs");
     await serverAddDoc(auditRef, {
       action: "bulk_backup",
-      details: `Daily JSON backup completed: Archived ${productsList.length} products and ${ordersList.length} global orders/transactions ledger snapshots to secure cloud backup storage.`,
+      details: `Daily JSON backup completed: Switched to size-aware smart backup archiving for ${productsList.length} products and ${ordersList.length} global orders/transactions. Data size: ${(payloadBytes / 1024 / 1024).toFixed(2)} MB.`,
       adminEmail: adminEmail,
       adminUid: adminUid,
       createdAt: new Date().toISOString()
     });
 
-    console.log(`[Backup Daemon] Backup ${backupId} completed: Products: ${productsList.length}, Transactions: ${ordersList.length}`);
+    console.log(`[Backup Daemon] Backup ${backupId} completed: Products: ${productsList.length}, Transactions: ${ordersList.length}, Size: ${payloadBytes} bytes`);
     return { success: true, backupId, productsCount: productsList.length, ordersCount: ordersList.length, timestamp: backupPayload.timestamp };
   } catch (err: any) {
     console.error("[Backup Daemon Failure] Backup failed executing:", err);

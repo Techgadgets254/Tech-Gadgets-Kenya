@@ -61,6 +61,7 @@ export interface UserProfile {
   email: string;
   name: string;
   role: "admin" | "customer";
+  wishlist?: string[];
   createdAt?: any;
 }
 
