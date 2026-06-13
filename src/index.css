@@ -64,10 +64,23 @@ html.light-theme #storefront-footer a:hover {
 /* Base blocks */
 html.light-theme section,
 html.light-theme article,
+html.light-theme [class*="bg-[#"],
+html.light-theme [class*="bg-[#" i],
+html.light-theme .bg-black,
+html.light-theme .bg-zinc-950,
+html.light-theme .bg-zinc-900,
+html.light-theme .bg-zinc-800,
+html.light-theme .bg-neutral-900,
 html.light-theme .bg-[#050505],
+html.light-theme .bg-[#0a0a0a],
 html.light-theme .bg-[#0A0A0A],
+html.light-theme .bg-[#0b0b0b],
+html.light-theme .bg-[#0B0B0B],
+html.light-theme .bg-[#0c0c0c],
 html.light-theme .bg-[#0C0C0C],
+html.light-theme .bg-[#0d0d0d],
 html.light-theme .bg-[#0D0D0D],
+html.light-theme .bg-[#0f0f0f],
 html.light-theme .bg-[#0F0F0F],
 html.light-theme .bg-[#111],
 html.light-theme .bg-[#111111],
@@ -77,14 +90,12 @@ html.light-theme .bg-[#151515],
 html.light-theme .bg-[#161616],
 html.light-theme .bg-[#181818],
 html.light-theme .bg-[#1a1a1a],
+html.light-theme .bg-[#1A1A1A],
 html.light-theme .bg-[#1c1c1c],
+html.light-theme .bg-[#1C1C1C],
 html.light-theme .bg-[#1e1e1e],
-html.light-theme .bg-[#222],
-html.light-theme .bg-black,
-html.light-theme .bg-zinc-950,
-html.light-theme .bg-zinc-900,
-html.light-theme .bg-zinc-800,
-html.light-theme .bg-neutral-900 {
+html.light-theme .bg-[#1E1E1E],
+html.light-theme .bg-[#222] {
   background-color: #ffffff !important;
   color: #1c1917 !important;
 }
@@ -93,24 +104,25 @@ html.light-theme .bg-neutral-900 {
 html.light-theme .bg-gradient-to-br,
 html.light-theme .bg-gradient-to-b,
 html.light-theme .bg-gradient-to-r,
-html.light-theme .bg-gradient-to-t {
+html.light-theme .bg-gradient-to-t,
+html.light-theme [class*="bg-gradient-to-"] {
   background-image: linear-gradient(to bottom right, #FCFBF9, #F4F1EB) !important;
+  background-color: #FCFBF9 !important;
   color: #1c1917 !important;
   border-color: #D6CFCE !important;
 }
 
-/* Semi-transparent sands/clays */
-html.light-theme .bg-[#050505]/95,
-html.light-theme .bg-[#0F0F0F]/95,
-html.light-theme .bg-[#0E0E0E]/95,
-html.light-theme .bg-[#0C0C0C]/95,
+/* Semi-transparent sands/clays & Alpha black-transparencies */
 html.light-theme .bg-black/80,
 html.light-theme .bg-black/85,
 html.light-theme .bg-black/95,
 html.light-theme .bg-black/50,
-html.light-theme .bg-black\/40,
-html.light-theme .bg-black\/30,
-html.light-theme .bg-black\/60,
+html.light-theme .bg-black/40,
+html.light-theme .bg-black/30,
+html.light-theme .bg-black/20,
+html.light-theme .bg-black/10,
+html.light-theme [class*="bg-black/"],
+html.light-theme [class*="bg-white/"],
 html.light-theme .bg-white\/\[0\.01\],
 html.light-theme .bg-white\/\[0\.02\],
 html.light-theme .bg-white\/\[0\.03\],
@@ -121,12 +133,14 @@ html.light-theme .bg-white\/\[0\.08\],
 html.light-theme .bg-white\/5,
 html.light-theme .bg-white\/10 {
   background-color: #F8F5EE !important; /* Premium Warm Sand Alabaster */
+  background-image: none !important;
   color: #1c1917 !important;
 }
 
 /* Borders mapping */
 html.light-theme border,
 html.light-theme .border,
+html.light-theme [class*="border-white/"],
 html.light-theme .border-white\/20,
 html.light-theme .border-white\/10,
 html.light-theme .border-white\/5,
