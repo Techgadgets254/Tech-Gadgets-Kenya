@@ -278,7 +278,8 @@ service cloud.firestore {
     // Audit logs:
     // - Secure and indelible. Only admin can retrieve and record audit logs.
     match /audit_logs/{logId} {
-      allow create, read, list: if isAdmin() && isValidAuditLog(incoming());
+      allow create: if isAdmin() && isValidAuditLog(incoming());
+      allow read, list: if isAdmin();
       allow update, delete: if false;
     }
 

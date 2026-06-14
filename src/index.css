@@ -616,5 +616,73 @@ html.light-theme [id="admin-management-portal"] .bg-red-600 {
   color: #ffffff !important;
 }
 
+/* Master Text Color Controllers for Light Mode */
+html.light-theme [class*="text-zinc-100"],
+html.light-theme [class*="text-zinc-200"],
+html.light-theme [class*="text-zinc-300"],
+html.light-theme [class*="text-neutral-100"],
+html.light-theme [class*="text-white"],
+html.light-theme [class*="text-[#f"],
+html.light-theme [class*="text-[#e"],
+html.light-theme [class*="text-[#d"],
+html.light-theme .text-white {
+  color: #1c1917 !important;
+}
+
+/* Master Secondary/Muted Clay Gray Color Mappers */
+html.light-theme [class*="text-white/30"],
+html.light-theme [class*="text-white/40"],
+html.light-theme [class*="text-white/50"],
+html.light-theme [class*="text-white/60"],
+html.light-theme [class*="text-zinc-400"],
+html.light-theme [class*="text-zinc-500"],
+html.light-theme [class*="text-neutral-400"],
+html.light-theme [class*="text-neutral-500"],
+html.light-theme .text-white\/30,
+html.light-theme .text-white\/40,
+html.light-theme .text-white\/50,
+html.light-theme .text-white\/60,
+html.light-theme .text-zinc-400,
+html.light-theme .text-zinc-500 {
+  color: #514B42 !important;
+}
+
+/* Protect active colored elements (success/danger buttons, status tags, etc.) */
+html.light-theme .bg-red-600,
+html.light-theme .bg-red-600 *,
+html.light-theme .bg-red-700,
+html.light-theme .bg-red-700 *,
+html.light-theme .bg-emerald-600,
+html.light-theme .bg-emerald-600 *,
+html.light-theme .bg-emerald-700,
+html.light-theme .bg-emerald-700 *,
+html.light-theme .bg-emerald-500,
+html.light-theme .bg-emerald-500 *,
+html.light-theme .bg-amber-500,
+html.light-theme .bg-amber-500 *,
+html.light-theme .bg-\[\#835c17\],
+html.light-theme .bg-\[\#835c17\] *,
+html.light-theme .bg-\[\#C5A059\],
+html.light-theme .bg-\[\#C5A059\] *,
+html.light-theme button.bg-\[\#C5A059\],
+html.light-theme button.bg-\[\#C5A059\] *,
+html.light-theme .text-emerald-400.font-black,
+html.light-theme .text-red-400.font-black,
+html.light-theme .text-amber-400.font-black,
+html.light-theme button:not(.bg-white):not(.bg-[#FCFBF9]):not(.bg-transparent) * {
+  color: #ffffff !important;
+}
+
+/* Target and fix any custom dark elements remaining in admin tables, badges, and filters */
+html.light-theme th,
+html.light-theme td,
+html.light-theme option,
+html.light-theme .font-mono.text-white\/30 {
+  color: #1c1917 !important;
+}
+html.light-theme .font-mono.text-white\/30 {
+  color: #514B42 !important;
+}
+
 
 

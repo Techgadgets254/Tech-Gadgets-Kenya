@@ -158,7 +158,8 @@ export default function HomeView() {
                     setSelectedProductId(laptop.id);
                     setActiveView("product-details");
                   }}
-                  className="bg-[#050505]/95 border border-white/10 hover:border-[#C5A059]/50 rounded-2xl p-4 flex gap-4 cursor-pointer transition-all hover:bg-[#0C0C0C] group/suggestion relative"
+                  style={{ backgroundColor: "var(--theme-bg-050505)" }}
+                  className="border border-white/5 dark:border-white/10 hover:border-[#C5A059]/50 rounded-2xl p-4 flex gap-4 cursor-pointer transition-all hover:opacity-90 group/suggestion relative"
                 >
                   <img
                     src={laptop.image}
@@ -229,7 +230,8 @@ export default function HomeView() {
                   setSearchQuery(cat.name);
                   setActiveView("shop");
                 }}
-                className="bg-[#0F0F0F] border border-white/10 rounded-2xl p-5 hover:border-[#C5A059]/60 cursor-pointer transition-all flex flex-row xl:flex-col xl:items-start items-center justify-between xl:justify-start gap-4 group hover:bg-white/[0.01]"
+                style={{ backgroundColor: "var(--theme-bg-0f0f0f)" }}
+                className="border border-white/10 rounded-2xl p-5 hover:border-[#C5A059]/60 cursor-pointer transition-all flex flex-row xl:flex-col xl:items-start items-center justify-between xl:justify-start gap-4 group hover:opacity-95"
               >
                 <div className={`${cat.color} p-3 rounded-xl border flex items-center justify-center shrink-0`}>
                   <Icon className="w-5 h-5" />
@@ -279,8 +281,8 @@ export default function HomeView() {
           </button>
         </div>
 
-        {products.length === 0 ? (
-          <div className="bg-[#0F0F0F] border border-white/10 py-12 rounded-2xl text-center flex flex-col items-center justify-center">
+         {products.length === 0 ? (
+          <div style={{ backgroundColor: "var(--theme-bg-0f0f0f)" }} className="border border-white/10 py-12 rounded-2xl text-center flex flex-col items-center justify-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#C5A059] mb-4" />
             <p className="text-xs text-white/40 font-mono">Syncing warehouse collection from firestore...</p>
           </div>
@@ -293,10 +295,12 @@ export default function HomeView() {
               return (
                 <div
                   key={product.id}
-                  className="bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden hover:border-[#C5A059]/40 transition-all flex flex-col group relative"
+                  style={{ backgroundColor: "var(--theme-bg-0f0f0f)" }}
+                  className="border border-white/10 rounded-2xl overflow-hidden hover:border-[#C5A059]/40 transition-all flex flex-col group relative"
                 >
                   <div 
-                    className="relative bg-[#1A1A1A] h-48 overflow-hidden cursor-pointer"
+                    style={{ backgroundColor: "var(--theme-bg-1a1a1a)" }}
+                    className="relative h-48 overflow-hidden cursor-pointer"
                     onClick={() => {
                       setSelectedProductId(product.id);
                       setActiveView("product-details");
@@ -422,8 +426,8 @@ export default function HomeView() {
           </button>
         </div>
 
-        {products.filter(p => p.category.toLowerCase().includes("laptop")).length === 0 ? (
-          <div className="bg-[#0F0F0F] border border-white/10 py-12 rounded-2xl text-center">
+         {products.filter(p => p.category.toLowerCase().includes("laptop")).length === 0 ? (
+          <div style={{ backgroundColor: "var(--theme-bg-0f0f0f)" }} className="border border-white/10 py-12 rounded-2xl text-center">
             <p className="text-xs text-white/40 font-mono">Syncing laptop warehouse allocation...</p>
           </div>
         ) : (
@@ -438,10 +442,12 @@ export default function HomeView() {
                 return (
                   <div
                     key={product.id}
-                    className="bg-[#0F0F0F] border border-[#C5A059]/20 rounded-2xl overflow-hidden hover:border-[#C5A059]/50 transition-all flex flex-col group relative bg-gradient-to-b from-[#121212] to-[#0A0A0A]"
+                    style={{ backgroundColor: "var(--theme-bg-0f0f0f)" }}
+                    className="border border-[#C5A059]/20 rounded-2xl overflow-hidden hover:border-[#C5A059]/50 transition-all flex flex-col group relative"
                   >
                     <div 
-                      className="relative bg-[#1A1A1A] h-48 overflow-hidden cursor-pointer"
+                      style={{ backgroundColor: "var(--theme-bg-1a1a1a)" }}
+                      className="relative h-48 overflow-hidden cursor-pointer"
                       onClick={() => {
                         setSelectedProductId(product.id);
                         setActiveView("product-details");

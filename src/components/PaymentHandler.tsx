@@ -194,6 +194,43 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
     }
   };
 
+  const triggerManualVerification = async () => {
+    if (!transactionData?.reference) return;
+    addLog("[User Action] Initiating immediate payment lookup check...");
+    try {
+      const res = await verifyPaystackTransaction(orderId, transactionData.reference);
+      if (res.success) {
+        addLog(`TRANSACTION COMMITTED: Payment Reference ${transactionData.reference} verified!`);
+        setStep("completed");
+        setTimeout(() => {
+          onSuccess(transactionData.reference!);
+        }, 1500);
+      } else {
+        addLog(`Manual Verification Check Status: ${res.message || "Pending/Unsettled"}`);
+        const lowerMsg = (res.message || "").toLowerCase();
+        const isDefinitiveFailure = 
+          lowerMsg.includes("fail") || 
+          lowerMsg.includes("cancel") || 
+          lowerMsg.includes("abandon") || 
+          lowerMsg.includes("reject") ||
+          lowerMsg.includes("invalid") ||
+          lowerMsg.includes("expired") ||
+          lowerMsg.includes("declined");
+
+        if (isDefinitiveFailure) {
+          addLog("TRANSACTION DECLARED FAILED: Checked and found a terminal state with the gateway.");
+          setErrorMessage(res.message || "Payment transaction was rejected or cancelled at the gateway.");
+          setStep("failed");
+        } else {
+          alert(`Verification Status: "${res.message || 'Payment is still pending on Paystack'}"\n\nIf you completed the secure payment, please wait a moment or click again.`);
+        }
+      }
+    } catch (err: any) {
+      addLog(`Status check query warning: ${err.message}`);
+      alert(`Could not verify payment: ${err.message}`);
+    }
+  };
+
   // Continuous loop monitoring real Paystack transaction
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -213,6 +250,26 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
                 setTimeout(() => {
                   onSuccess(transactionData.reference!);
                 }, 1500);
+              } else {
+                // If payment check returned a definitive failure
+                const lowerMsg = (res.message || "").toLowerCase();
+                const isDefinitiveFailure = 
+                  lowerMsg.includes("fail") || 
+                  lowerMsg.includes("cancel") || 
+                  lowerMsg.includes("abandon") || 
+                  lowerMsg.includes("reject") ||
+                  lowerMsg.includes("invalid") ||
+                  lowerMsg.includes("expired") ||
+                  lowerMsg.includes("declined");
+
+                if (isDefinitiveFailure) {
+                  addLog(`TRANSACTION STALL GENTLY TERMINATED: ${res.message || 'Gateway reported transaction failed'}`);
+                  clearInterval(interval);
+                  setErrorMessage(res.message || "The payment transaction was cancelled, expired, or rejected by the gateway.");
+                  setStep("failed");
+                } else {
+                  addLog(`Gateway reported: Payment is still pending (Hold state)...`);
+                }
               }
             })
             .catch((err) => {
@@ -356,14 +413,24 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
                 <p className="text-xs text-[#CCCCCC] leading-relaxed">
                   We've successfully created the checkout session. If the Paystack security window didn't open automatically, use the button below to launch it:
                 </p>
-                {transactionData?.authUrl && (
+                
+                <div className="flex flex-col gap-2">
+                  {transactionData?.authUrl && (
+                    <button
+                      onClick={() => window.open(transactionData.authUrl, "_blank")}
+                      className="w-full py-2.5 px-4 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-200 text-xs font-semibold rounded transition-all font-mono text-center"
+                    >
+                      💳 Open Payment Window
+                    </button>
+                  )}
+                  
                   <button
-                    onClick={() => window.open(transactionData.authUrl, "_blank")}
-                    className="w-full py-2 px-4 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-200 text-xs font-semibold rounded transition-all font-mono"
+                    onClick={triggerManualVerification}
+                    className="w-full py-2.5 px-4 bg-[#C5A059] hover:bg-[#B38F48] active:scale-95 text-black font-semibold text-xs rounded transition-all font-mono text-center shadow-md shadow-[#C5A059]/20"
                   >
-                    Open Payment Window
+                    ⚡ I Have Completed Payment (Verify Instantly!)
                   </button>
-                )}
+                </div>
                 <div className="pt-2 flex justify-between items-center">
                   <span className="text-[10px] text-muted-foreground font-mono">Polling Net Node: {pollAttempts} requests</span>
                   <button
