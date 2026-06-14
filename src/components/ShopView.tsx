@@ -795,6 +795,120 @@ export default function ShopView() {
 
       </div>
 
+      {/* Quick Buy Interactive Modal */}
+      {quickBuyProduct && (
+        <div id="quick-buy-modal" className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn font-sans">
+          <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 sm:p-8 max-w-md w-full relative space-y-6 shadow-2xl">
+            {/* Close trigger */}
+            <button
+              onClick={() => setQuickBuyProduct(null)}
+              className="absolute top-4 right-4 text-white/40 hover:text-white hover:bg-white/5 p-2 rounded-full cursor-pointer transition-colors bg-transparent border-none outline-none"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Product Card Header */}
+            <div className="flex gap-4">
+              <div className="w-20 h-20 bg-[#1A1A1A] border border-white/5 rounded-2xl overflow-hidden p-2 flex items-center justify-center shrink-0">
+                <img
+                  src={quickBuyProduct.image}
+                  alt={quickBuyProduct.name}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] font-mono text-[#C5A059] uppercase tracking-widest">{quickBuyProduct.category}</span>
+                <h3 className="font-sans font-bold text-base text-white line-clamp-2 leading-snug">{quickBuyProduct.name}</h3>
+                <p className="text-white/40 text-xs font-mono">Product Code: TG-{quickBuyProduct.id.substring(0, 5).toUpperCase()}</p>
+              </div>
+            </div>
+
+            {/* Selected Variant Picker Section */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono text-white/40 uppercase tracking-wider block font-bold">
+                {getProductVariants(quickBuyProduct).label}
+              </label>
+              <div className="space-y-2">
+                {getProductVariants(quickBuyProduct).options.map((option) => (
+                  <button
+                    key={option}
+                    onClick={() => setSelectedVariant(option)}
+                    className={`w-full text-left px-4 py-3 rounded-xl text-xs font-semibold flex justify-between items-center transition-all cursor-pointer border ${
+                      selectedVariant === option
+                        ? "bg-[#C5A059]/10 border-[#C5A059] text-white"
+                        : "bg-white/[0.02] border-white/5 hover:border-white/10 text-white/60"
+                    }`}
+                  >
+                    <span>{option.split(" (+")[0]}</span>
+                    {option.includes("(+") && (
+                      <span className="text-[10px] font-mono text-[#C5A059]">
+                        +{option.split("(+")[1].replace(")", "")}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Quantity Selector Section */}
+            <div className="flex items-center justify-between py-2 border-t border-b border-white/5">
+              <span className="text-xs text-white/40 font-semibold uppercase tracking-wider">Purchase Quantity</span>
+              <div className="flex items-center gap-4 bg-white/[0.03] px-3 py-1.5 rounded-xl border border-white/5">
+                <button
+                  disabled={quickBuyQuantity <= 1}
+                  onClick={() => setQuickBuyQuantity(prev => prev - 1)}
+                  className="text-white/40 hover:text-white disabled:pointer-events-none p-1 cursor-pointer bg-transparent border-0"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <span className="text-sm font-bold font-mono text-white select-none w-4 text-center">
+                  {quickBuyQuantity}
+                </span>
+                <button
+                  onClick={() => setQuickBuyQuantity(prev => prev + 1)}
+                  className="text-white/40 hover:text-white p-1 cursor-pointer bg-transparent border-0"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Interactive Buy Summary Block */}
+            <div className="flex items-center justify-between pt-2">
+              <div>
+                <span className="text-[9px] text-white/30 font-mono block uppercase">ACCUMULATED BUY TOTAL</span>
+                <span className="text-xl font-extrabold text-white tracking-tight">
+                  KES {(() => {
+                    let price = quickBuyProduct.price;
+                    const priceMatch = selectedVariant.match(/\+\s*KES\s*([\d,]+)/i);
+                    if (priceMatch) {
+                      const premium = parseInt(priceMatch[1].replace(/,/g, ""), 10);
+                      price += premium;
+                    }
+                    return (price * quickBuyQuantity).toLocaleString();
+                  })()}
+                </span>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setQuickBuyProduct(null)}
+                  className="bg-transparent border border-white/10 hover:border-white/20 text-white px-4 py-2.5 rounded-2xl text-xs font-semibold cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleQuickBuySubmit}
+                  className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-black px-6 py-2.5 rounded-2xl text-xs font-bold shadow-md hover:scale-102 transition-all cursor-pointer border-0"
+                >
+                  Direct Add
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

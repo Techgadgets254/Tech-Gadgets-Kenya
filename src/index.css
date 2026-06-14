@@ -316,4 +316,279 @@ img {
   user-drag: none;
 }
 
+/* Smooth global transitions for premium theme toggles */
+html.light-theme *,
+html:not(.light-theme) * {
+  transition: color 0.22s ease-in-out, background-color 0.22s ease-in-out, border-color 0.22s ease-in-out;
+}
+
+/* Premium Light-Theme Scrollbar Overrides */
+html.light-theme ::-webkit-scrollbar {
+  width: 8px !important;
+  height: 8px !important;
+}
+html.light-theme ::-webkit-scrollbar-track {
+  background: #F8F6F2 !important;
+}
+html.light-theme ::-webkit-scrollbar-thumb {
+  background: #D6CFC4 !important;
+  border-radius: 9999px !important;
+}
+html.light-theme ::-webkit-scrollbar-thumb:hover {
+  background: #835c17 !important;
+}
+
+/* Premium Active State Focus Rings */
+html.light-theme *:focus {
+  outline: 2px solid #835c17 !important;
+  outline-offset: 1px !important;
+}
+
+/* Print mode invoice utility for ClientDashboard */
+@media print {
+  body, html, main, #root, [id="client-dashboard-print-area"] {
+    background-color: #ffffff !important;
+    background-image: none !important;
+    color: #000000 !important;
+  }
+  
+  /* Ensure all nested text in print area is pure black and background is transparent/white */
+  [id="client-dashboard-print-area"] * {
+    background-color: transparent !important;
+    background-image: none !important;
+    color: #000000 !important;
+    border-color: #ccc !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Hide headers, footers, chats, buttons and side-rails during printing */
+  button, nav, header, footer, 
+  .no-print, 
+  [role="button"], 
+  .whatsapp-chat-widget, 
+  .support-chatbot-trigger, 
+  #storefront-footer,
+  [id="shortcuts-help-modal"],
+  [id="shortcuts-help-tooltip"] {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  
+  /* Reset layout constraints so everything flows beautifully on a single A4 page */
+  .shadow-2xl, .shadow-md, .shadow-lg {
+    box-shadow: none !important;
+  }
+
+  [id="client-dashboard-print-area"] {
+    border: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}
+
+/* Absolute Zero-Black Light Mode Overrides for Premium Components */
+
+/* Buttons */
+html.light-theme button,
+html.light-theme .btn,
+html.light-theme [role="button"] {
+  border-color: #E2DDD5 !important;
+}
+html.light-theme button:not(.bg-\[\#C5A059\]):not(.bg-[#835c17]):not(.bg-emerald-600):not(.bg-red-600) {
+  background-color: #FCFBF9 !important;
+  color: #1c1917 !important;
+}
+
+/* Stock categories, dropdowns, lists, and shop filters */
+html.light-theme select,
+html.light-theme option,
+html.light-theme .dropdown-menu,
+html.light-theme [class*="bg-[#0F0F0F]"],
+html.light-theme [class*="bg-[#0f0f0f]"] {
+  background-color: #FCFBF9 !important;
+  color: #1c1917 !important;
+  border-color: #E2DDD5 !important;
+}
+
+/* Featured premium listings & Product listings grid */
+html.light-theme .bg-[#1A1A1A],
+html.light-theme .bg-[#1a1a1a],
+html.light-theme .bg-[#111],
+html.light-theme .bg-[#111111],
+html.light-theme .bg-[#222],
+html.light-theme .bg-[#1A1A1A]\/30,
+html.light-theme .container-zoom-magnifier {
+  background-color: #ffffff !important;
+  color: #1c1917 !important;
+  border-color: #E2DDD5 !important;
+}
+
+/* Client price drop alerts, system feedback bubbles, technical specifications, and FAQs */
+html.light-theme [class*="bg-black/20"],
+html.light-theme [class*="bg-black/30"],
+html.light-theme [class*="bg-black/40"],
+html.light-theme [class*="bg-black/60"],
+html.light-theme [class*="bg-black/80"],
+html.light-theme [class*="bg-zinc-800"],
+html.light-theme [class*="bg-zinc-900"],
+html.light-theme [class*="bg-zinc-950"],
+html.light-theme [class*="bg-[#1C1C1C]"],
+html.light-theme [class*="bg-[#1A1A1A]"] {
+  background-color: #ffffff !important;
+  color: #1c1917 !important;
+  border-color: #E2DDD5 !important;
+}
+
+/* News sections & custom gadget visual elements */
+html.light-theme .relative.group.overflow-hidden,
+html.light-theme article.bg-zinc-900,
+html.light-theme .bg-black\/50,
+html.light-theme .bg-black\/70,
+html.light-theme .bg-black\/85 {
+  background-color: #F8F5EE !important;
+  color: #1c1917 !important;
+  border-color: #E2DDD5 !important;
+}
+
+/* Entire admin section & system tables overrides */
+html.light-theme .bg-black,
+html.light-theme .bg-zinc-950,
+html.light-theme .bg-[#050505],
+html.light-theme .min-h-screen.bg-[#050505],
+html.light-theme .bg-[#0A0A0A],
+html.light-theme .bg-[#0A0A0A]\/40,
+html.light-theme [id="admin-management-portal"] {
+  background-color: #F8F6F2 !important;
+  color: #1c1917 !important;
+}
+
+/* Admin Dashboard sidebar, topbars, and detail tables */
+html.light-theme td,
+html.light-theme th,
+html.light-theme tr,
+html.light-theme table,
+html.light-theme thead,
+html.light-theme tbody {
+  border-color: #E2DDD5 !important;
+}
+
+html.light-theme tr:hover {
+  background-color: #F4F1EB !important;
+}
+
+html.light-theme td.bg-black\/10,
+html.light-theme .bg-black\/30 {
+  background-color: #FCFBF9 !important;
+}
+
+/* Checkbox alignment inside table rows */
+html.light-theme input[type="checkbox"] {
+  background-color: #FCFBF9 !important;
+  border-color: #CFC7B9 !important;
+}
+
+/* Premium Dynamic Variable Custom Injection Framework */
+:root {
+  --theme-bg-050505: #050505;
+  --theme-bg-0a0a0a: #0A0A0A;
+  --theme-bg-0f0f0f: #0F0F0F;
+  --theme-bg-111111: #111111;
+  --theme-bg-1a1a1a: #1A1A1A;
+  --theme-bg-1c1c1c: #1C1C1C;
+  --theme-bg-222: #222222;
+  --theme-bg-black: #000000;
+  --theme-text-primary: #ffffff;
+  --theme-text-secondary: rgba(255, 255, 255, 0.6);
+  --theme-border-color: rgba(255, 255, 255, 0.1);
+  --theme-form-bg: #111111;
+}
+
+html.light-theme {
+  --theme-bg-050505: #F8F6F2;
+  --theme-bg-0a0a0a: #F8F6F2;
+  --theme-bg-0f0f0f: #FCFBF9;
+  --theme-bg-111111: #ffffff;
+  --theme-bg-1a1a1a: #ffffff;
+  --theme-bg-1c1c1c: #ffffff;
+  --theme-bg-222: #ffffff;
+  --theme-bg-black: #F8F6F2;
+  --theme-text-primary: #1c1917;
+  --theme-text-secondary: #514B42;
+  --theme-border-color: #E2DDD5;
+  --theme-form-bg: #FCFBF9;
+}
+
+/* Apply CSS variable mapping dynamically */
+html.light-theme .bg-\[\#050505\],
+html.light-theme .bg-\[\#0a0a0a\],
+html.light-theme .bg-\[\#0A0A0A\] {
+  background-color: var(--theme-bg-0a0a0a) !important;
+}
+
+html.light-theme .bg-\[\#0f0f0f\],
+html.light-theme .bg-\[\#0F0F0F\] {
+  background-color: var(--theme-bg-0f0f0f) !important;
+}
+
+html.light-theme .bg-\[\#111\],
+html.light-theme .bg-\[\#111111\] {
+  background-color: var(--theme-bg-111111) !important;
+}
+
+html.light-theme .bg-\[\#1a1a1a\],
+html.light-theme .bg-\[\#1A1A1A\] {
+  background-color: var(--theme-bg-1a1a1a) !important;
+}
+
+html.light-theme .bg-\[\#1c1c1c\],
+html.light-theme .bg-\[\#1C1C1C\] {
+  background-color: var(--theme-bg-1c1c1c) !important;
+}
+
+html.light-theme .bg-\[\#222\] {
+  background-color: var(--theme-bg-222) !important;
+}
+
+html.light-theme .bg-black {
+  background-color: var(--theme-bg-black) !important;
+}
+
+/* Absolute Light Mode Overrides for Buttons and Dropdown Menus */
+html.light-theme button,
+html.light-theme select,
+html.light-theme option,
+html.light-theme input,
+html.light-theme textarea {
+  color: var(--theme-text-primary) !important;
+}
+
+html.light-theme select,
+html.light-theme option {
+  background-color: var(--theme-form-bg) !important;
+  color: var(--theme-text-primary) !important;
+  border-color: var(--theme-border-color) !important;
+}
+
+/* Guarantee zero lingering dark backgrounds in Admin sections, stock categories & lists */
+html.light-theme [id="admin-management-portal"] *,
+html.light-theme [id="admin-management-portal"] {
+  background-color: var(--theme-bg-0a0a0a);
+  color: var(--theme-text-primary);
+  border-color: var(--theme-border-color);
+}
+
+/* Exempt specific active state backgrounds in Admin Dashboard */
+html.light-theme [id="admin-management-portal"] .bg-\[\#C5A059\],
+html.light-theme [id="admin-management-portal"] button.bg-\[\#C5A059\],
+html.light-theme [id="admin-management-portal"] .bg-[#835c17],
+html.light-theme [id="admin-management-portal"] .bg-emerald-600,
+html.light-theme [id="admin-management-portal"] .bg-red-600 {
+  background-color: #835c17 !important;
+  color: #ffffff !important;
+}
+
+
 

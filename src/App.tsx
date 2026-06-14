@@ -4,6 +4,7 @@
  */
 
 import React from "react";
+import "./lib/firebase";
 import { StoreProvider, useStore } from "./StoreContext";
 import { AdminStoreProvider } from "./components/AdminStore";
 import Header from "./components/Header";

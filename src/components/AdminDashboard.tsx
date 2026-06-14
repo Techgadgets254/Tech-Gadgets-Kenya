@@ -70,6 +70,23 @@ export default function AdminDashboard() {
   const products = liveProducts;
   const orders = liveOrders;
 
+  // Admin Login specific states
+  const [adminUsername, setAdminUsername] = useState("");
+  const [adminSecurityPassword, setAdminSecurityPassword] = useState("");
+  const [adminPasscodePassed, setAdminPasscodePassed] = useState(false);
+  const [adminAuthErr, setAdminAuthErr] = useState("");
+  const [isAdminAuthenticating, setIsAdminAuthenticating] = useState(false);
+
+  // States for system administrative operators directory
+  const [adminAccounts, setAdminAccounts] = useState<{ username: string; createdAt: string }[]>([]);
+  const [activeAdminTab, setActiveAdminTab] = useState<"admin_list" | "change_pw">("admin_list");
+  
+  // States for creating a new admin account
+  const [newAdminEmail, setNewAdminEmail] = useState("");
+  const [newAdminPassword, setNewAdminPassword] = useState("");
+  const [newAdminStatus, setNewAdminStatus] = useState("");
+  const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
+
   const [showCreds, setShowCreds] = useState(false);
 
   // States for stock controls and transaction queue filters
@@ -612,23 +629,6 @@ export default function AdminDashboard() {
       alert("Failed exporting subscriber databases.");
     }
   };
-
-  // Admin Login specific states
-  const [adminUsername, setAdminUsername] = useState("");
-  const [adminSecurityPassword, setAdminSecurityPassword] = useState("");
-  const [adminPasscodePassed, setAdminPasscodePassed] = useState(false);
-  const [adminAuthErr, setAdminAuthErr] = useState("");
-  const [isAdminAuthenticating, setIsAdminAuthenticating] = useState(false);
-
-  // States for system administrative operators directory
-  const [adminAccounts, setAdminAccounts] = useState<{ username: string; createdAt: string }[]>([]);
-  const [activeAdminTab, setActiveAdminTab] = useState<"admin_list" | "change_pw">("admin_list");
-  
-  // States for creating a new admin account
-  const [newAdminEmail, setNewAdminEmail] = useState("");
-  const [newAdminPassword, setNewAdminPassword] = useState("");
-  const [newAdminStatus, setNewAdminStatus] = useState("");
-  const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
 
   // States for changing password of the current admin
   const [changePwCurrent, setChangePwCurrent] = useState("");
@@ -4201,12 +4201,42 @@ Return a strictly valid JSON object structured exactly like this:
             <div className="pt-2">
               <button
                 onClick={() => setShortcutHelpOpen(false)}
-                className="w-full bg-[#C5A059] hover:bg-[#C5A0C0] text-black py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md border-0"
+                className="w-full bg-[#C5A059] hover:bg-[#C5A060] text-black py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md border-0"
               >
                 Dismiss Help
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Floating Keyboard Tooltip Action Button */}
+      {adminPasscodePassed && (
+        <div id="shortcuts-help-tooltip" className="fixed bottom-6 right-24 z-50 group hover:scale-105 transition-all">
+          <div className="absolute right-0 bottom-14 w-60 bg-[#111] border border-white/10 p-4 rounded-2xl shadow-xl pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+            <h4 className="font-sans font-bold text-xs text-white mb-2 flex items-center gap-1.5">
+              <Keyboard className="w-3.5 h-3.5 text-[#C5A059]" />
+              Quick Command Center
+            </h4>
+            <div className="space-y-1.5 text-[10px] font-mono text-white/50">
+              <div className="flex justify-between"><span>[ ? ] or [ H ]</span> <span className="text-white/80">Toggle shortcuts modal</span></div>
+              <div className="flex justify-between"><span>[ O ]</span> <span className="text-white/80">Go to Overview</span></div>
+              <div className="flex justify-between"><span>[ I ]</span> <span className="text-white/80">Go to Inventory</span></div>
+              <div className="flex justify-between"><span>[ R ]</span> <span className="text-white/80">Go to Fulfillment Queue</span></div>
+              <div className="flex justify-between"><span>[ T ]</span> <span className="text-white/80">Go to Trash Bin</span></div>
+              <div className="flex justify-between"><span>[ N ]</span> <span className="text-white/80">New Product Form (in inventory)</span></div>
+            </div>
+            <div className="mt-2 text-[9px] text-[#C5A059] font-sans italic text-center">
+              Press Escape to dismiss modals
+            </div>
+          </div>
+          <button
+            onClick={() => setShortcutHelpOpen(true)}
+            className="flex items-center justify-center bg-[#1A1A1A] hover:bg-[#222] text-[#C5A059] border border-white/10 rounded-full w-12 h-12 shadow-2xl transition-all hover:border-[#C5A059]/40 cursor-pointer select-none bg-transparent"
+            title="Show Keyboard Hotkeys"
+          >
+            <Keyboard className="w-5 h-5" />
+          </button>
         </div>
       )}
 
