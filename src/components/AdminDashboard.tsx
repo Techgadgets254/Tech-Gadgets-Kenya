@@ -868,7 +868,9 @@ export default function AdminDashboard() {
     gallery2: "",
     gallery3: "",
     gallery4: "",
-    specificationsStr: "Processor: Intel i7\nMemory: 16GB\nStorage: 512GB SSD" // default helper template
+    specificationsStr: "Processor: Intel i7\nMemory: 16GB\nStorage: 512GB SSD", // default helper template
+    customVariantsLabel: "Memory & Storage Options",
+    customVariantsStr: "8GB RAM | 256GB SSD | 55000\n16GB RAM | 512GB SSD | 75000"
   });
 
   const [showAddForm, setShowAddForm] = useState(false);
@@ -1616,7 +1618,11 @@ Return a strictly valid JSON object structured exactly like this:
       gallery2: prod.gallery?.[1] || "",
       gallery3: prod.gallery?.[2] || "",
       gallery4: prod.gallery?.[3] || "",
-      specificationsStr: specsStr
+      specificationsStr: specsStr,
+      customVariantsLabel: prod.customVariants?.label || "Memory & Storage Options",
+      customVariantsStr: prod.customVariants?.options
+        ? prod.customVariants.options.map(o => `${o.name} | ${o.price}`).join("\n")
+        : ""
     });
     setShowAddForm(true);
   };
@@ -1638,7 +1644,9 @@ Return a strictly valid JSON object structured exactly like this:
       gallery2: "",
       gallery3: "",
       gallery4: "",
-      specificationsStr: "Processor: Premium Specs\nDisplay: Full HD"
+      specificationsStr: "Processor: Premium Specs\nDisplay: Full HD",
+      customVariantsLabel: "Memory & Storage Options",
+      customVariantsStr: "8GB RAM | 256GB SSD | 55000\n16GB RAM | 512GB SSD | 75000"
     });
     setShowAddForm(true);
   };
@@ -1675,6 +1683,26 @@ Return a strictly valid JSON object structured exactly like this:
       productForm.gallery4
     ].filter(g => g.trim() !== "");
 
+    let customVariantsParsed = undefined;
+    if (productForm.customVariantsStr && productForm.customVariantsStr.trim()) {
+      const lines = productForm.customVariantsStr.split("\n").filter(l => l.trim().includes("|"));
+      if (lines.length > 0) {
+        const options = lines.map(line => {
+          const parts = line.split("|");
+          const namePart = parts[0].trim();
+          const pricePart = parts[1] ? Number(parts[1].replace(/[^0-9]/g, "")) : 0;
+          return { name: namePart, price: pricePart };
+        }).filter(opt => opt.name);
+        
+        if (options.length > 0) {
+          customVariantsParsed = {
+            label: productForm.customVariantsLabel?.trim() || "Memory & Storage Options",
+            options
+          };
+        }
+      }
+    }
+
     const payload: Omit<Product, "id"> = {
       name: productForm.name,
       brand: productForm.brand,
@@ -1685,7 +1713,8 @@ Return a strictly valid JSON object structured exactly like this:
       description: productForm.description,
       image: productForm.image,
       gallery: galleryArr,
-      specifications: parseSpecifications(productForm.specificationsStr)
+      specifications: parseSpecifications(productForm.specificationsStr),
+      customVariants: customVariantsParsed
     };
 
     try {
@@ -2582,6 +2611,41 @@ Return a strictly valid JSON object structured exactly like this:
                     className="w-full bg-[#0A0A0A] border border-white/10 py-2.5 px-3 rounded-lg focus:outline-hidden focus:border-[#C5A059] text-white font-mono"
                     placeholder="Key: Value (One specification per line)"
                   />
+                </div>
+
+                <div className="border border-white/5 rounded-2xl p-4 bg-white/[0.01] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="font-mono text-[10px] font-bold text-[#C5A059] block uppercase tracking-wider">
+                      ★ Active Product Feature Options (RAM, SSD, screen size, etc.)
+                    </label>
+                    <span className="text-[9px] text-white/40 font-mono font-bold">OPTIONAL</span>
+                  </div>
+                  <p className="text-[10px] text-white/40 leading-relaxed font-sans">
+                    Enable customers to select distinct memory size or performance features with separate prices at checkout. Leave empty to use default category options.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-mono text-[9px] font-bold text-white/40 block mb-1 uppercase">Variant Group Title</label>
+                      <input
+                        type="text"
+                        value={productForm.customVariantsLabel}
+                        onChange={(e) => setProductForm({ ...productForm, customVariantsLabel: e.target.value })}
+                        className="w-full bg-[#0A0A0A] border border-white/15 py-2 px-3 rounded-lg focus:outline-hidden focus:border-[#C5A059] text-white text-xs font-sans"
+                        placeholder="Memory & Storage Options"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="font-mono text-[9px] font-bold text-white/40 block mb-1 uppercase">Variant Options with Prices (One Option | Price per line)</label>
+                    <textarea
+                      rows={4}
+                      value={productForm.customVariantsStr}
+                      onChange={(e) => setProductForm({ ...productForm, customVariantsStr: e.target.value })}
+                      className="w-full bg-[#0A0A0A] border border-white/15 py-2.5 px-3 rounded-lg focus:outline-hidden focus:border-[#C5A059] text-white font-mono text-xs"
+                      placeholder="8GB RAM | 256GB SSD | 55000&#10;16GB RAM | 512GB SSD | 75000&#10;32GB RAM | 1TB SSD | 95000"
+                    />
+                    <p className="text-[9px] text-white/30 font-mono mt-1">Format: Option Name | Absolute Price in KES (e.g., 8GB RAM | 256GB SSD | 55000)</p>
+                  </div>
                 </div>
 
                 <div className="flex gap-3 justify-end pt-4 border-t border-white/10">

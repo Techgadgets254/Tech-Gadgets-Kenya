@@ -104,6 +104,22 @@ export default function ShopView() {
   const [quickBuyQuantity, setQuickBuyQuantity] = useState<number>(1);
 
   const getProductVariants = (product: Product) => {
+    if (product.customVariants && product.customVariants.options && product.customVariants.options.length > 0) {
+      return {
+        label: product.customVariants.label || "Available Feature Options",
+        options: product.customVariants.options.map(opt => {
+          const offset = opt.price - product.price;
+          if (offset > 0) {
+            return `${opt.name} (+ KES ${offset.toLocaleString()})`;
+          } else if (offset < 0) {
+            return `${opt.name} (- KES ${Math.abs(offset).toLocaleString()})`;
+          } else {
+            return opt.name;
+          }
+        })
+      };
+    }
+
     const cat = product.category.toLowerCase();
     if (cat.includes("laptop")) {
       return {
@@ -148,19 +164,27 @@ export default function ShopView() {
     
     let finalPrice = quickBuyProduct.price;
     const priceMatch = selectedVariant.match(/\+\s*KES\s*([\d,]+)/i);
+    const minusMatch = selectedVariant.match(/\-\s*KES\s*([\d,]+)/i);
     if (priceMatch) {
       const premium = parseInt(priceMatch[1].replace(/,/g, ""), 10);
       finalPrice += premium;
+    } else if (minusMatch) {
+      const discount = parseInt(minusMatch[1].replace(/,/g, ""), 10);
+      finalPrice -= discount;
     }
+
+    // Capture clean option name without offset suffix
+    const cleanVariantName = selectedVariant.split(" (+")[0].split(" (-")[0];
 
     const modifiedProduct = {
       ...quickBuyProduct,
-      name: `${quickBuyProduct.name} (${selectedVariant.split(" (+")[0]})`,
+      name: `${quickBuyProduct.name} (${cleanVariantName})`,
       price: finalPrice
     };
 
     addToCart(modifiedProduct, quickBuyQuantity);
     setQuickBuyProduct(null);
+    setActiveView("checkout");
   };
 
   // Helper mapping to extract core category name
@@ -839,10 +863,15 @@ export default function ShopView() {
                         : "bg-white/[0.02] border-white/5 hover:border-white/10 text-white/60"
                     }`}
                   >
-                    <span>{option.split(" (+")[0]}</span>
+                    <span>{option.split(" (")[0]}</span>
                     {option.includes("(+") && (
                       <span className="text-[10px] font-mono text-[#C5A059]">
                         +{option.split("(+")[1].replace(")", "")}
+                      </span>
+                    )}
+                    {option.includes("(-") && (
+                      <span className="text-[10px] font-mono text-emerald-400">
+                        -{option.split("(-")[1].replace(")", "")}
                       </span>
                     )}
                   </button>

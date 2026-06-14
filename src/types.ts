@@ -17,6 +17,13 @@ export interface Product {
   specifications: Record<string, string>;
   tags?: string[];
   rating?: number;
+  customVariants?: {
+    label: string;
+    options: {
+      name: string;
+      price: number;
+    }[];
+  };
   reviews?: {
     id: string;
     userName: string;
