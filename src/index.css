@@ -528,23 +528,44 @@ html.light-theme {
 
 /* Apply CSS variable mapping dynamically */
 html.light-theme .bg-\[\#050505\],
+html.light-theme .bg-\[\#050505\]\/95,
+html.light-theme .bg-\[\#050505\]\/90,
 html.light-theme .bg-\[\#0a0a0a\],
-html.light-theme .bg-\[\#0A0A0A\] {
-  background-color: var(--theme-bg-0a0a0a) !important;
+html.light-theme .bg-\[\#0a0a0a\]\/40,
+html.light-theme .bg-\[\#0A0A0A\],
+html.light-theme .bg-\[\#0A0A0A\]\/40 {
+  background-color: var(--theme-bg-050505) !important;
 }
 
 html.light-theme .bg-\[\#0f0f0f\],
-html.light-theme .bg-\[\#0F0F0F\] {
+html.light-theme .bg-\[\#0F0F0F\],
+html.light-theme .bg-\[\#0f0f0f\]\/95,
+html.light-theme .bg-\[\#0F0F0F\]\/95,
+html.light-theme .bg-\[\#0f0f0f\]\/90,
+html.light-theme .bg-\[\#0F0F0F\]\/90,
+html.light-theme .bg-\[\#0f0f0f\]\/85,
+html.light-theme .bg-\[\#0F0F0F\]\/85 {
   background-color: var(--theme-bg-0f0f0f) !important;
 }
 
+html.light-theme .bg-\[\#0b0b0b\],
+html.light-theme .bg-\[\#0B0B0B\],
+html.light-theme .bg-\[\#0b0b0b\]\/95,
+html.light-theme .bg-\[\#0B0B0B\]\/95 {
+  background-color: var(--theme-bg-050505) !important;
+}
+
 html.light-theme .bg-\[\#111\],
-html.light-theme .bg-\[\#111111\] {
+html.light-theme .bg-\[\#111111\],
+html.light-theme .bg-\[\#111111\]\/95,
+html.light-theme .bg-\[\#111111\]\/90 {
   background-color: var(--theme-bg-111111) !important;
 }
 
 html.light-theme .bg-\[\#1a1a1a\],
-html.light-theme .bg-\[\#1A1A1A\] {
+html.light-theme .bg-\[\#1A1A1A\],
+html.light-theme .bg-\[\#1a1a1a\]\/30,
+html.light-theme .bg-\[\#1A1A1A\]\/30 {
   background-color: var(--theme-bg-1a1a1a) !important;
 }
 

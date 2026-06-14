@@ -313,7 +313,7 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
               </div>
             )}
 
-            {step === "initializing" && (
+            {step === "initializing" && (!transactionData || transactionData.mode !== "simulated") && (
               <div className="py-4 flex flex-col items-center justify-center space-y-3">
                 <Loader2 className="w-8 h-8 text-[#C5A059] animate-spin" />
                 <p className="text-xs text-muted-foreground font-mono">Negotiating server checkout token...</p>
