@@ -646,7 +646,8 @@ export default function ShopView() {
                       {/* Product image with click trigger */}
                       <div
                         onClick={() => {
-                          setQuickBuyProduct(p);
+                          setSelectedProductId(p.id);
+                          setActiveView("product-details");
                         }}
                         className="relative h-44 sm:h-48 bg-[#1A1A1A] overflow-hidden cursor-pointer shrink-0"
                       >
@@ -728,7 +729,8 @@ export default function ShopView() {
 
                           <h3
                             onClick={() => {
-                              setQuickBuyProduct(p);
+                              setSelectedProductId(p.id);
+                              setActiveView("product-details");
                             }}
                             className="font-sans font-semibold text-sm text-white mt-1 cursor-pointer hover:text-[#C5A059] line-clamp-2 leading-tight"
                           >
@@ -783,7 +785,14 @@ export default function ShopView() {
 
                             <button
                               disabled={isOutOfStock}
-                              onClick={() => addToCart(p, 1)}
+                              onClick={() => {
+                                const variants = getProductVariants(p);
+                                if (variants && variants.options.length > 0) {
+                                  setQuickBuyProduct(p);
+                                } else {
+                                  addToCart(p, 1);
+                                }
+                              }}
                               className={`font-sans text-[11px] font-semibold px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
                                 isOutOfStock 
                                   ? "bg-white/5 text-white/30 cursor-not-allowed" 
