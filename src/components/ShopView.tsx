@@ -178,6 +178,7 @@ export default function ShopView() {
 
     const modifiedProduct = {
       ...quickBuyProduct,
+      id: `${quickBuyProduct.id}-${cleanVariantName.replace(/[^a-zA-Z0-9]/g, "_")}`,
       name: `${quickBuyProduct.name} (${cleanVariantName})`,
       price: finalPrice
     };

@@ -168,8 +168,85 @@ export default function ProductDetailsView() {
     );
   }
 
-  const isLowStock = product.stock <= 5;
-  const isOutOfStock = product.stock === 0;
+  const getProductVariants = (p: typeof product) => {
+    if (!p) return null;
+    if (p.customVariants && p.customVariants.options && p.customVariants.options.length > 0) {
+      return {
+        label: p.customVariants.label || "Available Feature Options",
+        options: p.customVariants.options.map(opt => {
+          const offset = opt.price - p.price;
+          if (offset > 0) {
+            return `${opt.name} (+ KES ${offset.toLocaleString()})`;
+          } else if (offset < 0) {
+            return `${opt.name} (- KES ${Math.abs(offset).toLocaleString()})`;
+          } else {
+            return opt.name;
+          }
+        })
+      };
+    }
+
+    const cat = p.category.toLowerCase();
+    if (cat.includes("laptop")) {
+      return {
+        label: "RAM / System Performance Configuration",
+        options: ["16GB Unified RAM | 512GB SSD", "32GB Unified RAM | 1TB SSD (+ KES 25,000)", "64GB Unified RAM | 2TB SSD (+ KES 60,000)"]
+      };
+    }
+    if (cat.includes("phone")) {
+      return {
+        label: "Flash Storage Capacity Unit",
+        options: ["128GB Storage", "256GB Storage Unit (+ KES 10,000)", "512GB Storage Unit (+ KES 22,000)", "1TB Ultimate Storage Unit (+ KES 45,000)"]
+      };
+    }
+    return {
+      label: "Device Customization Bundle Option",
+      options: ["Standard Retail Box Edition", "Extended Premium Care Warranty Bundle (+ KES 4,500)"]
+    };
+  };
+
+  const [selectedVariant, setSelectedVariant] = useState<string>("");
+
+  const variantsInfo = useMemo(() => {
+    return getProductVariants(product);
+  }, [product]);
+
+  React.useEffect(() => {
+    if (variantsInfo && variantsInfo.options.length > 0) {
+      setSelectedVariant(variantsInfo.options[0]);
+    } else {
+      setSelectedVariant("");
+    }
+  }, [variantsInfo]);
+
+  const currentPrice = useMemo(() => {
+    if (!product) return 0;
+    let price = product.price;
+    if (!selectedVariant) return price;
+
+    const priceMatch = selectedVariant.match(/\+\s*KES\s*([\d,]+)/i);
+    const minusMatch = selectedVariant.match(/\-\s*KES\s*([\d,]+)/i);
+    if (priceMatch) {
+       const premium = parseInt(priceMatch[1].replace(/,/g, ""), 10);
+       price += premium;
+    } else if (minusMatch) {
+       const discount = parseInt(minusMatch[1].replace(/,/g, ""), 10);
+       price -= discount;
+    }
+    return price;
+  }, [product, selectedVariant]);
+
+  const currentStock = useMemo(() => {
+    if (!product) return 0;
+    if (!selectedVariant || !variantsInfo) return product.stock;
+    const idx = variantsInfo.options.indexOf(selectedVariant);
+    if (idx === -1) return product.stock;
+    const modStock = Math.max(1, (product.stock - idx * 2));
+    return modStock;
+  }, [product, selectedVariant, variantsInfo]);
+
+  const isLowStock = currentStock <= 5;
+  const isOutOfStock = currentStock === 0;
 
   // Find related items (matching category, excluding current product, up to 3 items)
   const relatedItems = useMemo(() => {
@@ -180,7 +257,33 @@ export default function ProductDetailsView() {
 
   // Handle adding custom quantity to bag
   const handleAddToBag = () => {
-    addToCart(product, quantity);
+    let finalPrice = product.price;
+    let finalName = product.name;
+    let finalId = product.id;
+
+    if (selectedVariant) {
+      const cleanVariantName = selectedVariant.split(" (+")[0].split(" (-")[0];
+      const priceMatch = selectedVariant.match(/\+\s*KES\s*([\d,]+)/i);
+      const minusMatch = selectedVariant.match(/\-\s*KES\s*([\d,]+)/i);
+      if (priceMatch) {
+         const premium = parseInt(priceMatch[1].replace(/,/g, ""), 10);
+         finalPrice += premium;
+      } else if (minusMatch) {
+         const discount = parseInt(minusMatch[1].replace(/,/g, ""), 10);
+         finalPrice -= discount;
+      }
+      finalName = `${product.name} (${cleanVariantName})`;
+      finalId = `${product.id}-${cleanVariantName.replace(/[^a-zA-Z0-9]/g, "_")}`;
+    }
+
+    const modifiedProduct = {
+      ...product,
+      id: finalId,
+      name: finalName,
+      price: finalPrice
+    };
+
+    addToCart(modifiedProduct, quantity);
     setActiveView("checkout");
   };
 
@@ -298,12 +401,51 @@ export default function ProductDetailsView() {
             {product.description}
           </p>
 
+          {/* Variants Selector Section */}
+          {variantsInfo && variantsInfo.options.length > 0 && (
+            <div className="space-y-3 pt-2">
+              <span className="text-[#C5A059] font-mono text-[10px] uppercase font-bold tracking-wider block">
+                {variantsInfo.label}
+              </span>
+              <div className="flex flex-col gap-2">
+                {variantsInfo.options.map((option) => {
+                  const isSelected = selectedVariant === option;
+                  const cleanOpt = option.split(" (")[0];
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setSelectedVariant(option)}
+                      className={`w-full text-left px-4 py-3 rounded-xl text-xs font-semibold flex justify-between items-center transition-all cursor-pointer border ${
+                        isSelected
+                          ? "bg-[#C5A059]/15 border-[#C5A059] text-white"
+                          : "bg-white/[0.02] border-white/5 hover:border-white/10 text-white/70"
+                      }`}
+                    >
+                      <span>{cleanOpt}</span>
+                      {option.includes("(+") && (
+                        <span className="text-[10px] font-mono text-[#C5A059] font-bold">
+                          +{option.split("(+")[1].replace(")", "")}
+                        </span>
+                      )}
+                      {option.includes("(-") && (
+                        <span className="text-[10px] font-mono text-emerald-400 font-bold">
+                          -{option.split("(-")[1].replace(")", "")}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Pricing and Stock Level metrics */}
           <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5 flex items-center justify-between gap-4 animate-scaleUp">
             <div>
               <span className="text-[10px] text-gray-300 font-mono block leading-none mb-1">UNIT RETAIL PRICE</span>
               <span className="font-sans font-black text-2xl tracking-tight text-white block leading-none">
-                KES {product.price.toLocaleString()}
+                KES {currentPrice.toLocaleString()}
               </span>
             </div>
 
@@ -320,7 +462,7 @@ export default function ProductDetailsView() {
                       ? "bg-red-500/10 text-red-500 border-red-500/20" 
                       : "bg-[#C5A059]/10 text-[#C5A059] border-[#C5A059]/20 animate-pulse"
                   }`}>
-                    {isLowStock ? `Hurry, only ${product.stock} left!` : `${product.stock} items available`}
+                    {isLowStock ? `Hurry, only ${currentStock} left!` : `${currentStock} items available`}
                   </span>
                 </div>
               )}
@@ -348,7 +490,7 @@ export default function ProductDetailsView() {
                     {quantity}
                   </span>
                   <button
-                    onClick={() => setQuantity(q => Math.min(product.stock, q + 1))}
+                    onClick={() => setQuantity(q => Math.min(currentStock, q + 1))}
                     className="px-3 py-2 text-white/60 hover:bg-white/[0.04] font-bold transition-colors cursor-pointer border-l border-white/10 text-sm"
                   >
                     +
