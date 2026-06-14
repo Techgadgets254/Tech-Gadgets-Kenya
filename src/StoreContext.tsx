@@ -810,10 +810,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const docRef = await addDoc(collection(db, "orders"), orderData);
       
       // Update local product inventory stock for realistic ecommerce behavior!
-      for (const cartItem of cart) {
-        const productRef = doc(db, "products", cartItem.product.id);
-        const newStock = Math.max(0, cartItem.product.stock - cartItem.quantity);
-        await updateDoc(productRef, { stock: newStock });
+      try {
+        for (const cartItem of cart) {
+          const productRef = doc(db, "products", cartItem.product.id);
+          const newStock = Math.max(0, cartItem.product.stock - cartItem.quantity);
+          await updateDoc(productRef, { stock: newStock });
+        }
+      } catch (stockErr) {
+        console.warn("Could not adjust stock directly due to permission limits, skipping local stock adjustment:", stockErr);
       }
 
       return { id: docRef.id, ...orderData } as Order;
@@ -936,31 +940,33 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Delete Product Action (Soft-deletes to Trash collection for 60 days before purge)
   const removeProduct = async (id: string) => {
     try {
-      const matched = products.find(p => p.id === id);
-      
       // Update local state immediately for instant, lag-free visual UI feedback
       setProducts(prev => prev.filter(p => p.id !== id));
 
-      if (matched) {
+      const productRef = doc(db, "products", id);
+      const productSnap = await getDoc(productRef);
+      
+      if (productSnap.exists()) {
+        const data = productSnap.data();
         const sixtyDaysMs = 60 * 24 * 60 * 60 * 1000;
         const expiresAt = new Date(Date.now() + sixtyDaysMs).toISOString();
         const trashPayload = {
           originalId: id,
           productData: {
-            name: matched.name || "Unnamed Item",
-            brand: matched.brand || "Generic",
-            category: matched.category || "Accessories",
-            price: Number(matched.price || 0),
-            stock: Number(matched.stock || 0),
-            description: matched.description || "",
-            image: matched.image || "",
-            gallery: matched.gallery || [],
-            specifications: matched.specifications || {},
-            tags: matched.tags || [],
-            rating: matched.rating || 5,
-            reviews: matched.reviews || [],
-            createdAt: matched.createdAt || new Date().toISOString(),
-            updatedAt: matched.updatedAt || new Date().toISOString()
+            name: data.name || "Unnamed Item",
+            brand: data.brand || "Generic",
+            category: data.category || "Accessories",
+            price: Number(data.price || 0),
+            stock: Number(data.stock || 0),
+            description: data.description || "",
+            image: data.image || "",
+            gallery: data.gallery || [],
+            specifications: data.specifications || {},
+            tags: data.tags || [],
+            rating: data.rating || 5,
+            reviews: data.reviews || [],
+            createdAt: data.createdAt || new Date().toISOString(),
+            updatedAt: data.updatedAt || new Date().toISOString()
           },
           deletedAt: new Date().toISOString(),
           expiresAt // added 60-day explicit retention duration index to record
@@ -972,7 +978,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           console.error("Warning: Could not create trash log entry:", trashErr);
         }
       }
-      const productRef = doc(db, "products", id);
+      
       // Merely update product with deleted: true
       await updateDoc(productRef, {
         deleted: true,

@@ -2353,6 +2353,68 @@ Return a strictly valid JSON object structured exactly like this:
             </div>
           </div>
 
+          {/* DAILY SALES VOLUME & REVENUE PERFORMANCE BAR CHART */}
+          <div className="bg-[#0F0F0F] border border-white/10 p-6 rounded-3xl shadow-xs animate-fadeIn">
+            <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-white/10 pb-4">
+              <div>
+                <h3 className="text-white font-semibold text-base font-sans flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-[#C5A059]" />
+                  <span>Daily Sales Volume & Revenue Performance</span>
+                </h3>
+                <p className="text-white/40 text-xs mt-1">
+                  Provides granular, daily bar insights into revenue performance and sales volume metrics over the last 30 days.
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] text-white/40 block font-mono uppercase">AVERAGE DAILY REVENUE</span>
+                <span className="text-md font-sans text-[#C5A059] font-bold">
+                  KES {Math.round(hourlyOrDailyRevenueData.reduce((acc, curr) => acc + curr.revenue, 0) / 30).toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            <div className="w-full h-80 pt-2 font-mono">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                <BarChart data={hourlyOrDailyRevenueData} margin={{ top: 15, right: 30, left: -10, bottom: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
+                  <XAxis 
+                    dataKey="formattedDate" 
+                    stroke={axisColor} 
+                    fontSize={10} 
+                    tickLine={false} 
+                    dy={10}
+                  />
+                  <YAxis 
+                    stroke={axisColor} 
+                    fontSize={10} 
+                    tickLine={false} 
+                    dx={-5}
+                    tickFormatter={(val) => `KES ${val >= 1000 ? (val / 1000).toFixed(0) + 'k' : val}`}
+                  />
+                  <Tooltip 
+                    cursor={{ fill: "rgba(197, 160, 89, 0.05)" }}
+                    contentStyle={{ 
+                      backgroundColor: tooltipBg, 
+                      borderColor: tooltipBorder,
+                      borderRadius: "12px"
+                    }}
+                    itemStyle={{ color: tooltipTextColor }}
+                    labelStyle={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}
+                    formatter={(value: any) => [`KES ${value.toLocaleString()}`, "Sales Volume"]}
+                  />
+                  <Bar 
+                    dataKey="revenue" 
+                    name="Daily Sales Volume" 
+                    fill="#C5A059" 
+                    fillOpacity={0.85} 
+                    radius={[4, 4, 0, 0]} 
+                    maxBarSize={40} 
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
             {/* Left Block: Paystack Gateway status telemetry */}

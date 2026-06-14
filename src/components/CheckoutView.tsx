@@ -185,79 +185,85 @@ export default function CheckoutView() {
       return;
     }
 
-    if (isNairobi) {
-      // Nairobi requires immediate Payment Before Delivery
-      if (paymentMethod === "paystack") {
-        const shippingFullAddress = `${deliveryDetails}, ${selectedCounty} County, Kenya (Nairobi - Free Delivery)`;
-        
-        // Show immediate spinner/loading state
+    try {
+      if (isNairobi) {
+        // Nairobi requires immediate Payment Before Delivery
+        if (paymentMethod === "paystack") {
+          const shippingFullAddress = `${deliveryDetails}, ${selectedCounty} County, Kenya (Nairobi - Free Delivery)`;
+          
+          // Show immediate spinner/loading state
+          setIsSTKProcessing(true);
+          setStkLogs([]);
+          updateSTKLog("Starting Secure Ordering pipeline...", 100);
+
+          const orderObj = await createCheckoutOrder({
+            customerName,
+            customerEmail: user.email || "",
+            customerPhone,
+            shippingAddress: shippingFullAddress,
+            mpesaPhone: customerPhone, // Stores customer billing contact to satisfy Firestore layout
+            totalAmount: Math.max(0, getCartTotal() + deliveryFee - discount),
+            referralCode: appliedPromo || undefined,
+            paymentProvider: "Paystack"
+          });
+
+          if (!orderObj) {
+            setIsSTKProcessing(false);
+            alert("Encountered access authorization limit creating database record.");
+            return;
+          }
+
+          // Clean older states
+          setIsSTKProcessing(false);
+
+          // Open our high-integrity PaymentHandler modal
+          setActivePaymentOrderId(orderObj.id);
+          setActivePaymentEmail(user.email || "techgadgetsk@gmail.com");
+          setActivePaymentAmount(orderObj.totalAmount);
+          setIsPaymentHandlerOpen(true);
+        }
+      } else {
+        // OUTSIDE NAIROBI: "no payment before delivery"
         setIsSTKProcessing(true);
         setStkLogs([]);
-        updateSTKLog("Starting Secure Ordering pipeline...", 100);
 
+        updateSTKLog("Parsing outside-Nairobi shipping parameters...", 150);
+        updateSTKLog("Validating logistics hub matching for county: " + selectedCounty, 450);
+
+        const shippingFullAddress = `${deliveryDetails}, ${selectedCounty} County, Kenya (Outside Nairobi - Pay on Delivery)`;
+        
         const orderObj = await createCheckoutOrder({
           customerName,
           customerEmail: user.email || "",
           customerPhone,
           shippingAddress: shippingFullAddress,
-          mpesaPhone: customerPhone, // Stores customer billing contact to satisfy Firestore layout
-          totalAmount: Math.max(0, getCartTotal() + deliveryFee - discount),
+          mpesaPhone: "PAY-ON-DELIVERY",
+          totalAmount: Math.max(0, getCartTotal() - discount),
           referralCode: appliedPromo || undefined,
-          paymentProvider: "Paystack"
+          paymentProvider: "Delivery-Pay"
         });
 
         if (!orderObj) {
           setIsSTKProcessing(false);
-          alert("Encountered access authorization limit creating database record.");
+          alert("Encountered database communication issue.");
           return;
         }
 
-        // Clean older states
-        setIsSTKProcessing(false);
+        updateSTKLog("Compiling free warehouse dispatch ledger...", 900);
+        updateSTKLog("Order queued as PENDING DELIVERY (Pay on Delivery Approved)", 1400);
 
-        // Open our high-integrity PaymentHandler modal
-        setActivePaymentOrderId(orderObj.id);
-        setActivePaymentEmail(user.email || "techgadgetsk@gmail.com");
-        setActivePaymentAmount(orderObj.totalAmount);
-        setIsPaymentHandlerOpen(true);
+        setTimeout(() => {
+          setGeneratedReceipt("POD-APPROVED");
+          setGeneratedOrderId(orderObj.id);
+          setPaymentSuccess(true);
+          setIsSTKProcessing(false);
+          clearCart();
+        }, 2000);
       }
-    } else {
-      // OUTSIDE NAIROBI: "no payment before delivery"
-      setIsSTKProcessing(true);
-      setStkLogs([]);
-
-      updateSTKLog("Parsing outside-Nairobi shipping parameters...", 150);
-      updateSTKLog("Validating logistics hub matching for county: " + selectedCounty, 450);
-
-      const shippingFullAddress = `${deliveryDetails}, ${selectedCounty} County, Kenya (Outside Nairobi - Pay on Delivery)`;
-      
-      const orderObj = await createCheckoutOrder({
-        customerName,
-        customerEmail: user.email || "",
-        customerPhone,
-        shippingAddress: shippingFullAddress,
-        mpesaPhone: "PAY-ON-DELIVERY",
-        totalAmount: Math.max(0, getCartTotal() - discount),
-        referralCode: appliedPromo || undefined,
-        paymentProvider: "Delivery-Pay"
-      });
-
-      if (!orderObj) {
-        setIsSTKProcessing(false);
-        alert("Encountered database communication issue.");
-        return;
-      }
-
-      updateSTKLog("Compiling free warehouse dispatch ledger...", 900);
-      updateSTKLog("Order queued as PENDING DELIVERY (Pay on Delivery Approved)", 1400);
-
-      setTimeout(() => {
-        setGeneratedReceipt("POD-APPROVED");
-        setGeneratedOrderId(orderObj.id);
-        setPaymentSuccess(true);
-        setIsSTKProcessing(false);
-        clearCart();
-      }, 2000);
+    } catch (err: any) {
+      console.error("Checkout submission failed:", err);
+      setIsSTKProcessing(false);
+      alert(`Fulfillment Dispatch error. Please double-check configuration. Details: ${err?.message || err}`);
     }
   };
 

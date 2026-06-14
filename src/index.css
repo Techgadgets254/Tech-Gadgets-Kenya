@@ -370,7 +370,12 @@ html.light-theme *:focus {
   .support-chatbot-trigger, 
   #storefront-footer,
   [id="shortcuts-help-modal"],
-  [id="shortcuts-help-tooltip"] {
+  [id="shortcuts-help-tooltip"],
+  #floating-whatsapp-trigger,
+  #ai-floating-bubble,
+  #ai-advisor-panel,
+  #compare-bar,
+  #compare-modal {
     display: none !important;
     visibility: hidden !important;
   }
