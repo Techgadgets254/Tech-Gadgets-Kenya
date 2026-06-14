@@ -24,6 +24,13 @@ export interface Product {
       price: number;
     }[];
   };
+  variants?: {
+    id: string;
+    ram: string;
+    ssd: string;
+    price: number;
+    stock: number;
+  }[];
   reviews?: {
     id: string;
     userName: string;

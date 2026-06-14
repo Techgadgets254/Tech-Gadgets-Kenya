@@ -101,6 +101,8 @@ export default function ShopView() {
   // Quick Buy interactive modal configurations
   const [quickBuyProduct, setQuickBuyProduct] = useState<Product | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<string>("");
+  const [quickBuyRam, setQuickBuyRam] = useState<string>("");
+  const [quickBuySsd, setQuickBuySsd] = useState<string>("");
   const [quickBuyQuantity, setQuickBuyQuantity] = useState<number>(1);
 
   const getProductVariants = (product: Product) => {
@@ -151,10 +153,34 @@ export default function ShopView() {
     };
   };
 
+  const matchedQuickBuyVariant = useMemo(() => {
+    if (!quickBuyProduct || !quickBuyProduct.variants || quickBuyProduct.variants.length === 0) return null;
+    return quickBuyProduct.variants.find(
+      v => v.ram === quickBuyRam && v.ssd === quickBuySsd
+    ) || quickBuyProduct.variants[0];
+  }, [quickBuyProduct, quickBuyRam, quickBuySsd]);
+
+  const uniqueQuickBuyRams = useMemo(() => {
+    if (!quickBuyProduct || !quickBuyProduct.variants || quickBuyProduct.variants.length === 0) return [];
+    return Array.from(new Set(quickBuyProduct.variants.map(v => v.ram).filter(Boolean)));
+  }, [quickBuyProduct]);
+
+  const uniqueQuickBuySsds = useMemo(() => {
+    if (!quickBuyProduct || !quickBuyProduct.variants || quickBuyProduct.variants.length === 0) return [];
+    return Array.from(new Set(quickBuyProduct.variants.map(v => v.ssd).filter(Boolean)));
+  }, [quickBuyProduct]);
+
   useEffect(() => {
     if (quickBuyProduct) {
-      const variants = getProductVariants(quickBuyProduct).options;
-      setSelectedVariant(variants[0]);
+      if (quickBuyProduct.variants && quickBuyProduct.variants.length > 0) {
+        const uniqueRams = Array.from(new Set(quickBuyProduct.variants.map(v => v.ram).filter(Boolean)));
+        const uniqueSsds = Array.from(new Set(quickBuyProduct.variants.map(v => v.ssd).filter(Boolean)));
+        setQuickBuyRam(uniqueRams[0] || "");
+        setQuickBuySsd(uniqueSsds[0] || "");
+      } else {
+        const variants = getProductVariants(quickBuyProduct).options;
+        setSelectedVariant(variants[0] || "");
+      }
       setQuickBuyQuantity(1);
     }
   }, [quickBuyProduct]);
@@ -163,23 +189,33 @@ export default function ShopView() {
     if (!quickBuyProduct) return;
     
     let finalPrice = quickBuyProduct.price;
-    const priceMatch = selectedVariant.match(/\+\s*KES\s*([\d,]+)/i);
-    const minusMatch = selectedVariant.match(/\-\s*KES\s*([\d,]+)/i);
-    if (priceMatch) {
-      const premium = parseInt(priceMatch[1].replace(/,/g, ""), 10);
-      finalPrice += premium;
-    } else if (minusMatch) {
-      const discount = parseInt(minusMatch[1].replace(/,/g, ""), 10);
-      finalPrice -= discount;
-    }
+    let finalName = quickBuyProduct.name;
+    let finalId = quickBuyProduct.id;
 
-    // Capture clean option name without offset suffix
-    const cleanVariantName = selectedVariant.split(" (+")[0].split(" (-")[0];
+    if (quickBuyProduct.variants && quickBuyProduct.variants.length > 0 && matchedQuickBuyVariant) {
+      finalPrice = matchedQuickBuyVariant.price;
+      const desc = `${matchedQuickBuyVariant.ram} / ${matchedQuickBuyVariant.ssd}`;
+      finalName = `${quickBuyProduct.name} (${desc})`;
+      finalId = `${quickBuyProduct.id}-${desc.replace(/[^a-zA-Z0-9]/g, "_")}`;
+    } else {
+      const priceMatch = selectedVariant.match(/\+\s*KES\s*([\d,]+)/i);
+      const minusMatch = selectedVariant.match(/\-\s*KES\s*([\d,]+)/i);
+      if (priceMatch) {
+        const premium = parseInt(priceMatch[1].replace(/,/g, ""), 10);
+        finalPrice += premium;
+      } else if (minusMatch) {
+         const discount = parseInt(minusMatch[1].replace(/,/g, ""), 10);
+         finalPrice -= discount;
+      }
+      const cleanVariantName = selectedVariant.split(" (+")[0].split(" (-")[0];
+      finalName = `${quickBuyProduct.name} (${cleanVariantName})`;
+      finalId = `${quickBuyProduct.id}-${cleanVariantName.replace(/[^a-zA-Z0-9]/g, "_")}`;
+    }
 
     const modifiedProduct = {
       ...quickBuyProduct,
-      id: `${quickBuyProduct.id}-${cleanVariantName.replace(/[^a-zA-Z0-9]/g, "_")}`,
-      name: `${quickBuyProduct.name} (${cleanVariantName})`,
+      id: finalId,
+      name: finalName,
       price: finalPrice
     };
 
@@ -858,36 +894,89 @@ export default function ShopView() {
             </div>
 
             {/* Selected Variant Picker Section */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-mono text-white/40 uppercase tracking-wider block font-bold">
-                {getProductVariants(quickBuyProduct).label}
-              </label>
-              <div className="space-y-2">
-                {getProductVariants(quickBuyProduct).options.map((option) => (
-                  <button
-                    key={option}
-                    onClick={() => setSelectedVariant(option)}
-                    className={`w-full text-left px-4 py-3 rounded-xl text-xs font-semibold flex justify-between items-center transition-all cursor-pointer border ${
-                      selectedVariant === option
-                        ? "bg-[#C5A059]/10 border-[#C5A059] text-white"
-                        : "bg-white/[0.02] border-white/5 hover:border-white/10 text-white/60"
-                    }`}
-                  >
-                    <span>{option.split(" (")[0]}</span>
-                    {option.includes("(+") && (
-                      <span className="text-[10px] font-mono text-[#C5A059]">
-                        +{option.split("(+")[1].replace(")", "")}
-                      </span>
-                    )}
-                    {option.includes("(-") && (
-                      <span className="text-[10px] font-mono text-emerald-400">
-                        -{option.split("(-")[1].replace(")", "")}
-                      </span>
-                    )}
-                  </button>
-                ))}
+            {quickBuyProduct.variants && quickBuyProduct.variants.length > 0 ? (
+              <div className="space-y-4">
+                {uniqueQuickBuyRams.length > 0 && (
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono text-white/40 uppercase tracking-wider block font-bold">
+                      Choose System RAM Configuration
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {uniqueQuickBuyRams.map((ramOption) => (
+                        <button
+                          key={ramOption}
+                          type="button"
+                          onClick={() => setQuickBuyRam(ramOption)}
+                          className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all cursor-pointer border ${
+                            quickBuyRam === ramOption
+                              ? "bg-[#C5A059]/15 border-[#C5A059] text-white"
+                              : "bg-white/[0.02] border-white/5 hover:border-white/10 text-white/70"
+                          }`}
+                        >
+                          {ramOption}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {uniqueQuickBuySsds.length > 0 && (
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono text-white/40 uppercase tracking-wider block font-bold">
+                      Choose SSD Storage Capacity
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {uniqueQuickBuySsds.map((ssdOption) => (
+                        <button
+                          key={ssdOption}
+                          type="button"
+                          onClick={() => setQuickBuySsd(ssdOption)}
+                          className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all cursor-pointer border ${
+                            quickBuySsd === ssdOption
+                              ? "bg-[#C5A059]/15 border-[#C5A059] text-white"
+                              : "bg-white/[0.02] border-white/5 hover:border-white/10 text-white/70"
+                          }`}
+                        >
+                          {ssdOption}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono text-white/40 uppercase tracking-wider block font-bold">
+                  {getProductVariants(quickBuyProduct).label}
+                </label>
+                <div className="space-y-2">
+                  {getProductVariants(quickBuyProduct).options.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setSelectedVariant(option)}
+                      className={`w-full text-left px-4 py-3 rounded-xl text-xs font-semibold flex justify-between items-center transition-all cursor-pointer border ${
+                        selectedVariant === option
+                          ? "bg-[#C5A059]/10 border-[#C5A059] text-white"
+                          : "bg-white/[0.02] border-white/5 hover:border-white/10 text-white/60"
+                      }`}
+                    >
+                      <span>{option.split(" (")[0]}</span>
+                      {option.includes("(+") && (
+                        <span className="text-[10px] font-mono text-[#C5A059]">
+                          +{option.split("(+")[1].replace(")", "")}
+                        </span>
+                      )}
+                      {option.includes("(-") && (
+                        <span className="text-[10px] font-mono text-emerald-400">
+                          -{option.split("(-")[1].replace(")", "")}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Quantity Selector Section */}
             <div className="flex items-center justify-between py-2 border-t border-b border-white/5">
@@ -918,11 +1007,19 @@ export default function ShopView() {
                 <span className="text-[9px] text-white/30 font-mono block uppercase">ACCUMULATED BUY TOTAL</span>
                 <span className="text-xl font-extrabold text-white tracking-tight">
                   KES {(() => {
+                    if (quickBuyProduct.variants && quickBuyProduct.variants.length > 0) {
+                      const price = matchedQuickBuyVariant ? matchedQuickBuyVariant.price : quickBuyProduct.price;
+                      return (price * quickBuyQuantity).toLocaleString();
+                    }
                     let price = quickBuyProduct.price;
                     const priceMatch = selectedVariant.match(/\+\s*KES\s*([\d,]+)/i);
+                    const minusMatch = selectedVariant.match(/\-\s*KES\s*([\d,]+)/i);
                     if (priceMatch) {
                       const premium = parseInt(priceMatch[1].replace(/,/g, ""), 10);
                       price += premium;
+                    } else if (minusMatch) {
+                      const discount = parseInt(minusMatch[1].replace(/,/g, ""), 10);
+                      price -= discount;
                     }
                     return (price * quickBuyQuantity).toLocaleString();
                   })()}
