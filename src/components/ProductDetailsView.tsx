@@ -210,6 +210,9 @@ export default function ProductDetailsView() {
   const [selectedVariant, setSelectedVariant] = useState<string>("");
   const [selectedRam, setSelectedRam] = useState<string>("");
   const [selectedSsd, setSelectedSsd] = useState<string>("");
+  
+  // Custom multi-category selections state
+  const [selectedSelections, setSelectedSelections] = useState<Record<string, string>>({});
 
   // Extract unique RAM and SSD configuration values
   const uniqueRams = useMemo(() => {
@@ -226,6 +229,37 @@ export default function ProductDetailsView() {
     if (!product || !product.variants || product.variants.length === 0) return null;
     return product.variants.find(v => v.ram === selectedRam && v.ssd === selectedSsd) || product.variants[0];
   }, [product, selectedRam, selectedSsd]);
+
+  const matchedVariantNew = useMemo(() => {
+    if (!product || !product.variants || product.variants.length === 0) return null;
+    if (product.variantGroups && product.variantGroups.length > 0) {
+      // Find exact selected combination
+      const exact = product.variants.find(v => {
+        if (!v.selections) return false;
+        return Object.entries(selectedSelections).every(([grpName, optVal]) => {
+          return v.selections[grpName] === optVal;
+        });
+      });
+      return exact || product.variants[0];
+    }
+    return null;
+  }, [product, selectedSelections]);
+
+  React.useEffect(() => {
+    if (product && product.variantGroups && product.variantGroups.length > 0) {
+      const initialSelections: Record<string, string> = {};
+      product.variantGroups.forEach(g => {
+        initialSelections[g.name] = g.options[0] || "";
+      });
+      if (product.variants && product.variants.length > 0 && product.variants[0].selections) {
+        setSelectedSelections({ ...product.variants[0].selections });
+      } else {
+        setSelectedSelections(initialSelections);
+      }
+    } else {
+      setSelectedSelections({});
+    }
+  }, [product]);
 
   React.useEffect(() => {
     if (uniqueRams.length > 0) {
@@ -257,6 +291,9 @@ export default function ProductDetailsView() {
 
   const currentPrice = useMemo(() => {
     if (!product) return 0;
+    if (product.variantGroups && product.variantGroups.length > 0) {
+      return matchedVariantNew ? matchedVariantNew.price : product.price;
+    }
     if (product.variants && product.variants.length > 0) {
       return matchedVariant ? matchedVariant.price : product.price;
     }
@@ -273,10 +310,13 @@ export default function ProductDetailsView() {
        price -= discount;
     }
     return price;
-  }, [product, selectedVariant, matchedVariant]);
+  }, [product, selectedVariant, matchedVariant, matchedVariantNew]);
 
   const currentStock = useMemo(() => {
     if (!product) return 0;
+    if (product.variantGroups && product.variantGroups.length > 0) {
+      return matchedVariantNew ? matchedVariantNew.stock : product.stock;
+    }
     if (product.variants && product.variants.length > 0) {
       return matchedVariant ? matchedVariant.stock : product.stock;
     }
@@ -285,7 +325,7 @@ export default function ProductDetailsView() {
     if (idx === -1) return product.stock;
     const modStock = Math.max(1, (product.stock - idx * 2));
     return modStock;
-  }, [product, selectedVariant, variantsInfo, matchedVariant]);
+  }, [product, selectedVariant, variantsInfo, matchedVariant, matchedVariantNew]);
 
   const priceHistoryData = useMemo(() => {
     if (!product) return [];
@@ -333,7 +373,12 @@ export default function ProductDetailsView() {
     let finalName = product.name;
     let finalId = product.id;
 
-    if (product.variants && product.variants.length > 0 && matchedVariant) {
+    if (product.variantGroups && product.variantGroups.length > 0 && matchedVariantNew) {
+      finalPrice = matchedVariantNew.price;
+      const desc = Object.values(selectedSelections).filter(Boolean).join(" / ");
+      finalName = `${product.name} (${desc})`;
+      finalId = `${product.id}-${desc.replace(/[^a-zA-Z0-9]/g, "_")}`;
+    } else if (product.variants && product.variants.length > 0 && matchedVariant) {
       finalPrice = matchedVariant.price;
       const desc = `${matchedVariant.ram} / ${matchedVariant.ssd}`;
       finalName = `${product.name} (${desc})`;
@@ -479,7 +524,41 @@ export default function ProductDetailsView() {
           </p>
 
           {/* Variants Selector Section */}
-          {product.variants && product.variants.length > 0 ? (
+          {product.variantGroups && product.variantGroups.length > 0 ? (
+            <div className="space-y-4 pt-2">
+              {product.variantGroups.map((group) => (
+                <div key={group.name} className="space-y-2">
+                  <span className="text-[#C5A059] font-mono text-[10px] uppercase font-bold tracking-wider block">
+                    Choose {group.name}
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {group.options.map((opt) => {
+                      const isSelected = selectedSelections[group.name] === opt;
+                      return (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => {
+                            setSelectedSelections({
+                              ...selectedSelections,
+                              [group.name]: opt
+                            });
+                          }}
+                          className={`px-3.5 py-2.5 rounded-xl text-[11px] font-semibold transition-all cursor-pointer border ${
+                            isSelected
+                              ? "bg-[#C5A059]/15 border-[#C5A059] text-white"
+                              : "bg-white/[0.02] border-white/5 hover:border-white/10 text-white/70"
+                          }`}
+                        >
+                          {opt}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : product.variants && product.variants.length > 0 ? (
             <div className="space-y-4 pt-2">
               {uniqueRams.length > 0 && (
                 <div className="space-y-2">

@@ -26,10 +26,16 @@ export interface Product {
   };
   variants?: {
     id: string;
-    ram: string;
-    ssd: string;
+    ram?: string;
+    ssd?: string;
+    sku?: string;
+    selections?: Record<string, string>;
     price: number;
     stock: number;
+  }[];
+  variantGroups?: {
+    name: string;
+    options: string[];
   }[];
   reviews?: {
     id: string;

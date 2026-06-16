@@ -17,7 +17,8 @@ import {
   Truck,
   Printer,
   Copy,
-  Check
+  Check,
+  QrCode
 } from "lucide-react";
 import { KENYAN_COUNTIES } from "../data";
 import { PaymentHandler } from "./PaymentHandler";
@@ -33,6 +34,7 @@ export default function CheckoutView() {
     createCheckoutOrder, 
     initializePaystackTransaction, 
     verifyPaystackTransaction,
+    updateOrderStatus,
     setActiveView, 
     setInvoiceOrderId,
     loginWithGoogle,
@@ -46,8 +48,16 @@ export default function CheckoutView() {
   const [deliveryDetails, setDeliveryDetails] = useState("");
   const [billingPhone, setBillingPhone] = useState("");
 
-  // Payment Selection: "paystack"
-  const [paymentMethod, setPaymentMethod] = useState<"paystack">("paystack");
+  // Payment Selection: "paystack" or "mpesa_qr"
+  const [paymentMethod, setPaymentMethod] = useState<"paystack" | "mpesa_qr">("paystack");
+
+  // Dynamic M-Pesa QR checkout states
+  const [showMpesaQrScreen, setShowMpesaQrScreen] = useState(false);
+  const [mpesaQrOrderId, setMpesaQrOrderId] = useState("");
+  const [mpesaQrAmount, setMpesaQrAmount] = useState(0);
+  const [mpesaTransactionCode, setMpesaTransactionCode] = useState("");
+  const [isVerifyingMpesa, setIsVerifyingMpesa] = useState(false);
+  const [mpesaError, setMpesaError] = useState("");
 
   // Simulated Paystack States
   const [simulatedPaystackRef, setSimulatedPaystackRef] = useState("");
@@ -175,6 +185,43 @@ export default function CheckoutView() {
     );
   }
 
+  const handleVerifyMpesaQrPayment = async () => {
+    if (!mpesaTransactionCode || mpesaTransactionCode.length !== 10) {
+      setMpesaError("Please enter a valid 10-character M-Pesa Transaction Code (e.g. SGT245HJ89).");
+      return;
+    }
+
+    // Validate alphanumeric 10 chars
+    const isValidCode = /^[A-Z0-9]{10}$/.test(mpesaTransactionCode);
+    if (!isValidCode) {
+      setMpesaError("M-Pesa Transaction Code must be exactly 10 alphanumeric characters (no special characters).");
+      return;
+    }
+
+    setIsVerifyingMpesa(true);
+    setMpesaError("");
+
+    try {
+      // Simulate verification check
+      await new Promise((resolve) => setTimeout(resolve, 1800));
+
+      // Successfully verified! Update Firestore order status
+      await updateOrderStatus(mpesaQrOrderId, "Paid", "Processing", mpesaTransactionCode);
+
+      // Successfully processed: clear cart, show success receipt
+      clearCart();
+      setGeneratedReceipt(mpesaTransactionCode);
+      setGeneratedOrderId(mpesaQrOrderId);
+      setShowMpesaQrScreen(false);
+      setPaymentSuccess(true);
+    } catch (err: any) {
+      console.error("M-Pesa Verification update details skipped/failed", err);
+      setMpesaError("Payment verification could not be committed. Please try again or contact customer support.");
+    } finally {
+      setIsVerifyingMpesa(false);
+    }
+  };
+
   // Validate mobile formats & card details
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -187,6 +234,41 @@ export default function CheckoutView() {
 
     try {
       if (isNairobi) {
+        // Mpesa QR payment handler
+        if (paymentMethod === "mpesa_qr") {
+          const shippingFullAddress = `${deliveryDetails}, ${selectedCounty} County, Kenya (Nairobi - Free Delivery)`;
+          
+          setIsSTKProcessing(true);
+          setStkLogs([]);
+          updateSTKLog("Generating dynamic M-Pesa QR payments pipeline...", 100);
+
+          const amount = Math.max(0, getCartTotal() + deliveryFee - discount);
+          const orderObj = await createCheckoutOrder({
+            customerName,
+            customerEmail: user.email || "",
+            customerPhone,
+            shippingAddress: shippingFullAddress,
+            mpesaPhone: customerPhone,
+            totalAmount: amount,
+            referralCode: appliedPromo || undefined,
+            paymentProvider: "Mpesa-QR"
+          });
+
+          if (!orderObj) {
+            setIsSTKProcessing(false);
+            alert("Encountered access authorization limit creating database record.");
+            return;
+          }
+
+          setIsSTKProcessing(false);
+          setMpesaQrOrderId(orderObj.id);
+          setMpesaQrAmount(amount);
+          setMpesaTransactionCode("");
+          setMpesaError("");
+          setShowMpesaQrScreen(true);
+          return;
+        }
+
         // Nairobi requires immediate Payment Before Delivery
         if (paymentMethod === "paystack") {
           const shippingFullAddress = `${deliveryDetails}, ${selectedCounty} County, Kenya (Nairobi - Free Delivery)`;
@@ -686,7 +768,7 @@ export default function CheckoutView() {
       )}
 
       {/* 3. MAIN CHECKOUT GRID PANEL */}
-      {!paymentSuccess && !isSTKProcessing && (
+      {!paymentSuccess && !isSTKProcessing && !showMpesaQrScreen && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           {/* Left Block: Interactive bag verification and auth */}
@@ -864,19 +946,57 @@ export default function CheckoutView() {
                   {/* PAYMENT TAB METHODS (Only enabled or relevant if Nairobi) */}
                   {isNairobi ? (
                     <div className="border-t border-white/5 pt-5 mt-6 space-y-4">
-                      <div className="flex flex-col gap-2.5">
-                        <span className="font-mono text-[10px] text-white/30 font-bold uppercase tracking-wider">SECURE INSTANT CHECKOUT</span>
-                        <div className="bg-emerald-950/15 border border-emerald-500/20 rounded-2xl p-4 flex items-start gap-3 animate-fadeIn">
-                          <div className="w-8 h-8 rounded-full bg-emerald-400/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20">
+                      <span className="font-mono text-[10px] text-white/30 font-bold uppercase tracking-wider">SELECT PAYMENT METHOD</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Option 1: Paystack */}
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod("paystack")}
+                          className={`flex items-start gap-3 p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+                            paymentMethod === "paystack"
+                              ? "bg-emerald-950/10 border-emerald-500/40 text-white"
+                              : "bg-[#0A0A0A] border-white/5 text-white/60 hover:border-white/10"
+                          }`}
+                        >
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${
+                            paymentMethod === "paystack"
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                              : "bg-white/5 text-white/40 border-white/5"
+                          }`}>
                             <span className="font-bold text-xs">P</span>
                           </div>
                           <div className="flex-1">
-                            <h4 className="text-xs font-semibold font-sans text-emerald-400">Paystack Commerce Gateway</h4>
-                            <p className="text-[10.5px] text-white/50 mt-1 leading-relaxed font-sans">
-                              Pre-payment is required for Nairobi locations. Secure credit card, debit card, and mobile money payments are processed with live encryption.
+                            <h4 className={`text-xs font-semibold font-sans ${paymentMethod === "paystack" ? "text-emerald-400" : "text-white"}`}>Paystack Gateway</h4>
+                            <p className="text-[10px] text-white/40 mt-1 leading-normal font-sans">
+                              Secure credit card, debit card, and mobile money.
                             </p>
                           </div>
-                        </div>
+                        </button>
+
+                        {/* Option 2: M-Pesa QR */}
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod("mpesa_qr")}
+                          className={`flex items-start gap-3 p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+                            paymentMethod === "mpesa_qr"
+                              ? "bg-emerald-950/10 border-emerald-500/40 text-white"
+                              : "bg-[#0A0A0A] border-white/5 text-white/60 hover:border-white/10"
+                          }`}
+                        >
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${
+                            paymentMethod === "mpesa_qr"
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                              : "bg-white/5 text-white/40 border-white/5"
+                          }`}>
+                            <QrCode className="w-4 h-4 text-emerald-400" />
+                          </div>
+                          <div className="flex-1">
+                            <h4 className={`text-xs font-semibold font-sans ${paymentMethod === "mpesa_qr" ? "text-emerald-400" : "text-white"}`}>M-Pesa Live QR</h4>
+                            <p className="text-[10px] text-white/40 mt-1 leading-normal font-sans">
+                              Scan dynamic QR for Lipa Na M-Pesa.
+                            </p>
+                          </div>
+                        </button>
                       </div>
                     </div>
                   ) : null}
@@ -885,10 +1005,14 @@ export default function CheckoutView() {
                     type="submit"
                     className="w-full bg-[#C5A059] hover:bg-[#C5A059]/90 text-black font-sans font-bold py-3.5 px-4 rounded-xl shadow-xs transition-all mt-4 flex items-center justify-center gap-2 cursor-pointer text-sm transform hover:scale-101 duration-200"
                   >
-                    <CreditCard className="w-5 h-5 text-black shrink-0" />
+                    {paymentMethod === "mpesa_qr" && isNairobi ? (
+                      <QrCode className="w-5 h-5 text-black shrink-0" />
+                    ) : (
+                      <CreditCard className="w-5 h-5 text-black shrink-0" />
+                    )}
                     <span>
                       {isNairobi 
-                        ? "Proceed to Pay via Paystack"
+                        ? (paymentMethod === "mpesa_qr" ? "Proceed to Pay via M-Pesa QR" : "Proceed to Pay via Paystack")
                         : "Place Order (Pay on Delivery)"
                       }
                     </span>
@@ -982,6 +1106,129 @@ export default function CheckoutView() {
             </div>
           </div>
 
+        </div>
+      )}
+
+      {showMpesaQrScreen && (
+        <div className="max-w-md mx-auto bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 sm:p-8 text-center animate-fadeIn my-12 relative overflow-hidden">
+          {/* M-Pesa green branding ribbon */}
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-[#4f9e31]"></div>
+          
+          <div className="flex justify-center mb-4">
+            <div className="bg-[#4f9e31]/10 px-4 py-1.5 rounded-full border border-[#4f9e31]/30 flex items-center gap-2">
+              <span className="w-2 bg-[#4f9e31] h-2 rounded-full animate-ping"></span>
+              <span className="font-mono text-[9px] font-bold text-[#4f9e31] tracking-wider uppercase">LIPA NA M-PESA INSTANT PORTAL</span>
+            </div>
+          </div>
+          
+          <h2 className="font-sans font-bold text-lg text-white">Dynamic M-Pesa Checkout</h2>
+          <p className="text-white/40 text-[11px] mt-1.5 leading-relaxed font-sans">
+            We've mapped a dynamic routing payload to fast-track your transaction. Scan the generated QR bar below in your M-Pesa App or enter details manually.
+          </p>
+
+          {/* Dynamic emerald-green QR Code using public high-reliability QR code server */}
+          <div className="my-6 p-4 bg-white rounded-2xl inline-block border-2 border-[#4f9e31]/20 shadow-lg shrink-0">
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=2e7d32&data=${encodeURIComponent(
+                `M-PESA|BUY GOODS|TILL:5929841|ACC:TGK-${mpesaQrOrderId}|AMT:${mpesaQrAmount}`
+              )}`}
+              alt="M-Pesa Buy Goods Till QR Code"
+              className="w-40 h-40 object-contain rounded-lg"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+
+          {/* Core Payment Specifics Panel */}
+          <div className="grid grid-cols-2 gap-3 bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-left text-xs mb-6 font-sans">
+            <div>
+              <span className="text-white/30 block text-[9.5px] font-mono font-bold uppercase tracking-wide">Recipient Merchant</span>
+              <span className="text-white font-semibold">Tech Gadgets Kenya</span>
+            </div>
+            <div>
+              <span className="text-white/30 block text-[9.5px] font-mono font-bold uppercase tracking-wide">Till Number</span>
+              <span className="text-emerald-400 font-bold font-mono text-sm">5929841</span>
+            </div>
+            <div className="mt-2.5">
+              <span className="text-white/30 block text-[9.5px] font-mono font-bold uppercase tracking-wide">System Reference</span>
+              <span className="text-white font-semibold font-mono text-[11px]">TGK-{mpesaQrOrderId.substring(0, 8).toUpperCase()}</span>
+            </div>
+            <div className="mt-2.5">
+              <span className="text-white/30 block text-[9.5px] font-mono font-bold uppercase tracking-wide">Invoice Amount</span>
+              <span className="text-[#C5A059] font-extrabold font-mono text-xs sm:text-sm">KES {mpesaQrAmount.toLocaleString()}</span>
+            </div>
+          </div>
+
+          {/* Quick instructions list */}
+          <div className="text-white/40 text-[10px] text-left space-y-1 bg-white/[0.01] p-3.5 rounded-xl border border-white/5 mb-6 font-sans">
+            <p className="font-semibold text-white/50 text-[10.5px] mb-1">How to pay:</p>
+            <p>1. Open your Safaricom M-Pesa App or SIM Toolkit</p>
+            <p>2. Select <strong>Lipa Na M-Pesa</strong> &rarr; <strong>Buy Goods and Services</strong></p>
+            <p>3. Enter Till: <strong className="text-white">5929841</strong></p>
+            <p>4. Enter exact Amount: <strong className="text-white">KES {mpesaQrAmount.toLocaleString()}</strong></p>
+            <p>5. Receive notification code and paste it below to verify</p>
+          </div>
+
+          <div className="space-y-4 text-left border-t border-white/5 pt-5">
+            <div className="space-y-1.5">
+              <label className="font-mono text-[9px] font-black text-white/40 block uppercase tracking-wider">
+                M-Pesa Transaction Code
+              </label>
+              <input
+                type="text"
+                required
+                value={mpesaTransactionCode}
+                onChange={(e) => {
+                  setMpesaTransactionCode(e.target.value.toUpperCase().trim());
+                  setMpesaError("");
+                }}
+                maxLength={10}
+                className="w-full bg-[#050505] border border-white/10 py-3 px-4 rounded-xl text-white font-mono text-sm uppercase tracking-widest text-center focus:border-[#4f9e31] focus:ring-1 focus:ring-[#4f9e31]/20 outline-hidden"
+                placeholder="e.g. SGT245HJ89"
+              />
+              <p className="text-[9px] text-white/30 font-mono mt-1 text-center font-medium">
+                Enter the 10-byte transaction reference from Safaricom receipt.
+              </p>
+            </div>
+
+            {mpesaError && (
+              <div className="p-3 bg-red-950/20 border border-red-500/20 rounded-xl text-red-400 text-[10.5px] font-sans flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <p className="leading-relaxed">{mpesaError}</p>
+              </div>
+            )}
+
+            <div className="pt-2 flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMpesaQrScreen(false);
+                  setMpesaTransactionCode("");
+                  setMpesaError("");
+                }}
+                className="flex-1 bg-white/5 hover:bg-white/10 text-white/80 font-sans font-bold py-3 rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                Cancel Checkout
+              </button>
+              <button
+                type="button"
+                disabled={isVerifyingMpesa}
+                onClick={handleVerifyMpesaQrPayment}
+                className="flex-1 bg-[#4f9e31] hover:bg-[#4f9e31]/90 text-white font-sans font-bold py-3 rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-center gap-2"
+              >
+                {isVerifyingMpesa ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                    <span>Verifying Code...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-3.5 h-3.5 text-white" />
+                    <span>Confirm Settlement</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

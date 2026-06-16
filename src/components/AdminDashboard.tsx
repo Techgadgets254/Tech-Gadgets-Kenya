@@ -886,7 +886,11 @@ export default function AdminDashboard() {
     customVariantsStr: "8GB RAM | 256GB SSD | 55000\n16GB RAM | 512GB SSD | 75000"
   });
 
-  const [formVariants, setFormVariants] = useState<{ id: string; ram: string; ssd: string; price: number; stock: number }[]>([]);
+  const [formVariants, setFormVariants] = useState<any[]>([]);
+  const [formVariantGroups, setFormVariantGroups] = useState<{ name: string; options: string[] }[]>([]);
+  const [newGroupSelect, setNewGroupSelect] = useState("Memory");
+  const [newGroupCustomName, setNewGroupCustomName] = useState("");
+  const [newGroupOptionInput, setNewGroupOptionInput] = useState("");
 
   const [specsBuilder, setSpecsBuilder] = useState({
     processor: "",
@@ -1774,7 +1778,42 @@ Return a strictly valid JSON object structured exactly like this:
     setAdminBaseCategory(base);
     setAdminCondition(condition as any);
  
-    setFormVariants(prod.variants || []);
+    // Dynamically manage variantGroups loads
+    if (prod.variantGroups && prod.variantGroups.length > 0) {
+      setFormVariantGroups(prod.variantGroups);
+    } else {
+      const hasOldVariants = prod.variants && prod.variants.length > 0 && (prod.variants[0].ram || prod.variants[0].ssd);
+      if (hasOldVariants) {
+        const groups = [];
+        const ramOpts = Array.from(new Set(prod.variants.map(v => v.ram).filter(Boolean))) as string[];
+        const ssdOpts = Array.from(new Set(prod.variants.map(v => v.ssd).filter(Boolean))) as string[];
+        if (ramOpts.length > 0) {
+          groups.push({ name: "Memory (RAM)", options: ramOpts });
+        }
+        if (ssdOpts.length > 0) {
+          groups.push({ name: "Storage (SSD)", options: ssdOpts });
+        }
+        setFormVariantGroups(groups);
+      } else {
+        setFormVariantGroups([]);
+      }
+    }
+
+    if (prod.variants) {
+      const sanitized = prod.variants.map(v => {
+        if (!v.selections) {
+          const selections: Record<string, string> = {};
+          if (v.ram) selections["Memory (RAM)"] = v.ram;
+          if (v.ssd) selections["Storage (SSD)"] = v.ssd;
+          return { ...v, selections };
+        }
+        return v;
+      });
+      setFormVariants(sanitized);
+    } else {
+      setFormVariants([]);
+    }
+
     syncSpecsBuilderFromForm(specsStr);
  
     setProductForm({
@@ -1803,9 +1842,13 @@ Return a strictly valid JSON object structured exactly like this:
     setIsEditing(null);
     setAdminBaseCategory("Laptops");
     setAdminCondition("New");
+    setFormVariantGroups([
+      { name: "Memory", options: ["16GB RAM", "32GB RAM"] },
+      { name: "Storage", options: ["512GB SSD", "1TB SSD"] }
+    ]);
     setFormVariants([
-      { id: "v1", ram: "16GB RAM", ssd: "512GB SSD", price: 55000, stock: 5 },
-      { id: "v2", ram: "32GB RAM", ssd: "1TB SSD", price: 75000, stock: 5 }
+      { id: "v1", selections: { "Memory": "16GB RAM", "Storage": "512GB SSD" }, price: 55000, stock: 5, sku: "" },
+      { id: "v2", selections: { "Memory": "32GB RAM", "Storage": "1TB SSD" }, price: 75000, stock: 5, sku: "" }
     ]);
     setSpecsBuilder({
       processor: "Intel Core i5",
@@ -1882,7 +1925,8 @@ Return a strictly valid JSON object structured exactly like this:
       image: productForm.image,
       gallery: galleryArr,
       specifications: parseSpecifications(productForm.specificationsStr),
-      variants: formVariants || []
+      variants: formVariants || [],
+      variantGroups: formVariantGroups || []
     };
 
     if (customVariantsParsed !== undefined) {
@@ -2942,106 +2986,70 @@ Return a strictly valid JSON object structured exactly like this:
                   )}
                 </div>
 
-                <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5 space-y-4 animate-fadeIn">
+                <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-4 space-y-4 animate-fadeIn">
                   <span className="font-mono text-[9px] font-extrabold text-[#C5A059] block uppercase tracking-wider">
-                    ⚡ INTELLIGENT SPECIFICATIONS BUILDER (CHOOSE OR TYPE CUSTOM VALUES)
+                    ⚡ QUICK SPECIFICATION BUILDER (SELECT TO AUTO-POPULATE)
                   </span>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {/* Processor select */}
-                    <div className="space-y-1">
-                      <label className="font-mono text-[9px] font-bold text-white/40 block uppercase tracking-wide">PROCESSOR</label>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={specsBuilder.processor}
-                          onChange={(e) => updateSpecField("processor", e.target.value)}
-                          className="flex-1 bg-[#0A0A0A] border border-white/10 py-1.5 px-2.5 rounded-lg text-white font-mono text-xs h-[34px]"
-                          placeholder="e.g. Intel Core i7 13th Gen"
-                        />
-                        <select
-                          value={specsBuilder.processor}
-                          onChange={(e) => updateSpecField("processor", e.target.value)}
-                          className="bg-[#121212] border border-white/10 py-1.5 px-2 rounded-lg text-white/70 font-mono text-[10px] w-[110px] h-[34px] cursor-pointer"
-                        >
-                          <option value="">-- Presets --</option>
-                          {["Intel Core i3", "Intel Core i5", "Intel Core i7", "Intel Core i9", "Apple M1", "Apple M2", "Apple M3", "AMD Ryzen 5", "AMD Ryzen 7", "AMD Ryzen 9", "Dual-Core CPU", "Octa-Core CPU"].map(opt => (
-                            <option key={opt} value={opt}>{opt}</option>
-                          ))}
-                        </select>
-                      </div>
+                    <div>
+                      <label className="font-mono text-[9px] font-bold text-white/30 block mb-1">PROCESSOR</label>
+                      <select
+                        value={specsBuilder.processor}
+                        onChange={(e) => updateSpecField("processor", e.target.value)}
+                        className="w-full bg-[#0A0A0A] border border-white/10 py-1.5 px-2 rounded-lg text-white font-mono text-[11px] h-[34px] cursor-pointer"
+                      >
+                        <option value="">-- Choose --</option>
+                        {["Intel Core i3", "Intel Core i5", "Intel Core i7", "Intel Core i9", "Apple M1", "Apple M2", "Apple M3", "AMD Ryzen 5", "AMD Ryzen 7", "AMD Ryzen 9", "Dual-Core CPU", "Quad-Core CPU", "Octa-Core CPU"].map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
                     </div>
 
                     {/* Memory select */}
-                    <div className="space-y-1">
-                      <label className="font-mono text-[9px] font-bold text-white/40 block uppercase tracking-wide">MEMORY (RAM)</label>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={specsBuilder.memory}
-                          onChange={(e) => updateSpecField("memory", e.target.value)}
-                          className="flex-1 bg-[#0A0A0A] border border-white/10 py-1.5 px-2.5 rounded-lg text-white font-mono text-xs h-[34px]"
-                          placeholder="e.g. 16GB LPDDR5"
-                        />
-                        <select
-                          value={specsBuilder.memory}
-                          onChange={(e) => updateSpecField("memory", e.target.value)}
-                          className="bg-[#121212] border border-white/10 py-1.5 px-2 rounded-lg text-white/70 font-mono text-[10px] w-[110px] h-[34px] cursor-pointer"
-                        >
-                          <option value="">-- Presets --</option>
-                          {["4GB", "8GB", "12GB", "16GB", "24GB", "32GB", "64GB"].map(opt => (
-                            <option key={opt} value={opt}>{opt}</option>
-                          ))}
-                        </select>
-                      </div>
+                    <div>
+                      <label className="font-mono text-[9px] font-bold text-white/30 block mb-1">MEMORY (RAM)</label>
+                      <select
+                        value={specsBuilder.memory}
+                        onChange={(e) => updateSpecField("memory", e.target.value)}
+                        className="w-full bg-[#0A0A0A] border border-white/10 py-1.5 px-2 rounded-lg text-white font-mono text-[11px] h-[34px] cursor-pointer"
+                      >
+                        <option value="">-- Choose --</option>
+                        {["4GB", "8GB", "12GB", "16GB", "24GB", "32GB", "64GB"].map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
                     </div>
 
                     {/* Screen Size select */}
-                    <div className="space-y-1">
-                      <label className="font-mono text-[9px] font-bold text-white/40 block uppercase tracking-wide">SCREEN SIZE</label>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={specsBuilder.screenSize}
-                          onChange={(e) => updateSpecField("screenSize", e.target.value)}
-                          className="flex-1 bg-[#0A0A0A] border border-white/10 py-1.5 px-2.5 rounded-lg text-white font-mono text-xs h-[34px]"
-                          placeholder="e.g. 14-inch Full HD"
-                        />
-                        <select
-                          value={specsBuilder.screenSize}
-                          onChange={(e) => updateSpecField("screenSize", e.target.value)}
-                          className="bg-[#121212] border border-white/10 py-1.5 px-2 rounded-lg text-white/70 font-mono text-[10px] w-[110px] h-[34px] cursor-pointer"
-                        >
-                          <option value="">-- Presets --</option>
-                          {["11.6-inch", "13-inch", "13.3-inch", "14-inch", "15.6-inch", "16-inch", "17.3-inch", "6.1-inch", "6.7-inch", "10.9-inch"].map(opt => (
-                            <option key={opt} value={opt}>{opt}</option>
-                          ))}
-                        </select>
-                      </div>
+                    <div>
+                      <label className="font-mono text-[9px] font-bold text-white/30 block mb-1">SCREEN SIZE</label>
+                      <select
+                        value={specsBuilder.screenSize}
+                        onChange={(e) => updateSpecField("screenSize", e.target.value)}
+                        className="w-full bg-[#0A0A0A] border border-white/10 py-1.5 px-2 rounded-lg text-white font-mono text-[11px] h-[34px] cursor-pointer"
+                      >
+                        <option value="">-- Choose --</option>
+                        {["11.6-inch", "13-inch", "13.3-inch", "14-inch", "15.6-inch", "16-inch", "17.3-inch", "6.1-inch", "6.7-inch", "10.9-inch"].map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
                     </div>
 
                     {/* Storage select */}
-                    <div className="space-y-1">
-                      <label className="font-mono text-[9px] font-bold text-white/40 block uppercase tracking-wide">STORAGE</label>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={specsBuilder.storage}
-                          onChange={(e) => updateSpecField("storage", e.target.value)}
-                          className="flex-1 bg-[#0A0A0A] border border-white/10 py-1.5 px-2.5 rounded-lg text-white font-mono text-xs h-[34px]"
-                          placeholder="e.g. 512GB PCIe NVMe SSD"
-                        />
-                        <select
-                          value={specsBuilder.storage}
-                          onChange={(e) => updateSpecField("storage", e.target.value)}
-                          className="bg-[#121212] border border-white/10 py-1.5 px-2 rounded-lg text-white/70 font-mono text-[10px] w-[110px] h-[34px] cursor-pointer"
-                        >
-                          <option value="">-- Presets --</option>
-                          {["128GB ROM", "256GB ROM", "128GB SSD", "256GB SSD", "512GB SSD", "1TB SSD", "2TB SSD"].map(opt => (
-                            <option key={opt} value={opt}>{opt}</option>
-                          ))}
-                        </select>
-                      </div>
+                    <div>
+                      <label className="font-mono text-[9px] font-bold text-white/30 block mb-1">STORAGE</label>
+                      <select
+                        value={specsBuilder.storage}
+                        onChange={(e) => updateSpecField("storage", e.target.value)}
+                        className="w-full bg-[#0A0A0A] border border-white/10 py-1.5 px-2 rounded-lg text-white font-mono text-[11px] h-[34px] cursor-pointer"
+                      >
+                        <option value="">-- Choose --</option>
+                        {["128GB ROM", "256GB ROM", "128GB SSD", "256GB SSD", "512GB SSD", "1TB SSD", "2TB SSD"].map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                 </div>
@@ -3058,142 +3066,314 @@ Return a strictly valid JSON object structured exactly like this:
                   />
                 </div>
 
-                <div className="border border-white/5 rounded-2xl p-4 bg-white/[0.01] space-y-3">
+                {/* DYNAMIC VARIANT GROUPS EDITOR */}
+                <div className="border border-white/5 rounded-2xl p-5 bg-white/[0.01] space-y-4">
                   <div className="flex items-center justify-between">
                     <label className="font-mono text-[10px] font-bold text-[#C5A059] block uppercase tracking-wider">
-                      ★ Active Product Feature Options (RAM, SSD, screen size, etc.)
+                      ★ Active Product Variant Groups Setup
                     </label>
-                    <span className="text-[9px] text-white/40 font-mono font-bold">OPTIONAL</span>
+                    <span className="text-[9px] text-white/40 font-mono font-bold">MUTABLE MATRIX</span>
                   </div>
-                  <p className="text-[10px] text-white/40 leading-relaxed font-sans">
-                    Enable customers to select distinct memory size or performance features with separate prices at checkout. Leave empty to use default category options.
+                  <p className="text-[10px] text-white/50 leading-relaxed font-sans">
+                    Configure high-level variant categories (e.g. Memory, Color, Screen Size). Then connect selections below to specific inventory items, prices, and warehouse SKUs.
                   </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <label className="font-mono text-[9px] font-bold text-white/40 block mb-1 uppercase">Variant Group Title</label>
-                      <input
-                        type="text"
-                        value={productForm.customVariantsLabel}
-                        onChange={(e) => setProductForm({ ...productForm, customVariantsLabel: e.target.value })}
-                        className="w-full bg-[#0A0A0A] border border-white/15 py-2 px-3 rounded-lg focus:outline-hidden focus:border-[#C5A059] text-white text-xs font-sans"
-                        placeholder="Memory & Storage Options"
-                      />
+
+                  {/* Existing Variant Groups List */}
+                  {formVariantGroups.length > 0 && (
+                    <div className="space-y-2 bg-[#0A0A0A]/50 border border-white/5 p-3.5 rounded-xl">
+                      <span className="font-mono text-[8px] font-bold text-white/40 block uppercase tracking-wide">CONFIGURED GROUPS</span>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {formVariantGroups.map((group, groupIdx) => (
+                          <div key={groupIdx} className="flex items-center justify-between bg-white/[0.02] border border-white/5 rounded-lg px-3 py-2 text-xs">
+                            <div className="space-y-0.5">
+                              <span className="font-mono text-[10px] text-[#C5A059] font-black">{group.name}</span>
+                              <span className="text-[10px] text-white/60 block font-sans">
+                                Options: {group.options.join(", ")}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFormVariantGroups(formVariantGroups.filter((_, idx) => idx !== groupIdx));
+                              }}
+                              className="text-red-400 hover:text-red-300 font-mono text-sm px-1 rounded-sm cursor-pointer"
+                            >
+                              &times;
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <label className="font-mono text-[9px] font-bold text-white/40 block mb-1 uppercase">Variant Options with Prices (One Option | Price per line)</label>
-                    <textarea
-                      rows={4}
-                      value={productForm.customVariantsStr}
-                      onChange={(e) => setProductForm({ ...productForm, customVariantsStr: e.target.value })}
-                      className="w-full bg-[#0A0A0A] border border-white/15 py-2.5 px-3 rounded-lg focus:outline-hidden focus:border-[#C5A059] text-white font-mono text-xs"
-                      placeholder="8GB RAM | 256GB SSD | 55000&#10;16GB RAM | 512GB SSD | 75000&#10;32GB RAM | 1TB SSD | 95000"
-                    />
-                    <p className="text-[9px] text-white/30 font-mono mt-1">Format: Option Name | Absolute Price in KES (e.g., 8GB RAM | 256GB SSD | 55000)</p>
+                  )}
+
+                  {/* Add New Variant Group Creator */}
+                  <div className="border border-white/10 p-3 bg-[#0A0A0A]/30 rounded-xl space-y-3">
+                    <span className="font-mono text-[8px] font-bold text-[#C5A56A] block uppercase">Add New Variant Group Category</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="font-mono text-[8px] font-bold text-white/30 block mb-1 uppercase">Group Category Name</label>
+                        <div className="flex gap-1.5">
+                          <select
+                            value={newGroupSelect}
+                            onChange={(e) => setNewGroupSelect(e.target.value)}
+                            className="bg-[#050505] border border-white/10 p-1.5 rounded-md text-xs text-white flex-1"
+                          >
+                            <option value="Memory">Memory</option>
+                            <option value="Color">Color</option>
+                            <option value="Processor">Processor</option>
+                            <option value="Screen Size">Screen Size</option>
+                            <option value="Custom">-- Custom Group Label --</option>
+                          </select>
+
+                          {newGroupSelect === "Custom" && (
+                            <input
+                              type="text"
+                              required
+                              value={newGroupCustomName}
+                              onChange={(e) => setNewGroupCustomName(e.target.value)}
+                              placeholder="e.g. Battery Capacity"
+                              className="bg-[#050505] border border-[#C5A059]/40 p-1.5 rounded-md text-xs text-white max-w-[130px]"
+                            />
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="font-mono text-[8px] font-bold text-white/30 block mb-1 uppercase">options (Comma-separated)</label>
+                        <input
+                          type="text"
+                          value={newGroupOptionInput}
+                          onChange={(e) => setNewGroupOptionInput(e.target.value)}
+                          placeholder="e.g. 16GB, 32GB or Silver, Midnight"
+                          className="w-full bg-[#050505] border border-white/10 p-1.5 rounded-md text-xs text-white font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const name = newGroupSelect === "Custom" ? newGroupCustomName.trim() : newGroupSelect;
+                        if (!name) {
+                          alert("Please specify a group category label name.");
+                          return;
+                        }
+                        if (formVariantGroups.some(g => g.name.toLowerCase() === name.toLowerCase())) {
+                          alert("This Variant Group Category already exists.");
+                          return;
+                        }
+                        const options = newGroupOptionInput.split(",").map(o => o.trim()).filter(Boolean);
+                        if (options.length === 0) {
+                          alert("Please specify at least one option (e.g. '16GB' or 'Silver')");
+                          return;
+                        }
+                        setFormVariantGroups([...formVariantGroups, { name, options }]);
+                        setNewGroupCustomName("");
+                        setNewGroupOptionInput("");
+                      }}
+                      className="w-full bg-[#C5A059]/15 hover:bg-[#C5A059]/25 text-[#C5A059] font-mono text-[9px] font-bold py-1.5 border border-[#C5A059]/30 rounded-lg uppercase tracking-wider text-center cursor-pointer"
+                    >
+                      + Register Variant Group Category
+                    </button>
                   </div>
                 </div>
 
-                {/* ADVANCED MULTIPLE COMBINATIONS OF RAM, SSD, PRICE AND STOCK */}
+                {/* ADVANCED STRUCTURED SKU / COMBINATIONS MATRIX */}
                 <div className="border border-white/10 rounded-2xl p-4 bg-white/[0.02] space-y-4">
                   <div className="flex items-center justify-between">
                     <label className="font-mono text-[10px] font-bold text-[#C5A059] block uppercase tracking-wider">
-                      ★ STRUCTURED GADGET COMBINATIONS (RAM + SSD VARIANTS)
+                      ★ STRUCTURED GADGET COMBINATIONS (COMPLEX SKU COMBINATIONS)
                     </label>
                     <span className="text-[9px] text-[#C5A059] font-mono font-bold bg-[#C5A059]/10 px-1.5 py-0.5 rounded-sm">ACTIVE STATE</span>
                   </div>
                   <p className="text-[10px] text-white/50 leading-relaxed font-sans">
-                    Define precise combinations of RAM and SSD sizes, along with custom prices and stock counts. These structures will dynamically sync with user toggles on the storefront.
+                    Map individual combinations of variants above to specific warehouse SKU records, price overrides, and stock counts.
                   </p>
 
-                  <div className="space-y-2">
-                    {formVariants.map((v, index) => (
-                      <div key={v.id || index} className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end bg-[#0A0A0A]/50 border border-white/5 p-3 rounded-xl relative">
-                        <div>
-                          <label className="font-mono text-[8px] font-bold text-white/40 block mb-1 uppercase">RAM CONFIGURATION</label>
-                          <input
-                            type="text"
-                            required
-                            value={v.ram}
-                            onChange={(e) => {
-                              const updated = [...formVariants];
-                              updated[index].ram = e.target.value;
-                              setFormVariants(updated);
-                            }}
-                            placeholder="e.g. 16GB RAM"
-                            className="w-full bg-[#050505] border border-white/10 p-1.5 rounded-md text-xs text-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="font-mono text-[8px] font-bold text-white/40 block mb-1 uppercase">SSD STORAGE</label>
-                          <input
-                            type="text"
-                            required
-                            value={v.ssd}
-                            onChange={(e) => {
-                              const updated = [...formVariants];
-                              updated[index].ssd = e.target.value;
-                              setFormVariants(updated);
-                            }}
-                            placeholder="e.g. 512GB SSD"
-                            className="w-full bg-[#050505] border border-white/10 p-1.5 rounded-md text-xs text-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="font-mono text-[8px] font-bold text-white/40 block mb-1 uppercase">PRICE (KES)</label>
-                          <input
-                            type="number"
-                            required
-                            min="0"
-                            value={v.price}
-                            onChange={(e) => {
-                              const updated = [...formVariants];
-                              updated[index].price = Number(e.target.value);
-                              setFormVariants(updated);
-                            }}
-                            className="w-full bg-[#050505] border border-white/10 p-1.5 rounded-md text-xs text-[#C5A059] font-black font-mono"
-                          />
-                        </div>
-                        <div className="flex gap-2 items-center">
-                          <div className="flex-1">
-                            <label className="font-mono text-[8px] font-bold text-white/40 block mb-1 uppercase">STOCK</label>
+                  {formVariantGroups.length > 0 && (
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-2 pb-2">
+                      <span className="font-mono text-[9px] text-[#C2A05F] uppercase font-black">Variant helper:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (formVariantGroups.length === 0) return;
+                          
+                          // Cartesian product generator
+                          const cartesian = (arrays: string[][]): string[][] => {
+                            return arrays.reduce<string[][]>((a, b) => {
+                              return a.flatMap(d => b.map(e => [...d, e]));
+                            }, [[]]);
+                          };
+
+                          const groupNames = formVariantGroups.map(g => g.name);
+                          const groupOptions = formVariantGroups.map(g => g.options);
+                          
+                          const combos = cartesian(groupOptions);
+                          
+                          const newVariants = combos.map((combo, index) => {
+                            const selections: Record<string, string> = {};
+                            combo.forEach((val, i) => {
+                              selections[groupNames[i]] = val;
+                            });
+                            return {
+                              id: `v-auto-${index}-${Date.now()}`,
+                              selections,
+                              price: Number(productForm.price) || 55000,
+                              stock: 5,
+                              sku: `${productForm.name ? productForm.name.replaceAll(" ", "").substring(0, 4).toUpperCase() : "PROD"}-${combo.map(v => v.replaceAll(" ", "").substring(0, 3).toUpperCase()).join("-")}`
+                            };
+                          });
+                          
+                          setFormVariants(newVariants);
+                        }}
+                        className="bg-white/5 border border-white/10 hover:bg-white/10 text-white font-mono text-[9px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider cursor-pointer"
+                      >
+                        ⚡ Generate All Combinations Automatically
+                      </button>
+                    </div>
+                  )}
+
+                  {formVariants.length === 0 ? (
+                    <div className="text-center py-6 border border-dashed border-white/10 rounded-xl text-white/40 text-xs font-sans">
+                      No active variant SKU combinations registered. Click "Add New Variant Combination" below or "Generate All Combinations" to start.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {formVariants.map((v, index) => (
+                        <div key={v.id || index} className="grid grid-cols-1 sm:grid-cols-5 gap-2 items-end bg-[#0A0A0A]/50 border border-white/5 p-3 rounded-xl relative overflow-x-auto">
+                          
+                          {/* Render dynamic dropdown selectors based on active Groups */}
+                          {formVariantGroups.map(group => (
+                            <div key={group.name} className="col-span-1">
+                              <label className="font-mono text-[8px] font-bold text-white/40 block mb-1 uppercase truncate">{group.name}</label>
+                              <select
+                                value={v.selections?.[group.name] || ""}
+                                onChange={(e) => {
+                                  const updated = [...formVariants];
+                                  if (!updated[index].selections) updated[index].selections = {};
+                                  updated[index].selections[group.name] = e.target.value;
+                                  setFormVariants(updated);
+                                }}
+                                className="w-full bg-[#050505] border border-white/10 p-1.5 rounded-md text-xs text-white"
+                              >
+                                <option value="">-- Option --</option>
+                                {group.options.map(opt => (
+                                  <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                              </select>
+                            </div>
+                          ))}
+
+                          {/* Fallback old inputs just in case there are old variant fields */}
+                          {(!v.selections || Object.keys(v.selections).length === 0) && (
+                            <>
+                              <div>
+                                <label className="font-mono text-[8px] font-bold text-white/40 block mb-1 uppercase">RAM CONFIG</label>
+                                <input
+                                  type="text"
+                                  value={v.ram || ""}
+                                  onChange={(e) => {
+                                    const updated = [...formVariants];
+                                    updated[index].ram = e.target.value;
+                                    setFormVariants(updated);
+                                  }}
+                                  className="w-full bg-[#050505] border border-white/10 p-1.5 rounded-md text-xs text-white"
+                                />
+                              </div>
+                              <div>
+                                <label className="font-mono text-[8px] font-bold text-white/40 block mb-1 uppercase">SSD STORAGE</label>
+                                <input
+                                  type="text"
+                                  value={v.ssd || ""}
+                                  onChange={(e) => {
+                                    const updated = [...formVariants];
+                                    updated[index].ssd = e.target.value;
+                                    setFormVariants(updated);
+                                  }}
+                                  className="w-full bg-[#050505] border border-white/10 p-1.5 rounded-md text-xs text-white"
+                                />
+                              </div>
+                            </>
+                          )}
+
+                          {/* Price override KES */}
+                          <div>
+                            <label className="font-mono text-[8px] font-bold text-white/40 block mb-1 uppercase">SKU RECORD</label>
+                            <input
+                              type="text"
+                              value={v.sku || ""}
+                              placeholder="e.g. SLAT-BLK-16G"
+                              onChange={(e) => {
+                                const updated = [...formVariants];
+                                updated[index].sku = e.target.value.toUpperCase();
+                                setFormVariants(updated);
+                              }}
+                              className="w-full bg-[#050505] border border-white/10 p-1.5 rounded-md text-xs text-white font-mono"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="font-mono text-[8px] font-bold text-white/40 block mb-1 uppercase">PRICE (KES)</label>
                             <input
                               type="number"
                               required
                               min="0"
-                              value={v.stock}
+                              value={v.price}
                               onChange={(e) => {
                                 const updated = [...formVariants];
-                                updated[index].stock = Number(e.target.value);
+                                updated[index].price = Number(e.target.value);
                                 setFormVariants(updated);
                               }}
-                              className="w-full bg-[#050505] border border-white/10 p-1.5 rounded-md text-xs text-white"
+                              className="w-full bg-[#050505] border border-white/10 p-1.5 rounded-md text-xs text-[#C5A059] font-black font-mono"
                             />
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setFormVariants(formVariants.filter((_, i) => i !== index));
-                            }}
-                            className="bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 p-2 rounded-md text-xs mt-4 shrink-0"
-                          >
-                            &times;
-                          </button>
+                          
+                          <div className="flex gap-2 items-center col-span-1">
+                            <div className="flex-1">
+                              <label className="font-mono text-[8px] font-bold text-white/40 block mb-1 uppercase">STOCK</label>
+                              <input
+                                type="number"
+                                required
+                                min="0"
+                                value={v.stock}
+                                onChange={(e) => {
+                                  const updated = [...formVariants];
+                                  updated[index].stock = Number(e.target.value);
+                                  setFormVariants(updated);
+                                }}
+                                className="w-full bg-[#050505] border border-white/10 p-1.5 rounded-md text-xs text-white"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFormVariants(formVariants.filter((_, i) => i !== index));
+                              }}
+                              className="bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 p-2 rounded-md text-xs mt-4 shrink-0"
+                            >
+                              &times;
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
 
                   <button
                     type="button"
                     onClick={() => {
+                      const defaultSel: Record<string, string> = {};
+                      formVariantGroups.forEach(g => {
+                        defaultSel[g.name] = g.options[0] || "";
+                      });
                       setFormVariants([
                         ...formVariants,
-                        { id: `v-${Date.now()}-${Math.random()}`, ram: "16GB RAM", ssd: "512GB SSD", price: Number(productForm.price) || 55000, stock: 5 }
+                        { id: `v-${Date.now()}-${Math.random()}`, selections: defaultSel, price: Number(productForm.price) || 55000, stock: 5, sku: "" }
                       ]);
                     }}
                     className="w-full bg-white/5 hover:bg-white/10 text-white font-mono text-[10px] font-bold py-2 border border-white/10 rounded-lg uppercase tracking-wide cursor-pointer text-center"
                   >
-                    + Add New Variant Combination
+                    + Add Custom SKU Combination manually
                   </button>
                 </div>
 
