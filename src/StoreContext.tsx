@@ -67,6 +67,7 @@ interface StoreContextType {
   notifications: ToastNotification[];
   dismissNotification: (id: string) => void;
   dismissAllNotifications: () => void;
+  addCustomNotification: (message: string, orderId?: string) => void;
   
   // Auth Functions
   loginWithGoogle: () => Promise<void>;
@@ -367,6 +368,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const dismissAllNotifications = () => {
     setNotifications([]);
+  };
+
+  const addCustomNotification = (message: string, orderId?: string) => {
+    const newNotif: ToastNotification = {
+      id: `custom-${Date.now()}-${Math.random()}`,
+      orderId: orderId || "",
+      customerName: userProfile?.name || "Customer",
+      oldStatus: "Pending",
+      newStatus: "Alert",
+      message: message,
+      timestamp: Date.now()
+    };
+    setNotifications((prev) => [newNotif, ...prev]);
   };
 
   // Sync Cart to localStorage
@@ -1298,6 +1312,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         notifications,
         dismissNotification,
         dismissAllNotifications,
+        addCustomNotification,
         loginWithGoogle,
         logout,
         addToCart,

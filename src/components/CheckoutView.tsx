@@ -88,7 +88,8 @@ export default function CheckoutView() {
     setActiveView, 
     setInvoiceOrderId,
     loginWithGoogle,
-    affiliates
+    affiliates,
+    addCustomNotification
   } = useStore();
 
   // Shipments state
@@ -114,6 +115,7 @@ export default function CheckoutView() {
   const [mpesaPushPin, setMpesaPushPin] = useState("");
   const [mpesaPushError, setMpesaPushError] = useState("");
   const [mpesaPushStep, setMpesaPushStep] = useState<"prompt" | "processing" | "success" | "cancelled">("prompt");
+  const [showMpesaConfetti, setShowMpesaConfetti] = useState(false);
 
   // STK Session Timer & Live Status states
   const [stkSessionExpired, setStkSessionExpired] = useState(false);
@@ -215,6 +217,15 @@ export default function CheckoutView() {
     }
   }, [paymentSuccess, generatedOrderId, setInvoiceOrderId, setActiveView]);
 
+  useEffect(() => {
+    if (showMpesaConfetti) {
+      const timer = setTimeout(() => {
+        setShowMpesaConfetti(false);
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [showMpesaConfetti]);
+
   const isNairobi = selectedCounty === "Nairobi";
   const deliveryFee = 0; // Standard Free Shipping nationwide
 
@@ -250,6 +261,22 @@ export default function CheckoutView() {
       if (timerId) clearInterval(timerId);
     };
   }, [showMpesaQrScreen, paymentSuccess]);
+
+  // Alert after 2 minutes of uncompleted pending M-Pesa transaction
+  useEffect(() => {
+    let pendingTimer: any;
+    if (showMpesaQrScreen && !paymentSuccess) {
+      pendingTimer = setTimeout(() => {
+        addCustomNotification(
+          `⏳ M-Pesa Pending Alert: Your payment push for Order #${mpesaQrOrderId ? mpesaQrOrderId.slice(-6).toUpperCase() : ""} has remained pending for over 2 minutes. Please verify your phone or re-trigger STK PIN push if needed.`,
+          mpesaQrOrderId
+        );
+      }, 120000); // 120,000 ms is exactly 2 mins
+    }
+    return () => {
+      if (pendingTimer) clearTimeout(pendingTimer);
+    };
+  }, [showMpesaQrScreen, paymentSuccess, mpesaQrOrderId, addCustomNotification]);
 
   // Real-time Firestore payment confirmation status polling / listener
   useEffect(() => {
@@ -337,6 +364,7 @@ export default function CheckoutView() {
       setGeneratedOrderId(mpesaQrOrderId);
       setShowMpesaQrScreen(false);
       setPaymentSuccess(true);
+      setShowMpesaConfetti(true);
     } catch (err: any) {
       console.error("M-Pesa Verification update details skipped/failed", err);
       setMpesaError("Payment verification could not be committed. Please try again or contact customer support.");
@@ -517,6 +545,37 @@ export default function CheckoutView() {
 
   return (
     <div className="max-w-7xl mx-auto p-2 sm:p-4">
+      {/* Confetti Animation Overlay when payment completes */}
+      {showMpesaConfetti && (
+        <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+          {Array.from({ length: 70 }).map((_, i) => {
+            const left = Math.random() * 100;
+            const delay = Math.random() * 2.5;
+            const duration = 2.5 + Math.random() * 2.5;
+            const size = 6 + Math.random() * 8;
+            const colors = ["#4f9e31", "#eab308", "#3b82f6", "#ef4444", "#a855f7", "#ec4899", "#10b981"];
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            const rotation = Math.random() * 360;
+            return (
+              <div
+                key={i}
+                className="absolute rounded-xs opacity-0 animate-confetti-fall animate-pulse"
+                style={{
+                  left: `${left}%`,
+                  width: `${size}px`,
+                  height: `${size}px`,
+                  backgroundColor: randomColor,
+                  animationDelay: `${delay}s`,
+                  animationDuration: `${duration}s`,
+                  transform: `rotate(${rotation}deg)`,
+                  top: `-20px`
+                }}
+              />
+            );
+          })}
+        </div>
+      )}
+
       {/* 1. PAYSTACK MODAL POPUP */}
       {isSTKProcessing && (
         <div id="paystack-gateway-portal" className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4">
@@ -1637,6 +1696,7 @@ export default function CheckoutView() {
                           await updateOrderStatus(mpesaQrOrderId, "Paid", "Processing", simulatedCode);
                           setMpesaTransactionCode(simulatedCode);
                           setMpesaPushStep("success");
+                          setShowMpesaConfetti(true);
                           
                           setTimeout(() => {
                             clearCart();
