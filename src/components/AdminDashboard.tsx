@@ -43,6 +43,7 @@ import {
 import { Product, Order } from "../types";
 import { PAYSTACK_GATEWAYS } from "../data";
 import { db, auth } from "../firebase";
+import jsQR from "jsqr";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import AdminCredentialManager from "./AdminCredentialManager";
 import AuditLogTable from "./AuditLogTable";
@@ -50,6 +51,172 @@ import MetadataEditor from "./MetadataEditor";
 import { useAdminStore } from "./AdminStore";
 import { collection, getDocs, onSnapshot, addDoc, setDoc, deleteDoc, doc, query, orderBy, limit } from "firebase/firestore";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
+
+function QRScannerModal({ isOpen, onClose, onScanSuccess }: { isOpen: boolean; onClose: () => void; onScanSuccess: (text: string) => void }) {
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
+  const streamRef = React.useRef<MediaStream | null>(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  // Sound generator
+  const playBeep = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(1000, audioCtx.currentTime); // 1000Hz beep frequency
+      gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.12); // Beep duration 0.12s
+    } catch (e) {
+      console.warn("Audio Context playback prevented:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setError("");
+    setLoading(true);
+
+    let active = true;
+    let animationFrameId: number;
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+      .then((stream) => {
+        if (!active) {
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.setAttribute("playsinline", "true");
+          videoRef.current.play().then(() => {
+            setLoading(false);
+          }).catch(err => {
+            console.error("Video play error:", err);
+          });
+        }
+
+        const scanFrame = () => {
+          if (!active) return;
+          const video = videoRef.current;
+          const canvas = canvasRef.current;
+          if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA) {
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+              const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: "dontInvert",
+              });
+              if (code && code.data) {
+                playBeep();
+                onScanSuccess(code.data);
+                active = false;
+                onClose();
+                return;
+              }
+            }
+          }
+          animationFrameId = requestAnimationFrame(scanFrame);
+        };
+        animationFrameId = requestAnimationFrame(scanFrame);
+      })
+      .catch((err) => {
+        console.error("Media devices webcam error:", err);
+        setError("Camera access is inactive or denied. Ensure camera access is enabled in browser site permissions.");
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-150 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-scaleUp">
+      <div className="bg-[#0D0D0D] border border-white/10 rounded-3xl w-full max-w-sm overflow-hidden relative shadow-2xl flex flex-col">
+        {/* Header */}
+        <div className="p-4 border-b border-white/10 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-[#C5A059]/10 border border-[#C5A059]/20 text-[#C5A059]">
+              <QrCode className="w-3.5 h-3.5 animate-pulse" />
+            </div>
+            <div className="text-left">
+              <h3 className="font-sans font-bold text-xs text-white">SKU Cam Scanner</h3>
+              <p className="text-[9px] text-white/40">Align variant QR code to search</p>
+            </div>
+          </div>
+          <button 
+            type="button" 
+            onClick={onClose} 
+            className="p-1 text-white/40 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-all cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Video Area */}
+        <div className="relative bg-black aspect-square flex items-center justify-center overflow-hidden">
+          {error ? (
+            <div className="p-6 text-center space-y-2">
+              <AlertTriangle className="w-8 h-8 text-red-500 mx-auto" />
+              <p className="text-xs text-white/80 font-semibold">{error}</p>
+            </div>
+          ) : (
+            <>
+              {loading && (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#090909] space-y-2">
+                  <Loader2 className="w-6 h-6 text-[#C5A059] animate-spin" />
+                  <p className="text-[9px] font-mono tracking-wider text-white/30 uppercase">Activating camera sensor...</p>
+                </div>
+              )}
+              <video 
+                ref={videoRef} 
+                className="w-full h-full object-cover" 
+                playsInline
+                muted
+              />
+              <canvas ref={canvasRef} className="hidden" />
+              
+              {!loading && (
+                <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                  <div className="w-44 h-44 border-2 border-[#C5A059]/50 rounded-xl relative">
+                    <div className="absolute -top-1 -left-1 w-3.5 h-3.5 border-t-4 border-l-4 border-[#C5A059]" />
+                    <div className="absolute -top-1 -right-1 w-3.5 h-3.5 border-t-4 border-r-4 border-[#C5A059]" />
+                    <div className="absolute -bottom-1 -left-1 w-3.5 h-3.5 border-b-4 border-l-4 border-[#C5A059]" />
+                    <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 border-b-4 border-r-4 border-[#C5A059]" />
+                    <div className="w-full h-0.5 bg-[#C5A059] absolute top-1/2 left-0 animate-bounce shadow-[0_0_8px_#C5A059]" />
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Footer info banner */}
+        <div className="p-4 bg-[#0F0F0F] text-center border-t border-white/5">
+          <p className="text-[10px] text-white/45 leading-normal">
+            Ensure scanner is held steady. Instantly populates inventory matching parameters upon capture.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminDashboard() {
   const { liveProducts, liveOrders } = useAdminStore();
@@ -94,6 +261,8 @@ export default function AdminDashboard() {
   const [lowStockThreshold, setLowStockThreshold] = useState(5);
   const [orderSearchQuery, setOrderSearchQuery] = useState("");
   const [inventorySearchQuery, setInventorySearchQuery] = useState("");
+  const [showQrScanner, setShowQrScanner] = useState(false);
+  const [qrScannerError, setQrScannerError] = useState("");
   const [orderStatusFilter, setOrderStatusFilter] = useState("All");
 
   // Real-time onSnapshot listeners specifically for the Quick Snapshot widget
@@ -3332,18 +3501,36 @@ Designed with a clean structural aesthetic, the ${nameGuess} from ${brandGuess} 
                       value={inventorySearchQuery}
                       onChange={(e) => setInventorySearchQuery(e.target.value)}
                       placeholder="Search SKU or Name..."
-                      className="bg-transparent border-0 font-sans text-xs font-semibold text-white/80 focus:outline-hidden w-full sm:w-44 placeholder-white/30"
+                      className="bg-transparent border-0 font-sans text-xs font-semibold text-white/80 focus:outline-hidden w-full sm:w-36 placeholder-white/30"
                     />
                     {inventorySearchQuery && (
                       <button
                         type="button"
                         onClick={() => setInventorySearchQuery("")}
-                        className="text-white/40 hover:text-white ml-1 cursor-pointer"
+                        className="text-white/40 hover:text-white mr-1.5 cursor-pointer"
                       >
-                        <X className="w-3 h-3" />
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowQrScanner(true);
+                      }}
+                      className="text-white/40 hover:text-[#C5A059] transition-colors cursor-pointer shrink-0"
+                      title="Scan SKU QR Code"
+                    >
+                      <QrCode className="w-3.5 h-3.5" />
+                    </button>
                   </div>
+
+                  <QRScannerModal
+                    isOpen={showQrScanner}
+                    onClose={() => setShowQrScanner(false)}
+                    onScanSuccess={(scannedText) => {
+                      setInventorySearchQuery(scannedText);
+                    }}
+                  />
 
                   {/* Price Sort Filter Dropdown */}
                   <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 transition-all hover:bg-white/10">
