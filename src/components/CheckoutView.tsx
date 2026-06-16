@@ -18,7 +18,8 @@ import {
   Printer,
   Copy,
   Check,
-  QrCode
+  QrCode,
+  Zap
 } from "lucide-react";
 import { KENYAN_COUNTIES } from "../data";
 import { PaymentHandler } from "./PaymentHandler";
@@ -113,6 +114,11 @@ export default function CheckoutView() {
   const [mpesaPushPin, setMpesaPushPin] = useState("");
   const [mpesaPushError, setMpesaPushError] = useState("");
   const [mpesaPushStep, setMpesaPushStep] = useState<"prompt" | "processing" | "success" | "cancelled">("prompt");
+
+  // STK Session Timer & Live Status states
+  const [stkSessionExpired, setStkSessionExpired] = useState(false);
+  const [sessionTimeLeft, setSessionTimeLeft] = useState(30);
+  const [liveOrderStatus, setLiveOrderStatus] = useState<"Processing" | "Confirmed" | "Cancelled">("Processing");
 
   // Simulated Paystack States
   const [simulatedPaystackRef, setSimulatedPaystackRef] = useState("");
@@ -221,6 +227,68 @@ export default function CheckoutView() {
     }
   }, [user]);
 
+  // M-Pesa QR STK 30s expiry countdown timer effect
+  useEffect(() => {
+    let timerId: any;
+    if (showMpesaQrScreen && !paymentSuccess) {
+      setStkSessionExpired(false);
+      setSessionTimeLeft(30);
+      timerId = setInterval(() => {
+        setSessionTimeLeft((prev) => {
+          if (prev <= 1) {
+            setStkSessionExpired(true);
+            clearInterval(timerId);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      setStkSessionExpired(false);
+    }
+    return () => {
+      if (timerId) clearInterval(timerId);
+    };
+  }, [showMpesaQrScreen, paymentSuccess]);
+
+  // Real-time Firestore payment confirmation status polling / listener
+  useEffect(() => {
+    if (!showMpesaQrScreen || !mpesaQrOrderId) {
+      return;
+    }
+
+    let unsubscribe: () => void = () => {};
+
+    // Dynamically retrieve firebase tools
+    Promise.all([
+      import("../lib/firebase"),
+      import("firebase/firestore")
+    ]).then(([{ db }, { doc, onSnapshot }]) => {
+      unsubscribe = onSnapshot(doc(db, "orders", mpesaQrOrderId), (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          const pStatus = data?.paymentStatus;
+          
+          if (pStatus === "Paid") {
+            setLiveOrderStatus("Confirmed");
+          } else if (pStatus === "Cancelled" || pStatus === "Failed") {
+            setLiveOrderStatus("Cancelled");
+          } else {
+            setLiveOrderStatus("Processing");
+          }
+        }
+      }, (err) => {
+        console.error("Firestore payment live status feed error:", err);
+      });
+    }).catch(err => {
+      console.error("Failed loading firebase assets for polling thread:", err);
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [showMpesaQrScreen, mpesaQrOrderId]);
+
   // Handle Cart empty states
   if (cart.length === 0 && !isSTKProcessing && !paymentSuccess) {
     return (
@@ -275,6 +343,27 @@ export default function CheckoutView() {
     } finally {
       setIsVerifyingMpesa(false);
     }
+  };
+
+  const handleQuickPayTrigger = (e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    // Ensure vital details are filled
+    if (!customerName) {
+      alert("Please fill out the 'RECIPIENT CONTACT NAME' field first under Shipping Information.");
+      return;
+    }
+    if (!deliveryDetails) {
+      alert("Please fill out the 'PHYSICAL DELIVERY ADDRESS' field first. We need this to route the express courier dispatch.");
+      return;
+    }
+    
+    // Set payment method to mpesa_qr and submit
+    setPaymentMethod("mpesa_qr");
+    
+    // Call the checkout submit handler programmatically
+    const dummyEvent = { preventDefault: () => {} } as React.FormEvent;
+    handleCheckoutSubmit(dummyEvent);
   };
 
   // Validate mobile formats & card details
@@ -1248,28 +1337,93 @@ export default function CheckoutView() {
             </p>
             <button
               type="button"
+              disabled={stkSessionExpired}
               onClick={() => {
                 setMpesaPushStep("prompt");
                 setMpesaPushPin("");
                 setMpesaPushError("");
                 setShowMpesaPushModal(true);
               }}
-              className="mt-3 w-full bg-[#4f9e31]/25 hover:bg-[#4f9e31]/40 border border-[#4f9e31]/45 text-[#4f9e31] hover:text-[#5ebd3d] font-mono text-[10px] font-black py-2 rounded-xl transition-all uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
+              className="mt-3 w-full bg-[#4f9e31]/25 hover:bg-[#4f9e31]/40 border border-[#4f9e31]/45 disabled:opacity-40 disabled:hover:bg-[#4f9e31]/25 text-[#4f9e31] hover:text-[#5ebd3d] disabled:cursor-not-allowed font-mono text-[10px] font-black py-2 rounded-xl transition-all uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
             >
               ⚡ Re-Trigger Lipa Na M-Pesa STK Prompt
             </button>
           </div>
 
-          {/* Dynamic emerald-green QR Code using public high-reliability QR code server */}
-          <div className="my-6 p-4 bg-white rounded-2xl inline-block border-2 border-[#4f9e31]/20 shadow-lg shrink-0">
-            <img
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=2e7d32&data=${encodeURIComponent(
-                `M-PESA|BUY GOODS|TILL:9309020|ACC:TGK-${mpesaQrOrderId}|AMT:${mpesaQrAmount}`
-              )}`}
-              alt="M-Pesa Buy Goods Till QR Code"
-              className="w-40 h-40 object-contain rounded-lg"
-              referrerPolicy="no-referrer"
-            />
+          {/* Live real-time STK status tracker */}
+          <div className="my-4 bg-white/[0.01] border border-white/5 rounded-2xl p-4 flex items-center justify-between font-sans">
+            <div className="text-left">
+              <span className="text-white/30 block text-[9px] font-mono font-bold uppercase tracking-wide">Live Daraja Signal</span>
+              <span className="text-white font-bold text-xs">M-Pesa Webhook Monitor</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {liveOrderStatus === "Processing" && (
+                <span className="px-3 py-1 font-mono text-[10px] font-bold text-amber-400 bg-amber-400/10 border border-amber-500/25 rounded-full flex items-center gap-1.5 animate-pulse uppercase tracking-wider">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                  Processing STK Push
+                </span>
+              )}
+              {liveOrderStatus === "Confirmed" && (
+                <span className="px-3 py-1 font-mono text-[10px] font-bold text-emerald-400 bg-emerald-400/10 border border-emerald-500/25 rounded-full flex items-center gap-1.5 uppercase tracking-wider animate-pulse">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                  Confirmed & Paid
+                </span>
+              )}
+              {liveOrderStatus === "Cancelled" && (
+                <span className="px-3 py-1 font-mono text-[10px] font-bold text-red-400 bg-red-400/10 border border-red-500/25 rounded-full flex items-center gap-1.5 uppercase tracking-wider">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                  Cancelled
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Dynamic QR Code or Secure Expiry Warning Overlay */}
+          <div className="my-6 min-h-[220px] flex flex-col items-center justify-center">
+            {stkSessionExpired ? (
+              <div className="p-6 bg-red-950/20 border border-red-500/20 rounded-2xl text-center space-y-4 max-w-[280px] mx-auto animate-fadeIn">
+                <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mx-auto border border-red-500/20">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-sans font-bold text-red-400 text-sm uppercase tracking-wide">STK Session Expired</h4>
+                  <p className="text-[10px] text-white/50 leading-relaxed font-sans">
+                    For security reasons, the dynamic STK payment lock has initiated a timeout after 30 seconds of idle wait.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Reset countdown timer back to 30 and trigger prompt back
+                    setSessionTimeLeft(30);
+                    setStkSessionExpired(false);
+                    setLiveOrderStatus("Processing");
+                    setMpesaPushStep("prompt");
+                    setMpesaPushPin("");
+                    setMpesaPushError("");
+                    setShowMpesaPushModal(true);
+                  }}
+                  className="w-full bg-red-600 hover:bg-red-500 text-white font-sans text-[10px] font-black py-2.5 rounded-xl uppercase tracking-wider transition-colors cursor-pointer"
+                >
+                  🔄 Retry STK Prompt
+                </button>
+              </div>
+            ) : (
+              <div className="p-4 bg-white rounded-2xl inline-block border-2 border-[#4f9e31]/20 shadow-lg shrink-0 relative">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=2e7d32&data=${encodeURIComponent(
+                    `M-PESA|BUY GOODS|TILL:9309020|ACC:TGK-${mpesaQrOrderId}|AMT:${mpesaQrAmount}`
+                  )}`}
+                  alt="M-Pesa Buy Goods Till QR Code"
+                  className="w-40 h-40 object-contain rounded-lg"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute -bottom-2 -right-2 bg-[#4f9e31] text-white font-mono text-[8px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1 border border-white/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                  {sessionTimeLeft}s left
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Core Payment Specifics Panel */}
@@ -1385,6 +1539,21 @@ export default function CheckoutView() {
         initializePaystackTransaction={initializePaystackTransaction}
         verifyPaystackTransaction={verifyPaystackTransaction}
       />
+
+      {/* Mobile-optimized Floating 'Quick Pay' Action Button with bounce & pulse indicator */}
+      {!showMpesaQrScreen && !paymentSuccess && !isSTKProcessing && cart.length > 0 && getSafaricomValidation(customerPhone).isValid && (
+        <div className="fixed bottom-6 right-6 z-40 md:hidden animate-bounce">
+          <button
+            type="button"
+            onClick={handleQuickPayTrigger}
+            className="flex items-center gap-2 bg-[#4f9e31] hover:bg-[#4f9e31]/95 text-white text-xs font-black px-5 py-4 rounded-full shadow-2xl border border-white/20 tracking-wider uppercase transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer font-sans"
+            style={{ boxShadow: "0 10px 25px -5px rgba(79, 158, 49, 0.4)" }}
+          >
+            <Zap className="w-4 h-4 fill-white text-white animate-pulse" />
+            <span>M-Pesa Quick Pay</span>
+          </button>
+        </div>
+      )}
 
       {showMpesaPushModal && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">

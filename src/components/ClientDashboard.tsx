@@ -774,6 +774,68 @@ export default function ClientDashboard() {
               </div>
             </div>
 
+            {/* M-PESA PAYMENTS REGISTRY */}
+            <div className="bg-[#0F0F0F] border border-emerald-500/10 rounded-3xl p-6 shadow-xs relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-[#4f9e31]/40"></div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="font-mono text-xs font-bold text-emerald-400 block tracking-wider uppercase">
+                  🟢 M-PESA PAYMENTS REGISTRY
+                </span>
+                <span className="text-[10px] bg-[#4f9e31]/15 text-[#4f9e31] px-2 py-0.5 rounded-full font-mono font-bold">
+                  {orders.filter(ord => ord.paymentProvider === "Mpesa-QR" || ord.mpesaPhone).length} Logs
+                </span>
+              </div>
+              <p className="text-[10.5px] text-white/40 leading-relaxed font-sans mb-4">
+                Real-time tracking of Lipa Na M-Pesa payments routed through merchant Till 9309020.
+              </p>
+
+              <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
+                {orders.filter(ord => ord.paymentProvider === "Mpesa-QR" || ord.mpesaPhone).length === 0 ? (
+                  <div className="p-5 text-center border border-dashed border-white/5 rounded-2xl bg-black/30">
+                    <p className="text-[10px] font-mono text-white/30">No M-Pesa transactions found.</p>
+                  </div>
+                ) : (
+                  orders
+                    .filter(ord => ord.paymentProvider === "Mpesa-QR" || ord.mpesaPhone)
+                    .map((ord) => (
+                      <div
+                        key={ord.id}
+                        onClick={() => setInvoiceOrderId(ord.id)}
+                        className="p-3 bg-[#0A0A0A] border border-white/5 rounded-xl flex items-center justify-between hover:border-[#4f9e31]/30 cursor-pointer transition-all animate-fadeIn"
+                      >
+                        <div className="text-left space-y-1">
+                          <p className="font-mono text-[10px] font-bold text-white flex items-center gap-1">
+                            Ref: {ord.receiptNo || `TGK-${ord.id.substring(0,6).toUpperCase()}`}
+                          </p>
+                          <p className="text-[9.5px] text-white/40 font-mono">
+                            {ord.createdAt ? new Date(ord.createdAt).toLocaleString("en-KE", { dateStyle: "short", timeStyle: "short" }) : "Pending"}
+                          </p>
+                          {ord.mpesaPhone && (
+                            <p className="text-[9px] font-mono text-emerald-500/80">
+                              Phone: +{ord.mpesaPhone}
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right space-y-1">
+                          <p className="text-[11px] font-bold text-white font-mono font-black">
+                            KES {ord.totalAmount.toLocaleString()}
+                          </p>
+                          <span className={`inline-block px-2 py-0.5 rounded-md font-mono text-[8px] uppercase font-bold tracking-wider ${
+                            ord.paymentStatus === "Paid"
+                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                              : ord.paymentStatus === "Failed"
+                              ? "bg-red-500/10 text-red-400 border border-red-500/20"
+                              : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                          }`}>
+                            {ord.paymentStatus === "Paid" ? "Confirmed" : "Processing"}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+            </div>
+
             {/* AFFILIATE PROGRAM PANEL */}
             <div className="bg-gradient-to-br from-[#121212] to-[#0A0A0A] border border-[#C5A059]/25 rounded-3xl p-6 shadow-2xl relative overflow-hidden no-print animate-fadeIn">
               <div className="absolute top-0 right-0 w-24 h-24 bg-[#C5A059]/5 rounded-full blur-2xl pointer-events-none" />
