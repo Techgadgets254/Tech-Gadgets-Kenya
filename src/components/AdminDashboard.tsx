@@ -892,13 +892,6 @@ export default function AdminDashboard() {
   const [newGroupCustomName, setNewGroupCustomName] = useState("");
   const [newGroupOptionInput, setNewGroupOptionInput] = useState("");
 
-  const [specsBuilder, setSpecsBuilder] = useState({
-    processor: "",
-    memory: "",
-    screenSize: "",
-    storage: ""
-  });
-
   const [showAddForm, setShowAddForm] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
@@ -1724,49 +1717,6 @@ Return a strictly valid JSON object structured exactly like this:
     return record;
   };
 
-  const syncSpecsBuilderFromForm = (specsStr: string) => {
-    const specs = parseSpecifications(specsStr);
-    setSpecsBuilder({
-      processor: specs["Processor"] || specs["processor"] || "",
-      memory: specs["Memory"] || specs["memory"] || "",
-      screenSize: specs["Screen Size"] || specs["screen size"] || specs["Screen size"] || specs["Display size"] || specs["Display Size"] || "",
-      storage: specs["Storage"] || specs["storage"] || "",
-    });
-  };
-
-  const updateSpecField = (field: "processor" | "memory" | "screenSize" | "storage", value: string) => {
-    // 1. Update builder state
-    const nextBuilder = { ...specsBuilder, [field]: value };
-    setSpecsBuilder(nextBuilder);
-
-    // 2. Parse current specificationsStr and merge
-    const currentSpecs = parseSpecifications(productForm.specificationsStr);
-    
-    if (field === "processor") {
-      if (value) currentSpecs["Processor"] = value;
-      else delete currentSpecs["Processor"];
-    }
-    if (field === "memory") {
-      if (value) currentSpecs["Memory"] = value;
-      else delete currentSpecs["Memory"];
-    }
-    if (field === "screenSize") {
-      if (value) currentSpecs["Screen Size"] = value;
-      else delete currentSpecs["Screen Size"];
-    }
-    if (field === "storage") {
-      if (value) currentSpecs["Storage"] = value;
-      else delete currentSpecs["Storage"];
-    }
-
-    // Rebuild specifications text
-    const lines = Object.entries(currentSpecs).map(([k, v]) => `${k}: ${v}`);
-    setProductForm(prev => ({
-      ...prev,
-      specificationsStr: lines.join("\n")
-    }));
-  };
-
   // Handle setting edit product state
   const handleEditTrigger = (prod: Product) => {
     setIsEditing(prod.id);
@@ -1814,8 +1764,6 @@ Return a strictly valid JSON object structured exactly like this:
       setFormVariants([]);
     }
 
-    syncSpecsBuilderFromForm(specsStr);
- 
     setProductForm({
       name: prod.name,
       brand: prod.brand,
@@ -1850,12 +1798,6 @@ Return a strictly valid JSON object structured exactly like this:
       { id: "v1", selections: { "Memory": "16GB RAM", "Storage": "512GB SSD" }, price: 55000, stock: 5, sku: "" },
       { id: "v2", selections: { "Memory": "32GB RAM", "Storage": "1TB SSD" }, price: 75000, stock: 5, sku: "" }
     ]);
-    setSpecsBuilder({
-      processor: "Intel Core i5",
-      memory: "16GB",
-      screenSize: "14-inch",
-      storage: "512GB SSD"
-    });
     setProductForm({
       name: "",
       brand: "",
@@ -2984,74 +2926,6 @@ Return a strictly valid JSON object structured exactly like this:
                   {aiError && (
                     <p className="text-[9px] text-red-400 mt-1 font-mono">{aiError}</p>
                   )}
-                </div>
-
-                <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-4 space-y-4 animate-fadeIn">
-                  <span className="font-mono text-[9px] font-extrabold text-[#C5A059] block uppercase tracking-wider">
-                    ⚡ QUICK SPECIFICATION BUILDER (SELECT TO AUTO-POPULATE)
-                  </span>
-                  
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {/* Processor select */}
-                    <div>
-                      <label className="font-mono text-[9px] font-bold text-white/30 block mb-1">PROCESSOR</label>
-                      <select
-                        value={specsBuilder.processor}
-                        onChange={(e) => updateSpecField("processor", e.target.value)}
-                        className="w-full bg-[#0A0A0A] border border-white/10 py-1.5 px-2 rounded-lg text-white font-mono text-[11px] h-[34px] cursor-pointer"
-                      >
-                        <option value="">-- Choose --</option>
-                        {["Intel Core i3", "Intel Core i5", "Intel Core i7", "Intel Core i9", "Apple M1", "Apple M2", "Apple M3", "AMD Ryzen 5", "AMD Ryzen 7", "AMD Ryzen 9", "Dual-Core CPU", "Quad-Core CPU", "Octa-Core CPU"].map(opt => (
-                          <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Memory select */}
-                    <div>
-                      <label className="font-mono text-[9px] font-bold text-white/30 block mb-1">MEMORY (RAM)</label>
-                      <select
-                        value={specsBuilder.memory}
-                        onChange={(e) => updateSpecField("memory", e.target.value)}
-                        className="w-full bg-[#0A0A0A] border border-white/10 py-1.5 px-2 rounded-lg text-white font-mono text-[11px] h-[34px] cursor-pointer"
-                      >
-                        <option value="">-- Choose --</option>
-                        {["4GB", "8GB", "12GB", "16GB", "24GB", "32GB", "64GB"].map(opt => (
-                          <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Screen Size select */}
-                    <div>
-                      <label className="font-mono text-[9px] font-bold text-white/30 block mb-1">SCREEN SIZE</label>
-                      <select
-                        value={specsBuilder.screenSize}
-                        onChange={(e) => updateSpecField("screenSize", e.target.value)}
-                        className="w-full bg-[#0A0A0A] border border-white/10 py-1.5 px-2 rounded-lg text-white font-mono text-[11px] h-[34px] cursor-pointer"
-                      >
-                        <option value="">-- Choose --</option>
-                        {["11.6-inch", "13-inch", "13.3-inch", "14-inch", "15.6-inch", "16-inch", "17.3-inch", "6.1-inch", "6.7-inch", "10.9-inch"].map(opt => (
-                          <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Storage select */}
-                    <div>
-                      <label className="font-mono text-[9px] font-bold text-white/30 block mb-1">STORAGE</label>
-                      <select
-                        value={specsBuilder.storage}
-                        onChange={(e) => updateSpecField("storage", e.target.value)}
-                        className="w-full bg-[#0A0A0A] border border-white/10 py-1.5 px-2 rounded-lg text-white font-mono text-[11px] h-[34px] cursor-pointer"
-                      >
-                        <option value="">-- Choose --</option>
-                        {["128GB ROM", "256GB ROM", "128GB SSD", "256GB SSD", "512GB SSD", "1TB SSD", "2TB SSD"].map(opt => (
-                          <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
                 </div>
 
                 <div>

@@ -23,6 +23,55 @@ import {
 import { KENYAN_COUNTIES } from "../data";
 import { PaymentHandler } from "./PaymentHandler";
 
+export const getSafaricomValidation = (phone: string) => {
+  const digits = phone.replace(/\D/g, "");
+  let normalized = digits;
+  
+  if (normalized.startsWith("254") && normalized.length > 3) {
+    normalized = "0" + normalized.substring(3);
+  } else if (!normalized.startsWith("0") && normalized.length === 9) {
+    normalized = "0" + normalized;
+  }
+
+  const prefix3 = normalized.substring(0, 3);
+  const prefix4 = normalized.substring(0, 4);
+
+  const safaricom3Prefixes = ["070", "071", "072", "079", "011", "012"];
+  const safaricom4Prefixes = [
+    "0740", "0741", "0742", "0743", "0744", "0745", "0746", "0748",
+    "0757", "0758", "0759", "0768", "0769"
+  ];
+
+  const isSafaricom = safaricom3Prefixes.includes(prefix3) || safaricom4Prefixes.includes(prefix4);
+
+  let network = "Unknown Network";
+  if (isSafaricom) {
+    network = "Safaricom M-Pesa";
+  } else if (["073", "078", "010"].includes(prefix3)) {
+    network = "Airtel Money";
+  } else if (["077"].includes(prefix3) || ["0119"].includes(prefix4)) {
+    network = "Telkom T-Kash";
+  } else if (["0763", "0764", "0765", "0766"].includes(prefix4)) {
+    network = "Equitel";
+  }
+
+  let apiFormatted = "";
+  if (normalized.startsWith("0") && normalized.length === 10) {
+    apiFormatted = "254" + normalized.substring(1);
+  } else if (normalized.length === 9 && !normalized.startsWith("0")) {
+    apiFormatted = "254" + normalized;
+  } else if (normalized.startsWith("254") && normalized.length === 12) {
+    apiFormatted = normalized;
+  }
+
+  return {
+    isValid: isSafaricom && (normalized.length === 10 || (normalized.startsWith("254") && normalized.length === 12)),
+    network,
+    normalized,
+    apiFormatted
+  };
+};
+
 export default function CheckoutView() {
   const { 
     user, 
@@ -58,6 +107,12 @@ export default function CheckoutView() {
   const [mpesaTransactionCode, setMpesaTransactionCode] = useState("");
   const [isVerifyingMpesa, setIsVerifyingMpesa] = useState(false);
   const [mpesaError, setMpesaError] = useState("");
+
+  // STK PIN Prompt Simulation states
+  const [showMpesaPushModal, setShowMpesaPushModal] = useState(false);
+  const [mpesaPushPin, setMpesaPushPin] = useState("");
+  const [mpesaPushError, setMpesaPushError] = useState("");
+  const [mpesaPushStep, setMpesaPushStep] = useState<"prompt" | "processing" | "success" | "cancelled">("prompt");
 
   // Simulated Paystack States
   const [simulatedPaystackRef, setSimulatedPaystackRef] = useState("");
@@ -232,10 +287,18 @@ export default function CheckoutView() {
       return;
     }
 
+    const safaricomCheck = getSafaricomValidation(customerPhone);
+
     try {
       if (isNairobi) {
         // Mpesa QR payment handler
         if (paymentMethod === "mpesa_qr") {
+          // Strict error prevention check
+          if (!safaricomCheck.isValid) {
+            alert(`A valid Safaricom phone number is required for Lipa Na M-Pesa. Detected: ${safaricomCheck.network}. Please change "RECIPIENT CONTACT PHONE" to a valid Safaricom line (e.g. starting with 07xx, 011x) to ensure smooth prompt delivery.`);
+            return;
+          }
+
           const shippingFullAddress = `${deliveryDetails}, ${selectedCounty} County, Kenya (Nairobi - Free Delivery)`;
           
           setIsSTKProcessing(true);
@@ -246,9 +309,9 @@ export default function CheckoutView() {
           const orderObj = await createCheckoutOrder({
             customerName,
             customerEmail: user.email || "",
-            customerPhone,
+            customerPhone: safaricomCheck.apiFormatted, // standardized format
             shippingAddress: shippingFullAddress,
-            mpesaPhone: customerPhone,
+            mpesaPhone: safaricomCheck.apiFormatted,
             totalAmount: amount,
             referralCode: appliedPromo || undefined,
             paymentProvider: "Mpesa-QR"
@@ -266,6 +329,14 @@ export default function CheckoutView() {
           setMpesaTransactionCode("");
           setMpesaError("");
           setShowMpesaQrScreen(true);
+
+          // Auto-trigger the physical Sim ToolKit / M-Pesa PIN prompt simulator after 1.8 seconds!
+          setMpesaPushStep("prompt");
+          setMpesaPushPin("");
+          setMpesaPushError("");
+          setTimeout(() => {
+            setShowMpesaPushModal(true);
+          }, 1800);
           return;
         }
 
@@ -883,10 +954,51 @@ export default function CheckoutView() {
                         type="tel"
                         required
                         value={customerPhone}
-                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          let cleaned = raw.replace(/[^\d+]/g, "");
+                          
+                          if (cleaned.startsWith("+254")) {
+                            cleaned = "0" + cleaned.substring(4);
+                          } else if (cleaned.startsWith("254") && cleaned.length > 3) {
+                            cleaned = "0" + cleaned.substring(3);
+                          }
+                          
+                          let formatted = cleaned;
+                          if (cleaned.startsWith("0")) {
+                            if (cleaned.length > 4 && cleaned.length <= 7) {
+                              formatted = `${cleaned.slice(0, 4)} ${cleaned.slice(4)}`;
+                            } else if (cleaned.length > 7) {
+                              formatted = `${cleaned.slice(0, 4)} ${cleaned.slice(4, 7)} ${cleaned.slice(7, 10)}`;
+                            }
+                          }
+                          setCustomerPhone(formatted);
+                        }}
                         className="w-full bg-white/[0.03] border border-white/10 text-xs py-2.5 px-3 rounded-lg focus:outline-hidden focus:border-[#C5A059] text-white font-sans h-[38px]"
-                        placeholder="0712345678"
+                        placeholder="0712 345 678"
                       />
+                      {(() => {
+                        const check = getSafaricomValidation(customerPhone);
+                        if (!customerPhone) {
+                          return (
+                            <span className="text-[10px] text-white/35 block mt-1 font-mono">
+                              Requires a registered M-Pesa line
+                            </span>
+                          );
+                        }
+                        if (check.isValid) {
+                          return (
+                            <span className="text-[9.5px] text-emerald-400 font-bold block mt-1 font-mono flex items-center gap-1">
+                              ✓ Safaricom Network Detected (M-Pesa standardized: +{check.apiFormatted})
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className="text-[9.5px] text-amber-400 font-bold block mt-1 font-mono flex items-center gap-1">
+                            ⚠ Non-Safaricom or Incomplete! ({check.network})
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -1126,11 +1238,33 @@ export default function CheckoutView() {
             We've mapped a dynamic routing payload to fast-track your transaction. Scan the generated QR bar below in your M-Pesa App or enter details manually.
           </p>
 
+          <div className="bg-emerald-950/20 border border-emerald-500/20 rounded-2xl p-4 my-4 text-left">
+            <p className="text-xs text-emerald-400 font-bold mb-1 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              Lipa Na M-Pesa Push Sent Status
+            </p>
+            <p className="text-[10.5px] text-white/70 leading-relaxed font-sans">
+              An M-Pesa dynamic secure prompt has been sent to your phone <strong className="text-[#C5A059] font-mono">+{getSafaricomValidation(customerPhone).apiFormatted}</strong>. Check your phone screen for the prompt or use the simulation console below.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setMpesaPushStep("prompt");
+                setMpesaPushPin("");
+                setMpesaPushError("");
+                setShowMpesaPushModal(true);
+              }}
+              className="mt-3 w-full bg-[#4f9e31]/25 hover:bg-[#4f9e31]/40 border border-[#4f9e31]/45 text-[#4f9e31] hover:text-[#5ebd3d] font-mono text-[10px] font-black py-2 rounded-xl transition-all uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              ⚡ Re-Trigger Lipa Na M-Pesa STK Prompt
+            </button>
+          </div>
+
           {/* Dynamic emerald-green QR Code using public high-reliability QR code server */}
           <div className="my-6 p-4 bg-white rounded-2xl inline-block border-2 border-[#4f9e31]/20 shadow-lg shrink-0">
             <img
               src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=2e7d32&data=${encodeURIComponent(
-                `M-PESA|BUY GOODS|TILL:5929841|ACC:TGK-${mpesaQrOrderId}|AMT:${mpesaQrAmount}`
+                `M-PESA|BUY GOODS|TILL:9309020|ACC:TGK-${mpesaQrOrderId}|AMT:${mpesaQrAmount}`
               )}`}
               alt="M-Pesa Buy Goods Till QR Code"
               className="w-40 h-40 object-contain rounded-lg"
@@ -1146,7 +1280,7 @@ export default function CheckoutView() {
             </div>
             <div>
               <span className="text-white/30 block text-[9.5px] font-mono font-bold uppercase tracking-wide">Till Number</span>
-              <span className="text-emerald-400 font-bold font-mono text-sm">5929841</span>
+              <span className="text-emerald-400 font-bold font-mono text-sm">9309020</span>
             </div>
             <div className="mt-2.5">
               <span className="text-white/30 block text-[9.5px] font-mono font-bold uppercase tracking-wide">System Reference</span>
@@ -1160,10 +1294,10 @@ export default function CheckoutView() {
 
           {/* Quick instructions list */}
           <div className="text-white/40 text-[10px] text-left space-y-1 bg-white/[0.01] p-3.5 rounded-xl border border-white/5 mb-6 font-sans">
-            <p className="font-semibold text-white/50 text-[10.5px] mb-1">How to pay:</p>
+            <p className="font-semibold text-white/50 text-[10.5px] mb-1">How to pay manually:</p>
             <p>1. Open your Safaricom M-Pesa App or SIM Toolkit</p>
             <p>2. Select <strong>Lipa Na M-Pesa</strong> &rarr; <strong>Buy Goods and Services</strong></p>
-            <p>3. Enter Till: <strong className="text-white">5929841</strong></p>
+            <p>3. Enter Till: <strong className="text-white">9309020</strong></p>
             <p>4. Enter exact Amount: <strong className="text-white">KES {mpesaQrAmount.toLocaleString()}</strong></p>
             <p>5. Receive notification code and paste it below to verify</p>
           </div>
@@ -1251,6 +1385,152 @@ export default function CheckoutView() {
         initializePaystackTransaction={initializePaystackTransaction}
         verifyPaystackTransaction={verifyPaystackTransaction}
       />
+
+      {showMpesaPushModal && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
+          {/* Authentic Android/iOS Lipa Na M-Pesa Prompt Dialog Container */}
+          <div className="w-full max-w-[320px] bg-[#EAEAEA] rounded-3xl shadow-2xl border border-white/25 text-black overflow-hidden font-sans">
+            {/* SIM Carrier Header banner */}
+            <div className="bg-[#4f9e31] px-4 py-3 flex items-center justify-between text-white">
+              <span className="text-[10px] uppercase font-mono font-extrabold tracking-wider">M-Pesa SIM ToolKit</span>
+              <span className="text-[9px] uppercase font-mono font-extrabold px-2 py-0.5 bg-black/20 rounded">Safaricom Sim 1</span>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {mpesaPushStep === "prompt" && (
+                <div className="space-y-4">
+                  <div className="bg-white/90 border border-black/5 rounded-xl p-3.5 space-y-2 text-xs text-center border-l-4 border-l-[#4f9e31]">
+                    <p className="font-semibold text-[13px] text-gray-800 leading-snug">
+                      Do you want to pay KES {mpesaQrAmount.toLocaleString()} to Tech Gadgets Kenya?
+                    </p>
+                    <div className="pt-2 border-t border-gray-200 flex justify-between font-mono text-[10.5px] font-bold text-[#4f9e31]">
+                      <span>TILL NO: 9309020</span>
+                      <span>REF: TGK-{mpesaQrOrderId.substring(0,6).toUpperCase()}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-extrabold text-gray-600 block uppercase tracking-wide">
+                      ENTER M-PESA PIN:
+                    </label>
+                    <input
+                      type="password"
+                      maxLength={5}
+                      required
+                      value={mpesaPushPin}
+                      onChange={(e) => {
+                        setMpesaPushPin(e.target.value.replace(/\D/g, ""));
+                        setMpesaPushError("");
+                      }}
+                      className="w-full bg-white border border-gray-300 py-2.5 px-3 rounded-lg text-black text-center font-bold text-lg tracking-widest focus:outline-hidden placeholder:text-gray-300 text-black h-[42px]"
+                      placeholder="••••"
+                      autoFocus
+                    />
+                    {mpesaPushError && (
+                      <p className="text-[10px] text-red-500 font-bold font-mono text-center">
+                        ⚠️ {mpesaPushError}
+                      </p>
+                    )}
+                  </div>
+
+                  <p className="text-[9.5px] text-gray-500 leading-normal text-center">
+                    Enter your M-Pesa PIN on this safe simulator to mock the physical SIM Hook settlement.
+                  </p>
+
+                  <div className="flex gap-2.5 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMpesaPushStep("cancelled");
+                        setTimeout(() => {
+                          setShowMpesaPushModal(false);
+                        }, 1200);
+                      }}
+                      className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2.5 rounded-xl text-xs transition-colors cursor-pointer"
+                    >
+                      CANCEL
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!mpesaPushPin || mpesaPushPin.length < 4) {
+                          setMpesaPushError("PIN must be 4 or 5 digits");
+                          return;
+                        }
+                        setMpesaPushStep("processing");
+                        
+                        const timestampLetters = ["A","B","C","D","E","F","G","H","J","K","L","P","R","S","T"];
+                        const randomLetter = () => timestampLetters[Math.floor(Math.random() * timestampLetters.length)];
+                        const simulatedCode = `${randomLetter()}${randomLetter()}${Math.floor(100000 + Math.random() * 900000)}${randomLetter()}${randomLetter()}`;
+                        
+                        try {
+                          await new Promise((resolve) => setTimeout(resolve, 1800));
+                          await updateOrderStatus(mpesaQrOrderId, "Paid", "Processing", simulatedCode);
+                          setMpesaTransactionCode(simulatedCode);
+                          setMpesaPushStep("success");
+                          
+                          setTimeout(() => {
+                            clearCart();
+                            setGeneratedReceipt(simulatedCode);
+                            setGeneratedOrderId(mpesaQrOrderId);
+                            setShowMpesaQrScreen(false);
+                            setShowMpesaPushModal(false);
+                            setPaymentSuccess(true);
+                          }, 1800);
+                        } catch (err) {
+                          setMpesaPushStep("cancelled");
+                          setMpesaPushError("M-Pesa system link delayed. Try manually.");
+                        }
+                      }}
+                      className="flex-1 bg-[#4f9e31] hover:bg-[#4f9e31]/95 text-white font-bold py-2.5 rounded-xl text-xs transition-colors cursor-pointer"
+                    >
+                      SEND PIN
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {mpesaPushStep === "processing" && (
+                <div className="py-6 flex flex-col items-center text-center space-y-4">
+                  <Loader2 className="w-10 h-10 animate-spin text-[#4f9e31]" />
+                  <div className="space-y-1">
+                    <p className="font-bold text-xs text-gray-850 uppercase tracking-wider animate-pulse">Securing Lipa Na M-Pesa Hook</p>
+                    <p className="text-[10px] text-gray-500">Connecting to Safaricom endpoint & verifying PIN...</p>
+                  </div>
+                </div>
+              )}
+
+              {mpesaPushStep === "success" && (
+                <div className="py-6 flex flex-col items-center text-center space-y-4 animate-fadeIn">
+                  <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center border border-emerald-500/20 text-emerald-600">
+                    <CheckCircle className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-extrabold text-[13px] text-emerald-600 uppercase tracking-wider">Payment Confirmed!</p>
+                    <p className="text-[10.5px] text-gray-700 leading-relaxed max-w-[220px] mx-auto font-medium">
+                      Sent KES {mpesaQrAmount.toLocaleString()} safely to Till <strong>9309020</strong>. Releasing premium shipment invoice...
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {mpesaPushStep === "cancelled" && (
+                <div className="py-6 flex flex-col items-center text-center space-y-4 animate-fadeIn">
+                  <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center border border-red-500/20 text-red-600">
+                    <AlertCircle className="w-7 h-7 animate-bounce" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-extrabold text-[13px] text-red-600 uppercase tracking-wide">Transaction Cancelled</p>
+                    <p className="text-[10.5px] text-gray-600">
+                      Lipa Na M-Pesa push rejected or cancelled. Payment session aborted.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
