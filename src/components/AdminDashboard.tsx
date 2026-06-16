@@ -42,7 +42,8 @@ import {
 } from "lucide-react";
 import { Product, Order } from "../types";
 import { PAYSTACK_GATEWAYS } from "../data";
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import AdminCredentialManager from "./AdminCredentialManager";
 import AuditLogTable from "./AuditLogTable";
 import MetadataEditor from "./MetadataEditor";
@@ -756,6 +757,13 @@ export default function AdminDashboard() {
         setAdminPasscodePassed(true);
         setAdminAuthErr("");
         fetchAdminAccountsList(adminUsername, adminSecurityPassword);
+        
+        // Attempt background client-side sign in so that Firestore rules authorize client writes natively
+        try {
+          await signInWithEmailAndPassword(auth, adminUsername, adminSecurityPassword);
+        } catch (authErr: any) {
+          console.warn("Client-side Firebase auth mapped signin skipped:", authErr.message);
+        }
       } else {
         setAdminAuthErr(result.error || "Invalid credentials. Please use authentic administrator credentials.");
       }
@@ -765,6 +773,11 @@ export default function AdminDashboard() {
       if (adminUsername === "techgadgetsk@gmail.com" && adminSecurityPassword === "admin123") {
         setAdminPasscodePassed(true);
         setAdminAuthErr("");
+        try {
+          await signInWithEmailAndPassword(auth, adminUsername, adminSecurityPassword);
+        } catch (authErr: any) {
+          console.warn("Fallback client-side Firebase auth mapping skipped:", authErr.message);
+        }
       } else {
         setAdminAuthErr("Communication failure with authentication service. Try standard default key.");
       }
@@ -1858,7 +1871,7 @@ Return a strictly valid JSON object structured exactly like this:
       }
     }
 
-    const payload: Omit<Product, "id"> = {
+    const payload: any = {
       name: productForm.name,
       brand: productForm.brand,
       category: productForm.category,
@@ -1869,9 +1882,12 @@ Return a strictly valid JSON object structured exactly like this:
       image: productForm.image,
       gallery: galleryArr,
       specifications: parseSpecifications(productForm.specificationsStr),
-      customVariants: customVariantsParsed,
-      variants: formVariants
+      variants: formVariants || []
     };
+
+    if (customVariantsParsed !== undefined) {
+      payload.customVariants = customVariantsParsed;
+    }
 
     try {
       if (isEditing) {
@@ -2737,6 +2753,12 @@ Return a strictly valid JSON object structured exactly like this:
               </h2>
 
               <form onSubmit={handleProductSubmit} className="space-y-4 text-xs">
+                {!user && (
+                  <div className="bg-amber-950/40 border border-amber-500/20 text-amber-400 p-4 rounded-xl text-[11px] mb-4 text-left leading-relaxed font-sans space-y-1">
+                    <p className="font-bold">⚠️ Dynamic Client-Side Auth Warning:</p>
+                    <p>You have access to the administrative view, but your client is not actively authenticated in the database security layer. If you encounter write failures or permission blocks, please ensure you use the store's customer Login first (under your email <strong className="font-mono">techgadgetsk@gmail.com</strong>) to secure dynamic write authorizations.</p>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="font-mono text-[10px] font-bold text-white/30 block mb-1 uppercase">PRODUCT HEADLINE NAME</label>
@@ -2920,70 +2942,106 @@ Return a strictly valid JSON object structured exactly like this:
                   )}
                 </div>
 
-                <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-4 space-y-4 animate-fadeIn">
+                <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5 space-y-4 animate-fadeIn">
                   <span className="font-mono text-[9px] font-extrabold text-[#C5A059] block uppercase tracking-wider">
-                    ⚡ QUICK SPECIFICATION BUILDER (SELECT TO AUTO-POPULATE)
+                    ⚡ INTELLIGENT SPECIFICATIONS BUILDER (CHOOSE OR TYPE CUSTOM VALUES)
                   </span>
                   
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Processor select */}
-                    <div>
-                      <label className="font-mono text-[9px] font-bold text-white/30 block mb-1">PROCESSOR</label>
-                      <select
-                        value={specsBuilder.processor}
-                        onChange={(e) => updateSpecField("processor", e.target.value)}
-                        className="w-full bg-[#0A0A0A] border border-white/10 py-1.5 px-2 rounded-lg text-white font-mono text-[11px] h-[34px] cursor-pointer"
-                      >
-                        <option value="">-- Choose --</option>
-                        {["Intel Core i3", "Intel Core i5", "Intel Core i7", "Intel Core i9", "Apple M1", "Apple M2", "Apple M3", "AMD Ryzen 5", "AMD Ryzen 7", "AMD Ryzen 9", "Dual-Core CPU", "Quad-Core CPU", "Octa-Core CPU"].map(opt => (
-                          <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                      </select>
+                    <div className="space-y-1">
+                      <label className="font-mono text-[9px] font-bold text-white/40 block uppercase tracking-wide">PROCESSOR</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={specsBuilder.processor}
+                          onChange={(e) => updateSpecField("processor", e.target.value)}
+                          className="flex-1 bg-[#0A0A0A] border border-white/10 py-1.5 px-2.5 rounded-lg text-white font-mono text-xs h-[34px]"
+                          placeholder="e.g. Intel Core i7 13th Gen"
+                        />
+                        <select
+                          value={specsBuilder.processor}
+                          onChange={(e) => updateSpecField("processor", e.target.value)}
+                          className="bg-[#121212] border border-white/10 py-1.5 px-2 rounded-lg text-white/70 font-mono text-[10px] w-[110px] h-[34px] cursor-pointer"
+                        >
+                          <option value="">-- Presets --</option>
+                          {["Intel Core i3", "Intel Core i5", "Intel Core i7", "Intel Core i9", "Apple M1", "Apple M2", "Apple M3", "AMD Ryzen 5", "AMD Ryzen 7", "AMD Ryzen 9", "Dual-Core CPU", "Octa-Core CPU"].map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
 
                     {/* Memory select */}
-                    <div>
-                      <label className="font-mono text-[9px] font-bold text-white/30 block mb-1">MEMORY (RAM)</label>
-                      <select
-                        value={specsBuilder.memory}
-                        onChange={(e) => updateSpecField("memory", e.target.value)}
-                        className="w-full bg-[#0A0A0A] border border-white/10 py-1.5 px-2 rounded-lg text-white font-mono text-[11px] h-[34px] cursor-pointer"
-                      >
-                        <option value="">-- Choose --</option>
-                        {["4GB", "8GB", "12GB", "16GB", "24GB", "32GB", "64GB"].map(opt => (
-                          <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                      </select>
+                    <div className="space-y-1">
+                      <label className="font-mono text-[9px] font-bold text-white/40 block uppercase tracking-wide">MEMORY (RAM)</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={specsBuilder.memory}
+                          onChange={(e) => updateSpecField("memory", e.target.value)}
+                          className="flex-1 bg-[#0A0A0A] border border-white/10 py-1.5 px-2.5 rounded-lg text-white font-mono text-xs h-[34px]"
+                          placeholder="e.g. 16GB LPDDR5"
+                        />
+                        <select
+                          value={specsBuilder.memory}
+                          onChange={(e) => updateSpecField("memory", e.target.value)}
+                          className="bg-[#121212] border border-white/10 py-1.5 px-2 rounded-lg text-white/70 font-mono text-[10px] w-[110px] h-[34px] cursor-pointer"
+                        >
+                          <option value="">-- Presets --</option>
+                          {["4GB", "8GB", "12GB", "16GB", "24GB", "32GB", "64GB"].map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
 
                     {/* Screen Size select */}
-                    <div>
-                      <label className="font-mono text-[9px] font-bold text-white/30 block mb-1">SCREEN SIZE</label>
-                      <select
-                        value={specsBuilder.screenSize}
-                        onChange={(e) => updateSpecField("screenSize", e.target.value)}
-                        className="w-full bg-[#0A0A0A] border border-white/10 py-1.5 px-2 rounded-lg text-white font-mono text-[11px] h-[34px] cursor-pointer"
-                      >
-                        <option value="">-- Choose --</option>
-                        {["11.6-inch", "13-inch", "13.3-inch", "14-inch", "15.6-inch", "16-inch", "17.3-inch", "6.1-inch", "6.7-inch", "10.9-inch"].map(opt => (
-                          <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                      </select>
+                    <div className="space-y-1">
+                      <label className="font-mono text-[9px] font-bold text-white/40 block uppercase tracking-wide">SCREEN SIZE</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={specsBuilder.screenSize}
+                          onChange={(e) => updateSpecField("screenSize", e.target.value)}
+                          className="flex-1 bg-[#0A0A0A] border border-white/10 py-1.5 px-2.5 rounded-lg text-white font-mono text-xs h-[34px]"
+                          placeholder="e.g. 14-inch Full HD"
+                        />
+                        <select
+                          value={specsBuilder.screenSize}
+                          onChange={(e) => updateSpecField("screenSize", e.target.value)}
+                          className="bg-[#121212] border border-white/10 py-1.5 px-2 rounded-lg text-white/70 font-mono text-[10px] w-[110px] h-[34px] cursor-pointer"
+                        >
+                          <option value="">-- Presets --</option>
+                          {["11.6-inch", "13-inch", "13.3-inch", "14-inch", "15.6-inch", "16-inch", "17.3-inch", "6.1-inch", "6.7-inch", "10.9-inch"].map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
 
                     {/* Storage select */}
-                    <div>
-                      <label className="font-mono text-[9px] font-bold text-white/30 block mb-1">STORAGE</label>
-                      <select
-                        value={specsBuilder.storage}
-                        onChange={(e) => updateSpecField("storage", e.target.value)}
-                        className="w-full bg-[#0A0A0A] border border-white/10 py-1.5 px-2 rounded-lg text-white font-mono text-[11px] h-[34px] cursor-pointer"
-                      >
-                        <option value="">-- Choose --</option>
-                        {["128GB ROM", "256GB ROM", "128GB SSD", "256GB SSD", "512GB SSD", "1TB SSD", "2TB SSD"].map(opt => (
-                          <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                      </select>
+                    <div className="space-y-1">
+                      <label className="font-mono text-[9px] font-bold text-white/40 block uppercase tracking-wide">STORAGE</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={specsBuilder.storage}
+                          onChange={(e) => updateSpecField("storage", e.target.value)}
+                          className="flex-1 bg-[#0A0A0A] border border-white/10 py-1.5 px-2.5 rounded-lg text-white font-mono text-xs h-[34px]"
+                          placeholder="e.g. 512GB PCIe NVMe SSD"
+                        />
+                        <select
+                          value={specsBuilder.storage}
+                          onChange={(e) => updateSpecField("storage", e.target.value)}
+                          className="bg-[#121212] border border-white/10 py-1.5 px-2 rounded-lg text-white/70 font-mono text-[10px] w-[110px] h-[34px] cursor-pointer"
+                        >
+                          <option value="">-- Presets --</option>
+                          {["128GB ROM", "256GB ROM", "128GB SSD", "256GB SSD", "512GB SSD", "1TB SSD", "2TB SSD"].map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
                 </div>
