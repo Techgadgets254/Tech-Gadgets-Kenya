@@ -51,14 +51,26 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const isLight = theme === "light";
+
+  // Auto-dismiss toast helper
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   // Reset inputs when mode of modal changes
   useEffect(() => {
     setErrorMsg("");
     setSuccessMsg("");
     setFullName("");
+    setToast(null);
     setIsResetMode(false);
   }, [authModalMode, isAuthModalOpen]);
 
@@ -84,12 +96,16 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
     setSuccessMsg("");
 
     if (!email) {
-      setErrorMsg("Please enter your email address.");
+      const msg = "Please enter your email address.";
+      setErrorMsg(msg);
+      setToast({ type: "error", message: msg });
       return;
     }
 
     if (!validateEmail(email)) {
-      setErrorMsg("Please enter a valid email format.");
+      const msg = "Please enter a valid email format.";
+      setErrorMsg(msg);
+      setToast({ type: "error", message: msg });
       return;
     }
 
@@ -100,32 +116,66 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
         await logAuthEvent("password_reset", "success", email);
         setSuccessMsg("✔ A secure password-reset link has been dispatched to your inbox. Check your email!");
         setErrorMsg("");
+        setToast({ type: "success", message: "Dispatched password recovery! Check your inbox." });
       } catch (err: any) {
         console.error("Password reset error:", err);
         await logAuthEvent("password_reset", "failed", email, undefined, err.message);
+        let resetErr = err?.message || "Failed to issue password recovery link.";
         if (err?.code === "auth/user-not-found") {
-          setErrorMsg("We could not find an account matching that email address.");
-        } else {
-          setErrorMsg(err?.message || "Failed to issue password recovery link.");
+          resetErr = "We could not find an account matching that email address.";
         }
+        setErrorMsg(resetErr);
+        setToast({ type: "error", message: resetErr });
       } finally {
         setLoading(false);
       }
       return;
     }
 
+    const isSignUp = authModalMode === "signup";
+
     if (!password) {
-      setErrorMsg("Please provide your account security password.");
+      const msg = "Please provide your account security password.";
+      setErrorMsg(msg);
+      setToast({ type: "error", message: msg });
       return;
     }
 
-    if (password.length < 6) {
-      setErrorMsg("Password security requirement: Must be at least 6 characters.");
-      return;
+    if (isSignUp) {
+      if (password.length < 8) {
+        const msg = "Security failure: Password must be at least 8 characters long.";
+        setErrorMsg(msg);
+        setToast({ type: "error", message: msg });
+        return;
+      }
+      if (!/[A-Z]/.test(password)) {
+        const msg = "Security failure: Password must contain at least one uppercase letter (A-Z).";
+        setErrorMsg(msg);
+        setToast({ type: "error", message: msg });
+        return;
+      }
+      if (!/[a-z]/.test(password)) {
+        const msg = "Security failure: Password must contain at least one lowercase letter (a-z).";
+        setErrorMsg(msg);
+        setToast({ type: "error", message: msg });
+        return;
+      }
+      if (!/[0-9]/.test(password) && !/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+        const msg = "Security failure: Password must contain at least one number (0-9) or special character.";
+        setErrorMsg(msg);
+        setToast({ type: "error", message: msg });
+        return;
+      }
+    } else {
+      if (password.length < 6) {
+        const msg = "Password security requirement: Must be at least 6 characters.";
+        setErrorMsg(msg);
+        setToast({ type: "error", message: msg });
+        return;
+      }
     }
 
     setLoading(true);
-    const isSignUp = authModalMode === "signup";
     try {
       if (isSignUp) {
         try {
@@ -147,6 +197,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
           }, { merge: true });
 
           setSuccessMsg("✔ Space registry complete! Account initialized successfully.");
+          setToast({ type: "success", message: "Registry complete! Account initialized successfully." });
           setTimeout(() => {
             handleClose();
           }, 1200);
@@ -172,6 +223,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
             setUserProfile(userProfileData);
             
             setSuccessMsg("✔ Space registry complete! Account initialized (Local/Firestore Handshake).");
+            setToast({ type: "success", message: "Registry complete! Account generated (local backup)." });
             setTimeout(() => {
               handleClose();
             }, 1200);
@@ -184,6 +236,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
           const userCred = await signInWithEmailAndPassword(auth, email, password);
           await logAuthEvent("login", "success", email, userCred.user.uid);
           setSuccessMsg("✔ Authentication successful! Back to the command deck.");
+          setToast({ type: "success", message: "Welcome back! Authentication successful." });
           setTimeout(() => {
             handleClose();
           }, 1200);
@@ -202,14 +255,19 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
               setUserProfile(userData);
               
               setSuccessMsg("✔ Authentication successful! Welcome back (Local/Firestore Handshake).");
+              setToast({ type: "success", message: "Welcome back! Authentication successful." });
               setTimeout(() => {
                 handleClose();
               }, 1250);
             } else {
               if (err?.code === "auth/user-not-found") {
-                setErrorMsg("No profile found matching that email address.");
+                const msg = "No profile found matching that email address.";
+                setErrorMsg(msg);
+                setToast({ type: "error", message: msg });
               } else {
-                setErrorMsg("No local fallback profile found. Please Register first!");
+                const msg = "No local fallback profile found. Please Register first!";
+                setErrorMsg(msg);
+                setToast({ type: "error", message: msg });
               }
             }
           } else {
@@ -220,13 +278,14 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
     } catch (err: any) {
       console.error("Auth process error:", err);
       await logAuthEvent(isSignUp ? "signup" : "login", "failed", email, undefined, err.message);
+      let errMsg = err?.message || "Authentication attempt rejected.";
       if (err?.code === "auth/user-not-found" || err?.code === "auth/wrong-password" || err?.code === "auth/invalid-credential") {
-        setErrorMsg("Invalid authorization credentials. Please verify your email and password.");
+        errMsg = "Invalid authorization credentials. Please verify your email and password.";
       } else if (err?.code === "auth/email-already-in-use") {
-        setErrorMsg("This email address is already bound to an active customer identifier.");
-      } else {
-        setErrorMsg(err?.message || "Authentication attempt rejected.");
+        errMsg = "This email address is already bound to an active customer identifier.";
       }
+      setErrorMsg(errMsg);
+      setToast({ type: "error", message: errMsg });
     } finally {
       setLoading(false);
     }
@@ -259,6 +318,40 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
       className="fixed inset-0 z-[1000] overflow-y-auto" 
       id="auth-modal-overlay"
     >
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className={`fixed top-6 left-1/2 -translate-x-1/2 z-[1100] flex items-center gap-3 px-4.5 py-3.5 rounded-2xl shadow-2xl border font-sans font-bold text-xs max-w-sm w-[calc(100%-2rem)] ${
+              toast.type === "success"
+                ? isLight
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                  : "bg-emerald-500/15 border-emerald-500/35 text-emerald-400"
+                : isLight
+                  ? "bg-red-50 border-red-200 text-red-800"
+                  : "bg-red-500/15 border-red-500/35 text-red-400"
+            }`}
+          >
+            {toast.type === "success" ? (
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500 animate-pulse" />
+            ) : (
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+            )}
+            <span className="flex-1 text-left line-clamp-2">{toast.message}</span>
+            <button
+              onClick={() => setToast(null)}
+              className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer shrink-0"
+              title="Close toast"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Dark overlay backdrop */}
       <motion.div 
         initial={{ opacity: 0 }}
@@ -479,6 +572,28 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                     required={!isResetMode}
                   />
                 </div>
+
+                {authModalMode === "signup" && (
+                  <div className={`mt-2.5 p-3 rounded-xl border text-[10px] font-sans space-y-1.5 leading-normal transition-all ${
+                    isLight ? "bg-zinc-50 border-zinc-200 text-zinc-650" : "bg-white/[0.02] border-white/5 text-white/50"
+                  }`}>
+                    <p className="font-mono font-bold uppercase text-[8px] tracking-wider text-[#C5A059]">Security password rules checklist:</p>
+                    <ul className="list-disc pl-3.5 space-y-1">
+                      <li className={password.length >= 8 ? "text-emerald-500 font-extrabold" : "text-amber-500/80"}>
+                        At least 8 characters long {password.length >= 8 && "✔"}
+                      </li>
+                      <li className={/[A-Z]/.test(password) ? "text-emerald-500 font-extrabold" : "text-amber-500/80"}>
+                        At least one uppercase letter (A-Z) {/[A-Z]/.test(password) && "✔"}
+                      </li>
+                      <li className={/[a-z]/.test(password) ? "text-emerald-500 font-extrabold" : "text-amber-500/80"}>
+                        At least one lowercase letter (a-z) {/[a-z]/.test(password) && "✔"}
+                      </li>
+                      <li className={(/[0-9]/.test(password) || /[!@#$%^&*(),.?":{}|<>]/.test(password)) ? "text-emerald-500 font-extrabold" : "text-amber-500/80"}>
+                        At least one digit or special symbol {(/[0-9]/.test(password) || /[!@#$%^&*(),.?":{}|<>]/.test(password)) && "✔"}
+                      </li>
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
 

@@ -44,6 +44,8 @@ export default function Header() {
     setAuthModalMode
   } = useStore();
 
+  const isLight = theme === "light";
+
   const [desktopFocused, setDesktopFocused] = useState(false);
   const [mobileFocused, setMobileFocused] = useState(false);
 
@@ -363,7 +365,11 @@ export default function Header() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                    className="flex items-center gap-2 p-1 border border-white/10 hover:border-[#C5A059]/30 rounded-xl hover:bg-[#161616] transition-all focus:outline-none"
+                    className={`flex items-center gap-2 p-1 border rounded-xl transition-all focus:outline-none ${
+                      isLight 
+                        ? "border-zinc-200 hover:border-[#C5A059]/50 hover:bg-zinc-100 text-zinc-900" 
+                        : "border-white/10 hover:border-[#C5A059]/30 hover:bg-[#161616] text-white/80"
+                    }`}
                   >
                     {user.photoURL ? (
                       <img 
@@ -377,7 +383,7 @@ export default function Header() {
                         {user.displayName?.charAt(0) || "U"}
                       </div>
                     )}
-                    <span className="hidden lg:inline text-xs font-bold pr-1.5 text-white/80">
+                    <span className={`hidden lg:inline text-xs font-bold pr-1.5 ${isLight ? "text-zinc-800" : "text-white/80"}`}>
                       {userProfile?.role === "admin" ? "Admin Mode" : "My Account"}
                     </span>
                   </button>
@@ -388,13 +394,17 @@ export default function Header() {
                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute right-0 top-full mt-2 w-56 bg-[#0E0E0E] border border-white/10 rounded-xl shadow-2xl py-2 z-50 text-left"
+                        className={`absolute right-0 top-full mt-2 w-56 border rounded-xl shadow-2xl py-2 z-50 text-left ${
+                          isLight 
+                            ? "bg-white border-zinc-200 shadow-zinc-400/20" 
+                            : "bg-[#0E0E0E] border-white/10"
+                        }`}
                       >
-                        <div className="px-4 py-2 border-b border-white/5">
-                          <p className="text-xs font-black text-white/90 truncate">
+                        <div className={`px-4 py-2 border-b ${isLight ? "border-zinc-100" : "border-white/5"}`}>
+                          <p className={`text-xs font-black truncate ${isLight ? "text-zinc-900" : "text-white/90"}`}>
                             {user.displayName}
                           </p>
-                          <p className="text-[10px] font-mono text-white/40 truncate">{user.email}</p>
+                          <p className={`text-[10px] font-mono truncate ${isLight ? "text-zinc-500" : "text-white/40"}`}>{user.email}</p>
                           {userProfile?.role && (
                             <span className="inline-block mt-1 px-1.5 py-0.5 text-[9px] font-mono rounded-md bg-[#C5A059]/15 text-[#C55010] border border-[#C5A059]/30 font-bold">
                               {userProfile.role.toUpperCase()}
@@ -408,7 +418,9 @@ export default function Header() {
                               setActiveView("admin-dashboard");
                               setShowProfileDropdown(false);
                             }}
-                            className="w-full text-left px-4 py-2.5 text-xs text-white/70 hover:bg-white/[0.03] transition-colors flex items-center gap-2 font-bold cursor-pointer"
+                            className={`w-full text-left px-4 py-2.5 text-xs transition-colors flex items-center gap-2 font-bold cursor-pointer ${
+                              isLight ? "text-zinc-700 hover:bg-zinc-50" : "text-white/70 hover:bg-white/[0.03]"
+                            }`}
                           >
                             <Settings className="w-3.5 h-3.5 text-[#C5A059]" />
                             <span>Admin Portal</span>
@@ -420,7 +432,9 @@ export default function Header() {
                             setActiveView("client-dashboard");
                             setShowProfileDropdown(false);
                           }}
-                          className="w-full text-left px-4 py-2.5 text-xs text-white/70 hover:bg-white/[0.03] transition-colors flex items-center gap-2 font-bold cursor-pointer"
+                          className={`w-full text-left px-4 py-2.5 text-xs transition-colors flex items-center gap-2 font-bold cursor-pointer ${
+                            isLight ? "text-zinc-700 hover:bg-zinc-50" : "text-white/70 hover:bg-white/[0.03]"
+                          }`}
                         >
                           <UserIcon className="w-3.5 h-3.5 text-[#C5A059]" />
                           <span>Client Dashboard</span>
@@ -431,9 +445,11 @@ export default function Header() {
                             logout();
                             setShowProfileDropdown(false);
                           }}
-                          className="w-full text-left px-4 py-2.5 text-xs text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2 font-bold cursor-pointer border-t border-white/5 mt-1"
+                          className={`w-full text-left px-4 py-2.5 text-xs transition-colors flex items-center gap-2 font-bold cursor-pointer border-t mt-1 ${
+                            isLight ? "text-red-600 hover:bg-red-50 border-zinc-100" : "text-red-400 hover:bg-red-500/10 border-white/5"
+                          }`}
                         >
-                          <LogOut className="w-3.5 h-3.5 text-red-400" />
+                          <LogOut className="w-3.5 h-3.5 text-red-500" />
                           <span>Sign Out</span>
                         </button>
                       </motion.div>
@@ -564,18 +580,22 @@ export default function Header() {
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.25, ease: "easeInOut" }}
-            className="md:hidden bg-[#0A0A0A] border-b border-white/10 overflow-hidden text-left"
+            className={`md:hidden border-b overflow-hidden text-left ${
+              isLight ? "bg-zinc-50 border-zinc-200" : "bg-[#0A0A0A] border-white/10"
+            }`}
           >
             <div className="p-4 space-y-4">
               
               {/* Profile card if authenticated */}
               {user && (
-                <div className="flex items-center gap-3.5 bg-white/[0.02] border border-white/5 rounded-2xl p-3.5">
+                <div className={`flex items-center gap-3.5 border rounded-2xl p-3.5 ${
+                  isLight ? "bg-white border-zinc-200" : "bg-white/[0.02] border-white/5"
+                }`}>
                   {user.photoURL ? (
                     <img 
                       src={user.photoURL} 
                       alt="User profile" 
-                      className="w-10 h-10 rounded-xl object-cover border border-white/10"
+                      className={`w-10 h-10 rounded-xl object-cover border ${isLight ? "border-zinc-200" : "border-white/10"}`}
                       referrerPolicy="no-referrer"
                     />
                   ) : (
@@ -584,8 +604,8 @@ export default function Header() {
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-black text-white leading-tight truncate">{user.displayName}</p>
-                    <p className="text-[10px] font-mono text-white/40 truncate">{user.email}</p>
+                    <p className={`text-xs font-black leading-tight truncate ${isLight ? "text-zinc-900" : "text-white"}`}>{user.displayName}</p>
+                    <p className={`text-[10px] font-mono truncate ${isLight ? "text-zinc-500" : "text-white/40"}`}>{user.email}</p>
                     {userProfile?.role && (
                       <span className="inline-block mt-1 px-1.5 py-0.5 text-[8px] font-mono rounded bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/20">
                         {userProfile.role.toUpperCase()}
@@ -602,7 +622,9 @@ export default function Header() {
                   className={`py-3 rounded-xl text-center text-xs font-bold transition-all border flex flex-col items-center justify-center gap-1.5 ${
                     activeView === "home"
                       ? "bg-[#C5A059]/10 text-[#C5A059] border-[#C5A059]/35"
-                      : "bg-white/[0.01] text-white/60 border-white/10 hover:text-white"
+                      : isLight 
+                        ? "bg-white text-zinc-600 border-zinc-200 hover:text-zinc-900"
+                        : "bg-white/[0.01] text-white/60 border-white/10 hover:text-white"
                   }`}
                 >
                   <Home className="w-4 h-4" />
@@ -614,7 +636,9 @@ export default function Header() {
                   className={`py-3 rounded-xl text-center text-xs font-bold transition-all border flex flex-col items-center justify-center gap-1.5 ${
                     activeView === "shop"
                       ? "bg-[#C5A059]/10 text-[#C5A059] border-[#C5A059]/35"
-                      : "bg-white/[0.01] text-white/60 border-white/10 hover:text-white"
+                      : isLight 
+                        ? "bg-white text-zinc-600 border-zinc-200 hover:text-zinc-900"
+                        : "bg-white/[0.01] text-white/60 border-white/10 hover:text-white"
                   }`}
                 >
                   <ShoppingBag className="w-4 h-4" />
@@ -626,7 +650,9 @@ export default function Header() {
                   className={`py-3 rounded-xl text-center text-xs font-bold transition-all border flex flex-col items-center justify-center gap-1.5 ${
                     activeView === "news"
                       ? "bg-[#C5A059]/10 text-[#C5A059] border-[#C5A059]/35"
-                      : "bg-white/[0.01] text-white/60 border-white/10 hover:text-white"
+                      : isLight 
+                        ? "bg-white text-zinc-600 border-zinc-200 hover:text-zinc-900"
+                        : "bg-white/[0.01] text-white/60 border-white/10 hover:text-white"
                   }`}
                 >
                   <Newspaper className="w-4 h-4" />
@@ -635,7 +661,7 @@ export default function Header() {
               </div>
 
               {/* Portal specific routes for mobile */}
-              <div className="space-y-2 pt-2 border-t border-white/5">
+              <div className={`space-y-2 pt-2 border-t ${isLight ? "border-zinc-200" : "border-white/5"}`}>
                 {user ? (
                   <>
                     {userProfile?.role === "admin" && (
@@ -650,7 +676,11 @@ export default function Header() {
 
                     <button
                       onClick={() => { setActiveView("client-dashboard"); setMobileMenuOpen(false); }}
-                      className="w-full text-left py-2.5 px-3.5 rounded-xl bg-white/[0.02] border border-white/10 text-white text-xs font-bold flex items-center gap-2 cursor-pointer"
+                      className={`w-full text-left py-2.5 px-3.5 rounded-xl border text-xs font-bold flex items-center gap-2 cursor-pointer ${
+                        isLight 
+                          ? "bg-white border-zinc-200 text-zinc-800" 
+                          : "bg-white/[0.02] border-white/10 text-white"
+                      }`}
                     >
                       <UserIcon className="w-4 h-4 text-[#C5A059]" />
                       <span>Client Account / Saved Receipts</span>
@@ -658,7 +688,11 @@ export default function Header() {
 
                     <button
                       onClick={() => { logout(); setMobileMenuOpen(false); }}
-                      className="w-full text-left py-2.5 px-3.5 rounded-xl bg-red-500/5 hover:bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold flex items-center gap-2 cursor-pointer"
+                      className={`w-full text-left py-2.5 px-3.5 rounded-xl border text-xs font-bold flex items-center gap-2 cursor-pointer ${
+                        isLight 
+                          ? "bg-red-50 border-red-200 text-red-600 hover:bg-red-100" 
+                          : "bg-red-500/5 hover:bg-red-500/10 border-red-500/20 text-red-400"
+                      }`}
                     >
                       <LogOut className="w-4 h-4" />
                       <span>Sign Out of System</span>

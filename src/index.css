@@ -482,7 +482,10 @@ html.light-theme .bg-[#050505],
 html.light-theme .min-h-screen.bg-[#050505],
 html.light-theme .bg-[#0A0A0A],
 html.light-theme .bg-[#0A0A0A]\/40,
-html.light-theme [id="admin-management-portal"] {
+html.light-theme [id="admin-management-portal"],
+html.light-theme [id="admin-operations-container"],
+html.light-theme [id="admin-security-login-gate"],
+html.light-theme [id="customer-profile-hub"] {
   background-color: #F8F6F2 !important;
   color: #1c1917 !important;
 }
@@ -504,6 +507,20 @@ html.light-theme tr:hover {
 html.light-theme td.bg-black\/10,
 html.light-theme .bg-black\/30 {
   background-color: #FCFBF9 !important;
+}
+
+/* Smart border normalizers for structural panels and cards */
+html.light-theme [class*="border-white/"],
+html.light-theme [class*="border-zinc-800"],
+html.light-theme [class*="border-zinc-700"],
+html.light-theme [class*="border-neutral-800"] {
+  border-color: #E2DDD5 !important;
+}
+
+/* Smart input placeholder overrides */
+html.light-theme input::placeholder,
+html.light-theme textarea::placeholder {
+  color: #a8a29e !important;
 }
 
 /* Checkbox alignment inside table rows */
@@ -616,7 +633,10 @@ html.light-theme option {
 }
 
 /* Guarantee zero lingering dark backgrounds in Admin sections, stock categories & lists */
-html.light-theme [id="admin-management-portal"] {
+html.light-theme [id="admin-management-portal"],
+html.light-theme [id="admin-operations-container"],
+html.light-theme [id="admin-security-login-gate"],
+html.light-theme [id="customer-profile-hub"] {
   background-color: var(--theme-bg-0a0a0a);
   color: var(--theme-text-primary);
   border-color: var(--theme-border-color);
@@ -627,7 +647,17 @@ html.light-theme [id="admin-management-portal"] .bg-\[\#C5A059\],
 html.light-theme [id="admin-management-portal"] button.bg-\[\#C5A059\],
 html.light-theme [id="admin-management-portal"] .bg-[#835c17],
 html.light-theme [id="admin-management-portal"] .bg-emerald-600,
-html.light-theme [id="admin-management-portal"] .bg-red-600 {
+html.light-theme [id="admin-management-portal"] .bg-red-600,
+html.light-theme [id="admin-operations-container"] .bg-\[\#C5A059\],
+html.light-theme [id="admin-operations-container"] button.bg-\[\#C5A059\],
+html.light-theme [id="admin-operations-container"] .bg-[#835c17],
+html.light-theme [id="admin-operations-container"] .bg-emerald-600,
+html.light-theme [id="admin-operations-container"] .bg-red-600,
+html.light-theme [id="customer-profile-hub"] .bg-\[\#C5A059\],
+html.light-theme [id="customer-profile-hub"] button.bg-\[\#C5A059\],
+html.light-theme [id="customer-profile-hub"] .bg-[#835c17],
+html.light-theme [id="customer-profile-hub"] .bg-emerald-600,
+html.light-theme [id="customer-profile-hub"] .bg-red-600 {
   background-color: #835c17 !important;
   color: #ffffff !important;
 }
