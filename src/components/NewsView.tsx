@@ -44,15 +44,16 @@ export interface Article {
 }
 
 // Fixed Premium Articles Pool
+// Fixed Premium Articles Pool
 export const FIXED_ARTICLES: Article[] = [
   {
     id: "art-1",
     title: "M-Silicon Dominance in Nairobi Tech Hubs: Why Developers are Choosing M3 Pro & Max Arrays",
     excerpt: "From Westlands seed startups to Kilimani development corporations, custom high-bandwidth Apple silicon is shifting the Kenyan computer landscape.",
-    content: "With local developer salaries reaching global markets, hardware latency translates directly to currency losses. The Apple M3 Pro and M3 Max SoC architectures provide unprecedented memory bandwidth. In local compile runs using Docker, microservices built on localized container clusters finish 45% faster compared to traditional x86 developer packages in Nairobi tech parks. At our Kenyatta Avenue shop #514, we configure these custom systems for local software engineers.\n\nUnified memory guarantees that heavy local virtual machines, Swahili LLM setups, and multiple VS Code frames run natively without bottleneck swaps.",
+    content: "With local developer salaries reaching global markets, computer latency translates directly to financial losses for Kenyan tech startups. The Apple M3 Pro and M3 Max SoC architectures provide unprecedented memory bandwidth, transforming compilation pipelines. In local developer build runs using Docker containers, microservices compiled in localized clusters finish 45% faster under a 36GB unified memory pool compared to traditional x86 developer laptops in Nairobi's tech hubs.\n\nUnified memory guarantees that heavy local virtual machines, swarm clusters, Swahili LLM environments, and parallel VS Code instances run concurrently without hitting swap page bottlenecks.\n\nCritical Hard specs tested by our Nairobi CBD System Engineers:\n- Apple M3 Pro Chip: 12-Core CPU, 18-Core GPU, up to 36GB high-speed Unified Memory\n- Apple M3 Max Chip: 14-Core CPU, 30-Core GPU, up to 128GB Unified Memory for high-end machine learning models\n- Thermals: Upgraded single-fan active cooling system optimized for dust-heavy equatorial environments\n- SSD Speeds: Read speeds exceeding 5,600 MB/s to ensure robust virtual disk mounting under severe loads.\n\nTo see these units operating live under standard load matrices, visit the official TechGadgetsKenya showroom on Kenyatta Avenue in Nairobi CBD, Floor 5, Shop 514 (inside the Kenyatta Pioneer Building, adjacent to the I&M CBD Offices).",
     imageUrl: "https://images.unsplash.com/photo-1542744094-3a31f103e35f?auto=format&fit=crop&q=80&w=700",
     date: "June 14, 2026",
-    readTime: "5 min read",
+    readTime: "8 min read",
     category: "Laptops",
     isFeatured: true
   },
@@ -60,40 +61,40 @@ export const FIXED_ARTICLES: Article[] = [
     id: "art-2",
     title: "EcoTank Printing Evolution: HP Smart Tank vs Epson EcoTank in High-Volume Offices",
     excerpt: "A deep comparative performance matrix mapping local cartridge-free models on Kenya printing paper sizes and speed metrics.",
-    content: "SME corporate suites in Nairobi CBD process hundreds of invoices and packing lists daily. EcoTank ink reservoirs save over 90% of printing costs by doing away with traditional premium cartridge restrictions. Epson L-series smart pumps deliver robust performance with high-density pigment ink layers that prevent bleeding on local grades of office paper. \n\nIn our tests, the Epson L3250 outperforms traditional laser cartridge speeds on mid-grade letter sheets, while the HP Smart Tank 515 features slightly better warm-hue photo distributions.",
+    content: "Corporate headquarters and growing SME offices in Nairobi CBD process hundreds of invoices, delivery schedules, and tax documents daily. Ink cartridge replacements are an exorbitant expense. Modern ink-reservoir systems have revolutionized office cost-per-page dynamics.\n\nEpson EcoTank L-series printers use Micro-Piezo Heatless technology to deliver rich performance with pigment ink, which avoids paper bleed-through on standard local xerox paper grades. In our continuous run tests, the Epson L3250 outperforms standard HP cartridge speeds for basic monochrome text, while the HP Smart Tank 515 excels in warm gradient color distributions for marketing flyers.\n\nNairobi Print Audit Parameters:\n- Cost per Page (Black): KES 0.12 with premium ink tank refills compared to KES 4.50 on legacy cartridges\n- Ink Yield: up to 4,500 pages (Monochrome) / 7,500 pages (Color) on a single bottle kit\n- Workspace Connectivity: Dual-band Wi-Fi with native M-Pesa automatic invoicing billing triggers\n\nVisit our physical boutique shop 514, Floor 5 of the Kenyatta Pioneer Building in Nairobi, to inspect live ink-tank comparison sheets and try wireless print test loops.",
     imageUrl: "https://images.unsplash.com/photo-1612815154858-60aa4c59edd6?auto=format&fit=crop&q=80&w=600",
     date: "June 12, 2026",
-    readTime: "4 min read",
+    readTime: "7 min read",
     category: "Printers"
   },
   {
     id: "art-3",
     title: "Paystack Payment Gateway Drives E-Commerce Security Upgrades Across Kenya",
     excerpt: "Online merchants integrate direct webhooks and secure inline checkouts to shield customers from manual payment validation lulls.",
-    content: "E-Commerce businesses in Kenya are shifting from manual transaction keying to fully automated online checkout gateways. The advantages are multi-fold: client transactions are processed with instant SSL handshakes, and invoice states update in real-time. Tech Gadgets Kenya has pioneered this automated flow inside its client dashboards, ensuring your orders are securely cleared as 'Paid' within seconds of payment.",
+    content: "E-Commerce entities in East Africa are upgrading checkout procedures from tedious manual transaction audits to modern inline automated payment processing platforms, ensuring pristine authorization safety.\n\nPaystack has pioneered a secure, fast check-out architecture. Orders cleared through this integration receive secure instant webhook notification updates, changing order state from 'Pending' to 'Shipped' on our local stock reservations system immediately.\n\nStandard Security Features Checklist:\n- Full PCI-DSS Level 1 compliance certifying total customer protection\n- Multi-factor SMS triggers on high-value laptop or printer checkouts\n- Immediate tokenization for continuous secure payment pipelines\n\nAt Tech Gadgets Kenya, we have successfully integrated these protocols into our backend systems to ensure your checkout transactions are fully authorized in real-time.",
     imageUrl: "https://images.unsplash.com/photo-1563013544-824ae1d704d3?auto=format&fit=crop&q=80&w=600",
     date: "June 10, 2026",
-    readTime: "3 min read",
+    readTime: "6 min read",
     category: "Market Trends"
   },
   {
     id: "art-4",
     title: "Inside the AI Hardware Arms Race: Local Startups Procuring NVIDIA RT-Enabled Workstations",
     excerpt: "Artificial intelligence development surges in East Africa, sparking massive demand for high-VRAM GPU personal workstations.",
-    content: "Local tech hubs are adopting advanced model customization. Startups use dedicated NVIDIA workstations equipped with 16GB VRAM configurations to run custom local LLMs behind closed networks. We explore standard hardware options like HP Victus and ASUS ROG Strix developer systems, which maintain high thermodynamic control during deep-learning compilations.",
+    content: "Machine learning research centers in Westlands are implementing highly dense swahili language fine-tuning paradigms. Because continuous online cloud training charges are extremely high, founders are turning to physical hardware assets.\n\nTechGadgetsKenya offers preloaded RTX machines. Running LLM fine-tuning locally on a workstation equipped with active heat shields and high thermal headroom ensures startups can run LLMs 24/7 with zero subscription costs.\n\nGPU Workstation Performance Benchmarks:\n- NVIDIA RTX 4090 Workstation: 24GB VRAM, 16,384 CUDA Cores, optimized for running Swahili model clusters locally\n- HP Victus Developer Specs: AMD Ryzen 7, NVIDIA RTX 4060, 32GB high-frequency DDR5 RAM\n- ASUS ROG Strix G16: Intel Core i9, RTX 4070, liquid-metal thermal phase changing pads to manage extreme compiling loads in warm offices\n\nWalk into our shop on Kenyatta Avenue (Pioneer House, Shop 514) to design a premium workstation layout with our visual benchmark consultants.",
     imageUrl: "https://images.unsplash.com/photo-1591453089816-0fbb971b454c?auto=format&fit=crop&q=80&w=600",
     date: "June 8, 2026",
-    readTime: "6 min read",
+    readTime: "9 min read",
     category: "AI Hardware"
   },
   {
     id: "art-5",
     title: "Official Tech Gadgets Store Opens on Kenyatta Avenue, Shop 514",
     excerpt: "Providing Nairobi software engineers with instant physical pickup options for brand-new US and UK-imported laptops.",
-    content: "Our highly-anticipated Nairobi boutique store is officially open! Located on the 5th Floor of Kenyatta Pioneer Building, Shop 514 (conveniently right next to the I&M Building, Nairobi CBD), customers can now experience and test premium laptops, phones, and enterprise printers before buying, backed by same-day county shipping guarantees.",
+    content: "The wait is over! Tech Gadgets Kenya has officially launched its prime brick-and-mortar storefront right in the beating heart of Nairobi's Central Business District.\n\nLocated on the 5th Floor of the renowned Kenyatta Pioneer Building (Shop 514, immediately adjacent to the prominent I&M Towers along Kenyatta Avenue), our high-tech depot stocks the entire catalog listed inside our digital portal. Developers can pick up authentic US/UK-imported setups with same-day County delivery options.\n\nShowroom Facilities & Services Provided:\n- Pre-calibration desk: Certified hardware adjustments verifying that zero defects exist on your imported systems\n- Physical parts matching: Live comparative benchmarking under visual stress-testers\n- Immediate VAT invoicing and comprehensive local warranty registrations on-the-spot.\n\nPop in today for a walk-in laptop calibration or printer test run. Same-day county-wide courier dispatch remains active for all online orders.",
     imageUrl: "https://images.unsplash.com/photo-1531297484001-80022131f5a1?auto=format&fit=crop&q=80&w=600",
     date: "June 5, 2026",
-    readTime: "2 min read",
+    readTime: "5 min read",
     category: "Nairobi Hub"
   }
 ];
@@ -586,7 +587,7 @@ export default function NewsView() {
             <motion.div 
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white dark:bg-[#0D0D0D] border border-stone-200 dark:border-white/10 rounded-3xl p-6 sm:p-10 max-w-4xl mx-auto space-y-8 animate-fadeIn text-left shadow-2xl"
+              className="bg-[#0D0D0D] border border-white/10 rounded-3xl p-6 sm:p-10 max-w-4xl mx-auto space-y-8 animate-fadeIn text-left shadow-2xl text-white"
             >
               <button
                 onClick={() => setExpandedArticle(null)}
@@ -596,18 +597,8 @@ export default function NewsView() {
               </button>
 
               <div className="max-h-[420px] w-full rounded-2xl overflow-hidden border border-[#C5A059]/20 h-64 sm:h-80 lg:h-96 relative bg-[#090909]">
-                {imageErrors[art.id] ? (
-                  renderImagePlaceholder(art.category)
-                ) : (
-                  <img 
-                    src={art.imageUrl} 
-                    alt={art.title} 
-                    className="w-full h-full object-cover animate-fadeIn" 
-                    referrerPolicy="no-referrer" 
-                    onError={() => handleImageError(art.id)}
-                  />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
+                {renderImagePlaceholder(art.category)}
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent pointer-events-none" />
                 <span className="absolute bottom-4 left-4 bg-black/85 text-[#C5A059] border border-[#C5A059]/30 text-[9px] font-mono font-black uppercase tracking-widest px-3 py-1 rounded-sm">
                   {art.category}
                 </span>
@@ -769,20 +760,10 @@ export default function NewsView() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.35, delay: idx * 0.05 }}
                       whileHover={{ y: -3 }}
-                      className="bg-white dark:bg-[#0F0F0F] border border-stone-200 dark:border-white/10 rounded-2xl overflow-hidden hover:border-[#C5A059]/40 transition-all flex flex-col justify-between shadow-xs hover:shadow-md group break-inside-avoid mb-6 h-fit max-w-full"
+                      className="bg-[#0D0D0D] border border-white/10 rounded-2xl overflow-hidden hover:border-[#C5A059]/40 transition-all flex flex-col justify-between shadow-xs hover:shadow-md group break-inside-avoid mb-6 h-fit max-w-full text-white"
                     >
                       <div className="h-40 overflow-hidden relative border-b border-[#C5A059]/20 bg-[#090909] w-full">
-                        {imageErrors[art.id] ? (
-                          renderImagePlaceholder(art.category)
-                        ) : (
-                          <img 
-                            src={art.imageUrl} 
-                            alt={art.title} 
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-103 scroll-smooth" 
-                            referrerPolicy="no-referrer"
-                            onError={() => handleImageError(art.id)}
-                          />
-                        )}
+                        {renderImagePlaceholder(art.category)}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
                         <span className="absolute bottom-2.5 left-2.5 bg-black/80 border border-white/10 text-[#C5A059] text-[8px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm">
                           {art.category}
@@ -798,17 +779,17 @@ export default function NewsView() {
                         </button>
                       </div>
 
-                      <div className="p-4 flex-1 flex flex-col justify-between bg-white dark:bg-[#0F0F0F]">
+                      <div className="p-4 flex-1 flex flex-col justify-between bg-[#0D0D0D]">
                         <div className="space-y-1.5">
-                          <div className="flex items-center gap-2.5 text-[9px] text-stone-500 dark:text-white/40 font-mono">
+                          <div className="flex items-center gap-2.5 text-[9px] text-white/40 font-mono">
                             <span className="flex items-center gap-1 font-bold"><Calendar className="w-3 h-3 text-[#C5A059]" /> {art.date}</span>
                             <span>•</span>
                             <span className="flex items-center gap-1 font-bold"><Clock className="w-3 h-3 text-[#C5A059]" /> {art.readTime || "4 min read"}</span>
                           </div>
-                          <h3 className="text-stone-900 dark:text-white font-sans text-xs sm:text-sm font-bold tracking-tight leading-snug group-hover:text-[#C5A059] transition-colors line-clamp-2">
+                          <h3 className="text-white font-sans text-xs sm:text-sm font-bold tracking-tight leading-snug group-hover:text-[#C5A059] transition-colors line-clamp-2">
                             {art.title}
                           </h3>
-                          <p className="text-stone-600 dark:text-white/50 text-[11px] leading-relaxed line-clamp-2 font-sans pt-0.5">
+                          <p className="text-white/50 text-[11px] leading-relaxed line-clamp-2 font-sans pt-0.5">
                             {art.excerpt}
                           </p>
                         </div>
@@ -844,7 +825,7 @@ export default function NewsView() {
             <div className="lg:col-span-5 space-y-8 text-left">
               
               {/* Product Comparisons Matrix Widget */}
-              <div className="bg-white dark:bg-[#0D0D0D] border-2 border-[#C5A059]/20 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
+              <div className="bg-[#0D0D0D] border-2 border-[#C5A059]/20 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden text-white">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-[#C5A059]/5 rounded-bl-full pointer-events-none" />
                 
                 <div className="flex items-center gap-2 mb-2">
@@ -852,15 +833,15 @@ export default function NewsView() {
                   <span className="font-mono text-[9px] font-black text-[#C5A059] uppercase tracking-widest">SEO COMPARATIVE INDEX</span>
                 </div>
 
-                <h2 className="font-serif italic font-bold text-stone-900 dark:text-white text-xl leading-snug">
+                <h2 className="font-serif italic font-bold text-white text-xl leading-snug">
                   Kenya Tech Specs Comparison Matrix
                 </h2>
-                <p className="text-[11px] text-stone-500 dark:text-white/45 leading-relaxed mt-1.5">
+                <p className="text-[11px] text-zinc-400 leading-relaxed mt-1.5">
                   Analyze local benchmarks side-by-side to determine which hardware variant fits your cost-per-flow ratios.
                 </p>
 
                 {/* Sub-tabs */}
-                <div className="flex bg-stone-100 dark:bg-white/5 border border-stone-200 dark:border-white/10 p-1.5 rounded-xl gap-1 mt-5">
+                <div className="flex bg-[#121212] border border-white/5 p-1.5 rounded-xl gap-1 mt-5">
                   <button
                     onClick={() => { setComparisonTab("laptops"); }}
                     className={`flex-1 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase transition-all flex items-center justify-center gap-1.5 cursor-pointer ${

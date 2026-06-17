@@ -571,24 +571,27 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
             {authModalMode === "signup" && (
               <div className="space-y-1.5" id="fullname-input-wrapper">
                 <label className={`text-[10px] font-mono uppercase tracking-wider block font-bold ${
-                  isLight ? "text-zinc-500" : "text-white/40"
+                  isLight ? "text-zinc-850 font-extrabold" : "text-white/40"
                 }`}>
                   Full Name / business title
                 </label>
                 <div className="relative flex items-center">
-                  <UserPlus className={`w-3.5 h-3.5 absolute left-3.5 ${isLight ? "text-zinc-400" : "text-white/30"}`} />
+                  <UserPlus className={`w-3.5 h-3.5 absolute left-3.5 ${isLight ? "text-zinc-650" : "text-white/30"}`} />
                   <input 
                     ref={displayNameRef}
                     type="text"
                     value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
+                    onChange={(e) => {
+                      console.log("[AuthModal Input Capture] Full Name changed:", e.target.value);
+                      setFullName(e.target.value);
+                    }}
                     placeholder="E.g., Adam Kassim"
                     disabled={loading}
                     className={`w-full py-2.5 pl-10 pr-4 rounded-xl text-xs font-sans outline-none transition-all ${
                       isLight 
-                        ? "bg-zinc-50 border-zinc-200 focus:border-[#C5A059] focus:bg-white text-zinc-900 placeholder-zinc-400" 
-                        : "bg-white/[0.02] border-white/10 focus:border-[#C5A059] focus:bg-[#151515] text-white placeholder-white/30"
-                    } border`}
+                        ? "bg-zinc-100/70 border-zinc-300 focus:border-[#C5A059] focus:bg-white text-zinc-950 placeholder-zinc-550 border" 
+                        : "bg-white/[0.02] border-white/10 focus:border-[#C5A059] focus:bg-[#151515] text-white placeholder-white/30 border"
+                    }`}
                     required
                   />
                 </div>
@@ -597,23 +600,26 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
 
             <div className="space-y-1.5">
               <label className={`text-[10px] font-mono uppercase tracking-wider block font-bold ${
-                isLight ? "text-zinc-500" : "text-white/40"
+                isLight ? "text-zinc-850 font-extrabold" : "text-white/40"
               }`}>
                 Email Address
               </label>
               <div className="relative flex items-center">
-                <Mail className={`w-3.5 h-3.5 absolute left-3.5 ${isLight ? "text-zinc-400" : "text-white/30"}`} />
+                <Mail className={`w-3.5 h-3.5 absolute left-3.5 ${isLight ? "text-zinc-650" : "text-white/30"}`} />
                 <input 
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    console.log("[AuthModal Input Capture] Email changed:", e.target.value);
+                    setEmail(e.target.value);
+                  }}
                   placeholder="corporate_buyer@nairobi.co.ke"
                   disabled={loading}
                   className={`w-full py-2.5 pl-10 pr-4 rounded-xl text-xs font-sans outline-none transition-all ${
                     isLight 
-                      ? "bg-zinc-50 border-zinc-200 focus:border-[#C5A059] focus:bg-white text-zinc-900 placeholder-zinc-400" 
-                      : "bg-white/[0.02] border-white/10 focus:border-[#C5A059] focus:bg-[#151515] text-white placeholder-white/30"
-                  } border`}
+                      ? "bg-zinc-100/70 border-zinc-300 focus:border-[#C5A059] focus:bg-white text-zinc-950 placeholder-zinc-550 border" 
+                      : "bg-white/[0.02] border-white/10 focus:border-[#C5A059] focus:bg-[#151515] text-white placeholder-white/30 border"
+                  }`}
                   required
                 />
               </div>
@@ -623,7 +629,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className={`text-[10px] font-mono uppercase tracking-wider block font-bold ${
-                    isLight ? "text-zinc-500" : "text-white/40"
+                    isLight ? "text-zinc-850 font-extrabold" : "text-white/40"
                   }`}>
                     Password Passcode
                   </label>
@@ -640,29 +646,32 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                   </button>
                 </div>
                 <div className="relative flex items-center">
-                  <Lock className={`w-3.5 h-3.5 absolute left-3.5 ${isLight ? "text-zinc-400" : "text-white/30"}`} />
+                  <Lock className={`w-3.5 h-3.5 absolute left-3.5 ${isLight ? "text-zinc-650" : "text-white/30"}`} />
                   <input 
                     type={showPassword ? "text" : "password"}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      console.log("[AuthModal Input Capture] Password text updating...");
+                      setPassword(e.target.value);
+                    }}
                     placeholder="••••••••"
                     disabled={loading}
                     className={`w-full py-2.5 pl-10 pr-10 rounded-xl text-xs font-sans outline-none transition-all ${
                       isLight 
-                        ? "bg-zinc-50 border-zinc-200 focus:border-[#C5A059] focus:bg-white text-zinc-900 placeholder-zinc-400" 
-                        : "bg-white/[0.02] border-white/10 focus:border-[#C5A059] focus:bg-[#151515] text-white placeholder-white/30"
-                    } border`}
+                        ? "bg-zinc-100/70 border-zinc-300 focus:border-[#C5A059] focus:bg-white text-zinc-950 placeholder-zinc-550 border" 
+                        : "bg-white/[0.02] border-white/10 focus:border-[#C5A059] focus:bg-[#151515] text-white placeholder-white/30 border"
+                    }`}
                     required={!isResetMode}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className={`absolute right-3 p-1 rounded-md opacity-70 hover:opacity-100 transition-opacity ${
-                      isLight ? "text-zinc-400 hover:text-zinc-600" : "text-white/30 hover:text-white"
+                    className={`absolute right-3 p-1.5 rounded-lg opacity-85 hover:opacity-100 transition-opacity ${
+                      isLight ? "text-stone-800 hover:text-black hover:bg-zinc-200" : "text-white/40 hover:text-white hover:bg-white/5"
                     }`}
                     style={{ background: 'none', border: 'none' }}
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPassword ? <EyeOff className="w-4 h-4 shrink-0" /> : <Eye className="w-4 h-4 shrink-0" />}
                   </button>
                 </div>
 
