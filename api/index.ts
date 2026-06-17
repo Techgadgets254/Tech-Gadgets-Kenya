@@ -1068,6 +1068,162 @@ function startDailyBackupScheduler() {
 }
 startDailyBackupScheduler();
 
+// Live Kenyan Technology News service endpoint with RSS aggregator and Gemini fallback synthesis
+app.get("/api/news/live", async (req, res) => {
+  try {
+    let feedXml = "";
+    try {
+      const response = await fetch("https://techweez.com/feed/", {
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) TechGadgetsKenya/1.0" },
+        signal: AbortSignal.timeout(6000)
+      });
+      if (response.ok) {
+        feedXml = await response.text();
+      }
+    } catch (e) {
+      console.warn("Primary RSS feed failed, trying secondary:", e);
+      try {
+        const responseList = await fetch("https://gadgets-africa.com/feed/", {
+          headers: { "User-Agent": "Mozilla/5.0 TechGadgetsKenya/1.0" },
+          signal: AbortSignal.timeout(5000)
+        });
+        if (responseList.ok) {
+          feedXml = await responseList.text();
+        }
+      } catch (e2) {
+        console.warn("Secondary RSS feed also failed:", e2);
+      }
+    }
+
+    let parsedArticles: any[] = [];
+
+    // Parse RSS XML elements
+    if (feedXml) {
+      const itemMatches = feedXml.match(/<item>[\s\S]*?<\/item>/g);
+      if (itemMatches && itemMatches.length > 0) {
+        for (const item of itemMatches.slice(0, 8)) {
+          const titleMatch = item.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) || item.match(/<title>([\s\S]*?)<\/title>/);
+          const linkMatch = item.match(/<link>([\s\S]*?)<\/link>/);
+          const descMatch = item.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/) || item.match(/<description>([\s\S]*?)<\/description>/);
+          const dateMatch = item.match(/<pubDate>([\s\S]*?)<\/pubDate>/);
+          const categoryMatch = item.match(/<category><!\[CDATA\[([\s\S]*?)\]\]><\/category>/) || item.match(/<category>([\s\S]*?)<\/category>/);
+
+          const title = titleMatch ? titleMatch[1].trim() : "";
+          const link = linkMatch ? linkMatch[1].trim() : "";
+          const descRaw = descMatch ? descMatch[1].trim() : "";
+          const description = descRaw.replace(/<[^>]*>?/gm, "").slice(0, 160) + "...";
+          const dateStr = dateMatch ? new Date(dateMatch[1]).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Recently";
+          const categoryRaw = categoryMatch ? categoryMatch[1].trim() : "Market Trends";
+
+          let category = "Market Trends";
+          if (categoryRaw.toLowerCase().includes("laptop") || categoryRaw.toLowerCase().includes("pc") || categoryRaw.toLowerCase().includes("computer")) {
+            category = "Laptops";
+          } else if (categoryRaw.toLowerCase().includes("print") || categoryRaw.toLowerCase().includes("ink") || categoryRaw.toLowerCase().includes("epson")) {
+            category = "Printers";
+          } else if (categoryRaw.toLowerCase().includes("ai") || categoryRaw.toLowerCase().includes("model") || categoryRaw.toLowerCase().includes("gpu")) {
+            category = "AI Hardware";
+          } else if (categoryRaw.toLowerCase().includes("kenya") || categoryRaw.toLowerCase().includes("nairobi") || categoryRaw.toLowerCase().includes("local")) {
+            category = "Nairobi Hub";
+          }
+
+          if (title) {
+            let imageUrl = "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=650";
+            if (category === "Laptops") {
+              imageUrl = "https://images.unsplash.com/photo-1531297484001-80022131f5a1?auto=format&fit=crop&q=80&w=650";
+            } else if (category === "Printers") {
+              imageUrl = "https://images.unsplash.com/photo-1612815154858-60aa4c59edd6?auto=format&fit=crop&q=80&w=650";
+            } else if (category === "AI Hardware") {
+              imageUrl = "https://images.unsplash.com/photo-1591453089816-0fbb971b454c?auto=format&fit=crop&q=80&w=650";
+            } else if (category === "Nairobi Hub") {
+              imageUrl = "https://images.unsplash.com/photo-1542744094-3a31f103e35f?auto=format&fit=crop&q=80&w=650";
+            }
+
+            parsedArticles.push({
+              id: "rss-" + crypto.createHash("md5").update(title).digest("hex").slice(0, 8),
+              title,
+              excerpt: description,
+              content: `${description}\n\nThis article was in-sync, aggregate-indexed in real-time from our live Kenyan technology news syndicate partners. To inspect the full bulletins and publishers, visit the official live broadcast channel at: ${link}`,
+              imageUrl,
+              date: dateStr,
+              readTime: `${Math.max(3, Math.min(10, Math.ceil(description.split(" ").length / 22)))} min read`,
+              category,
+              link
+            });
+          }
+        }
+      }
+    }
+
+    // Secondary layer: Fallback/Enrichment via Gemini
+    if (parsedArticles.length < 3) {
+      console.log("[News Feed] RSS feeds are empty/throttled. Synthesizing fresh Kenyan tech bulletins using Gemini...");
+      if (ai) {
+        try {
+          const prompt = `
+Generate 4 realistic, SEO-optimized, highly authentic technology news articles focused strictly on the current Kenyan technology, mobile payment (M-Pesa / Safaricom), KRA computer taxes, or hardware imports landscape for Nairobi tech devs.
+Current Date: June 2026.
+
+For each article, generate:
+- title: strong, professional headline
+- excerpt: clean 1-sentence synopsis
+- content: detailed 2-paragraph narrative
+- category: choose strictly from "Laptops", "Market Trends", "Printers", "Nairobi Hub", "AI Hardware"
+- readTime: e.g. "4 min read"
+
+Return a strictly valid JSON array of objects, with no markdown styling asterisks (*) in strings, no formatting stars, and no other wrappers:
+[
+  {
+    "title": "compelling title",
+    "excerpt": "one-sentence hook",
+    "content": "detailed body paragraph 1...\\n\\ndetail paragraph 2...",
+    "category": "Laptops",
+    "readTime": "4 min read"
+  }
+]
+`;
+          const response = await ai.models.generateContent({
+            model: "gemini-3.5-flash",
+            contents: prompt,
+            config: {
+              temperature: 0.8,
+              responseMimeType: "application/json"
+            }
+          });
+
+          const geminiText = response.text || "[]";
+          const geminiNews = JSON.parse(geminiText);
+          if (Array.isArray(geminiNews)) {
+            geminiNews.forEach((n, idx) => {
+              let imageUrl = "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&q=80&w=650";
+              if (n.category === "Laptops") imageUrl = "https://images.unsplash.com/photo-1542744094-3a31f103e35f?auto=format&fit=crop&q=80&w=650";
+              else if (n.category === "Printers") imageUrl = "https://images.unsplash.com/photo-1612815154858-60aa4c59edd6?auto=format&fit=crop&q=80&w=650";
+              else if (n.category === "AI Hardware") imageUrl = "https://images.unsplash.com/photo-1591453089816-0fbb971b454c?auto=format&fit=crop&q=80&w=650";
+              else if (n.category === "Nairobi Hub") imageUrl = "https://images.unsplash.com/photo-1531297484001-80022131f5a1?auto=format&fit=crop&q=80&w=650";
+
+              parsedArticles.push({
+                id: `gem-news-${idx}-${Date.now().toString().slice(-4)}`,
+                title: n.title,
+                excerpt: n.excerpt,
+                content: n.content,
+                imageUrl,
+                date: "Today's Bulletin",
+                readTime: n.readTime || "4 min read",
+                category: n.category || "Market Trends"
+              });
+            });
+          }
+        } catch (gemError) {
+          console.error("Gemini News Synthesis fallback failed:", gemError);
+        }
+      }
+    }
+
+    res.json({ success: true, articles: parsedArticles });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to compile live news feeds." });
+  }
+});
+
 // Create Global Error Utility for logging module loading, server exceptions, and routes failures
 async function logToFirestoreErrorStore(errorType: string, message: string, stack: string | null, details: any = {}) {
   try {

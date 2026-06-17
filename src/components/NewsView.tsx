@@ -25,9 +25,11 @@ import {
   ShieldCheck,
   RefreshCw,
   Zap,
+  GitCompare,
   Info
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import ProductComparison from "./ProductComparison";
 
 export interface Article {
   id: string;
@@ -97,7 +99,7 @@ export const FIXED_ARTICLES: Article[] = [
 ];
 
 // Dynamic daily updates (Refreshing based on Day Of the Week to provide live daily updates)
-const DAILY_ARTICLES: Record<number, Article> = {
+export const DAILY_ARTICLES: Record<number, Article> = {
   0: {
     id: "dyn-0",
     title: "Sunday Sync: How Local Developer Nodes Maintain Remote Container Latency",
@@ -250,13 +252,18 @@ const PRINTER_COMPARISONS = [
 ];
 
 export default function NewsView() {
-  const { setActiveView, addCustomNotification } = useStore();
+  const { setActiveView, addCustomNotification, theme } = useStore();
   const [selectedTag, setSelectedTag] = useState<string>("All");
   const [expandedArticle, setExpandedArticle] = useState<string | null>(null);
   const [comparisonTab, setComparisonTab] = useState<"laptops" | "printers">("laptops");
   const [searchQuery, setSearchQuery] = useState("");
   const [isRefreshingWire, setIsRefreshingWire] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [activeSegment, setActiveSegment] = useState<"bulletins" | "compare">("bulletins");
+
+  // Dynamic live news fetched from RSS aggregator + Gemini
+  const [liveArticles, setLiveArticles] = useState<Article[]>([]);
+  const [loadingNews, setLoadingNews] = useState<boolean>(false);
 
   // Load saved bookmarks from local storage
   const [savedArticleIds, setSavedArticleIds] = useState<string[]>(() => {
@@ -264,16 +271,48 @@ export default function NewsView() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const fetchLiveNews = async (showToast: boolean = false) => {
+    setLoadingNews(true);
+    try {
+      const res = await fetch("/api/news/live");
+      const data = await res.json();
+      if (data && data.success && Array.isArray(data.articles)) {
+        setLiveArticles(data.articles);
+        if (showToast) {
+          triggerToast("📰 Live Kenyan Tech publications synchronized successfully!");
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load live news:", err);
+    } finally {
+      setLoadingNews(false);
+    }
+  };
+
+  // Immediate live fetch on mount
+  useEffect(() => {
+    fetchLiveNews();
+
+    // Check if user navigated to read a specific bookmarked article from ClientDashboard
+    const targetArticleId = localStorage.getItem("tgk_selected_article_id");
+    if (targetArticleId) {
+      setExpandedArticle(targetArticleId);
+      localStorage.removeItem("tgk_selected_article_id");
+      window.scrollTo({ top: 300, behavior: "smooth" });
+    }
+  }, []);
+
   const toggleSaveArticle = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    let updated: string[] = [];
     setSavedArticleIds(prev => {
       const isSaved = prev.includes(id);
-      const updated = isSaved ? prev.filter(x => x !== id) : [...prev, id];
+      updated = isSaved ? prev.filter(x => x !== id) : [...prev, id];
       localStorage.setItem("tgk_saved_news", JSON.stringify(updated));
       return updated;
     });
 
-    const artTitle = [...FIXED_ARTICLES, ...Object.values(DAILY_ARTICLES)].find(a => a.id === id)?.title || "Article";
+    const artTitle = [...FIXED_ARTICLES, ...Object.values(DAILY_ARTICLES), ...liveArticles].find(a => a.id === id)?.title || "Article";
     const status = savedArticleIds.includes(id) ? "Removed from Bookmarks" : "Saved to Bookmarks";
     triggerToast(`"${artTitle.slice(0, 30)}..." ${status}`);
   };
@@ -312,26 +351,39 @@ export default function NewsView() {
     return DAILY_ARTICLES[dayOfWeek];
   }, [todayDateObj]);
 
-  // Combine both fixed and dynamic articles
+  // Combine both fixed, live fetched, and dynamic articles
   const allArticles = useMemo(() => {
-    const list = [...FIXED_ARTICLES];
-    // inject daily seeded as secondary featured or item if not already in list
+    let list = [...FIXED_ARTICLES];
+    if (liveArticles.length > 0) {
+      const map = new Map<string, Article>();
+      // Live articles first
+      liveArticles.forEach(a => map.set(a.id, a));
+      list.forEach(a => {
+        if (!map.has(a.id)) {
+          map.set(a.id, a);
+        }
+      });
+      return Array.from(map.values());
+    }
+
     if (dailyArticle && !list.some(x => x.id === dailyArticle.id)) {
       list.push(dailyArticle);
     }
     return list;
-  }, [dailyArticle]);
+  }, [liveArticles, dailyArticle]);
 
   // Simulate refreshing the SEO tech bulletin engine
   const handleRefreshWire = () => {
     setIsRefreshingWire(true);
-    setTimeout(() => {
+    fetchLiveNews(false).then(() => {
       setIsRefreshingWire(false);
       triggerToast("📰 Live Kenyan tech databases synced with Kenyatta Avenue Showroom!");
       if (addCustomNotification) {
-        addCustomNotification(`Tech News wire refreshed. Synced current bulletins with Nairobi CBD CBD hub routers.`, "NEWS-SYNC");
+        addCustomNotification(`Tech News wire refreshed. Synced current bulletins with Nairobi CBD hub routers.`, "NEWS-SYNC");
       }
-    }, 120000 / 100); // 1.2s rapid feel
+    }).catch(() => {
+      setIsRefreshingWire(false);
+    });
   };
 
   const tags = ["All", "Laptops", "Printers", "Market Trends", "AI Hardware", "Nairobi Hub", "Saved Bulletins"];
@@ -441,6 +493,38 @@ export default function NewsView() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Modern High-Value Segment Switcher Tab Segment */}
+      <div className="flex bg-stone-100 dark:bg-white/5 border border-stone-200 dark:border-white/10 p-1.5 rounded-2xl gap-2 max-w-sm sm:max-w-md select-none">
+        <button
+          onClick={() => {
+            setActiveSegment("bulletins");
+            setExpandedArticle(null);
+          }}
+          className={`flex-1 py-3 px-4 rounded-xl text-[10px] sm:text-xs font-sans font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeSegment === "bulletins"
+              ? "bg-[#C5A059] text-black shadow-md font-extrabold"
+              : "text-stone-500 dark:text-white/50 hover:text-stone-900 dark:hover:text-white"
+          }`}
+        >
+          <Newspaper className="w-4 h-4" />
+          <span>Bulletins Wire</span>
+        </button>
+        <button
+          onClick={() => {
+            setActiveSegment("compare");
+            setExpandedArticle(null);
+          }}
+          className={`flex-1 py-3 px-4 rounded-xl text-[10px] sm:text-xs font-sans font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeSegment === "compare"
+              ? "bg-[#C5A059] text-black shadow-md font-extrabold"
+              : "text-stone-500 dark:text-white/50 hover:text-stone-900 dark:hover:text-white"
+          }`}
+        >
+          <GitCompare className="w-4 h-4" />
+          <span>Specs Comparator Portal</span>
+        </button>
       </div>
 
       {/* Tags Slider Area */}
@@ -586,6 +670,8 @@ export default function NewsView() {
             </motion.div>
           );
         })()
+      ) : activeSegment === "compare" ? (
+        <ProductComparison />
       ) : (
         <>
           {/* Main layout (Split in Bento: Left: News bulletin boards, Right: Dynamic comparisons matrix) */}
@@ -643,7 +729,7 @@ export default function NewsView() {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="columns-1 sm:columns-2 gap-6 space-y-6 [&>*]:break-inside-avoid pb-4 text-left">
                   {filteredArticles.map((art, idx) => (
                     <motion.article
                       key={art.id}
@@ -651,13 +737,13 @@ export default function NewsView() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.35, delay: idx * 0.05 }}
                       whileHover={{ y: -3 }}
-                      className="bg-white dark:bg-[#0F0F0F] border border-stone-200 dark:border-white/10 rounded-2xl overflow-hidden hover:border-[#C5A059]/40 transition-all flex flex-col justify-between shadow-xs group"
+                      className="bg-white dark:bg-[#0F0F0F] border border-stone-200 dark:border-white/10 rounded-2xl overflow-hidden hover:border-[#C5A059]/40 transition-all flex flex-col justify-between shadow-xs hover:shadow-md group break-inside-avoid mb-6 h-fit max-w-full"
                     >
                       <div className="h-40 overflow-hidden relative border-b border-stone-200 dark:border-white/5 bg-stone-100 dark:bg-black">
                         <img 
                           src={art.imageUrl} 
                           alt={art.title} 
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-103" 
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-103 scroll-smooth" 
                           referrerPolicy="no-referrer"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
@@ -665,27 +751,27 @@ export default function NewsView() {
                           {art.category}
                         </span>
 
-                        {/* Save Toggle on upper corner */}
+                        {/* Save / Bookmark Toggle corner selector */}
                         <button
                           onClick={(e) => toggleSaveArticle(art.id, e)}
-                          className="absolute top-2.5 right-2.5 bg-black/85 hover:bg-[#C5A059] hover:text-black text-[#C5A059] p-1.5 rounded-lg border border-[#C5A059]/30 transition-all cursor-pointer z-10"
-                          title="Bookmark article"
+                          className="absolute top-2.5 right-2.5 bg-black/85 hover:bg-[#C5A059] hover:text-black text-[#C5A059] p-1.5 rounded-lg border border-[#C5A059]/30 transition-all cursor-pointer z-10 select-none"
+                          title="Bookmark article for later reference in ClientDashboard"
                         >
-                          <Bookmark className={`w-3 h-3 ${savedArticleIds.includes(art.id) ? "fill-current text-[#C5A560]" : ""}`} />
+                          <Bookmark className={`w-3.5 h-3.5 ${savedArticleIds.includes(art.id) ? "fill-current text-[#C5A059]" : ""}`} />
                         </button>
                       </div>
 
-                      <div className="p-4 flex-1 flex flex-col justify-between">
+                      <div className="p-4 flex-1 flex flex-col justify-between bg-white dark:bg-[#0F0F0F]">
                         <div className="space-y-1.5">
                           <div className="flex items-center gap-2.5 text-[9px] text-stone-500 dark:text-white/40 font-mono">
-                            <span className="flex items-center gap-1"><Calendar className="w-3 h-3 text-[#C5A059]" /> {art.date}</span>
+                            <span className="flex items-center gap-1 font-bold"><Calendar className="w-3 h-3 text-[#C5A059]" /> {art.date}</span>
                             <span>•</span>
-                            <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-[#C5A059]" /> {art.readTime}</span>
+                            <span className="flex items-center gap-1 font-bold"><Clock className="w-3 h-3 text-[#C5A059]" /> {art.readTime || "4 min read"}</span>
                           </div>
                           <h3 className="text-stone-900 dark:text-white font-sans text-xs sm:text-sm font-bold tracking-tight leading-snug group-hover:text-[#C5A059] transition-colors line-clamp-2">
                             {art.title}
                           </h3>
-                          <p className="text-stone-500 dark:text-white/40 text-[11px] leading-relaxed line-clamp-2">
+                          <p className="text-stone-600 dark:text-white/50 text-[11px] leading-relaxed line-clamp-2 font-sans pt-0.5">
                             {art.excerpt}
                           </p>
                         </div>
@@ -696,7 +782,7 @@ export default function NewsView() {
                               setExpandedArticle(art.id);
                               window.scrollTo({ top: 300, behavior: "smooth" });
                             }}
-                            className="text-stone-800 dark:text-white/70 hover:text-[#C5A059] dark:hover:text-[#C5A059] font-mono text-[9px] uppercase font-bold tracking-widest flex items-center gap-1 cursor-pointer"
+                            className="text-stone-850 dark:text-white/70 hover:text-[#C5A059] dark:hover:text-[#C5A059] font-mono text-[9px] uppercase font-bold tracking-widest flex items-center gap-1 cursor-pointer select-none"
                           >
                             <span>Read Article</span>
                             <ArrowRight className="w-3.5 h-3.5" />
@@ -707,7 +793,7 @@ export default function NewsView() {
                             className="p-1 rounded-sm text-stone-400 hover:text-[#C5A059] dark:text-white/20 transition-all cursor-pointer"
                             title="Copy SEO permalink"
                           >
-                            <Share2 className="w-3 h-3" />
+                            <Share2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>

@@ -15,6 +15,7 @@ import {
   Truck, 
   Package, 
   ArrowLeft,
+  ArrowRight,
   ChevronRight,
   ShieldCheck,
   AlertCircle,
@@ -34,6 +35,7 @@ import { Order } from "../types";
 import { jsPDF } from "jspdf";
 import { User as UserIcon } from "lucide-react";
 import ProfileEditor from "./ProfileEditor";
+import { FIXED_ARTICLES, DAILY_ARTICLES, Article } from "./NewsView";
 
 export default function ClientDashboard() {
   const { 
@@ -48,7 +50,54 @@ export default function ClientDashboard() {
   const [orderSearchQuery, setOrderSearchQuery] = useState("");
 
   // Tabs for ClientDashboard
-  const [activeTab, setActiveTab] = useState<"transactions" | "settings" | "profile">("transactions");
+  const [activeTab, setActiveTab] = useState<"transactions" | "settings" | "profile" | "bookmarks">("transactions");
+
+  // Saved / bookmarked news articles
+  const [savedNewsIds, setSavedNewsIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("tgk_saved_news");
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  });
+
+  // Re-read bookmarks when the tab is clicked to synchronize states
+  useEffect(() => {
+    if (activeTab === "bookmarks") {
+      try {
+        const saved = localStorage.getItem("tgk_saved_news");
+        setSavedNewsIds(saved ? JSON.parse(saved) : []);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [activeTab]);
+
+  const savedArticles = useMemo(() => {
+    const list: Article[] = [];
+    const allKnown: Article[] = [...FIXED_ARTICLES, ...(Object.values(DAILY_ARTICLES) as Article[])];
+    savedNewsIds.forEach(id => {
+      const found = allKnown.find((a: Article) => a.id === id);
+      if (found && !list.some((x: Article) => x.id === found.id)) {
+        list.push(found);
+      }
+    });
+    return list;
+  }, [savedNewsIds]);
+
+  const handleUnsaveNews = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const nextSaved = savedNewsIds.filter(x => x !== id);
+    setSavedNewsIds(nextSaved);
+    localStorage.setItem("tgk_saved_news", JSON.stringify(nextSaved));
+  };
+
+  const handleReadArticle = (id: string) => {
+    localStorage.setItem("tgk_selected_article_id", id);
+    setActiveView("news");
+  };
 
   // Account Settings state
   const [settingsKraPin, setSettingsKraPin] = useState(() => localStorage.getItem("tgk_kra_pin") || "");
@@ -655,6 +704,17 @@ export default function ClientDashboard() {
         >
           <UserIcon className="w-3.5 h-3.5" />
           <span>MY PROFILE</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("bookmarks")}
+          className={`px-4 py-2.5 font-sans font-bold text-xs rounded-xl tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === "bookmarks"
+              ? "bg-[#C5A059] text-black shadow-md font-extrabold"
+              : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white"
+          }`}
+        >
+          <Bookmark className="w-3.5 h-3.5" />
+          <span>SAVED ARTICLES</span>
         </button>
       </div>
 
@@ -1492,6 +1552,95 @@ export default function ClientDashboard() {
             </div>
           )}
 
+        </div>
+      )}
+
+      {/* Detail Bookmarked Articles section */}
+      {activeTab === "bookmarks" && (
+        <div className="space-y-6 animate-fadeIn text-left no-print">
+          <div>
+            <h3 className="font-sans font-bold text-[#C5A059] text-xs uppercase tracking-wider mb-1">
+              Your Bookmarked Tech Gazette Publications
+            </h3>
+            <p className="text-white/40 text-[11px] sm:text-xs">
+              Saved articles are stored locally in your workspace cache. Click on any item to view custom specs, analysis, and reviews.
+            </p>
+          </div>
+
+          {savedArticles.length === 0 ? (
+            <div className="py-20 border-2 border-dashed border-white/5 rounded-3xl bg-white/[0.01] flex flex-col items-center justify-center text-center space-y-3.5 p-6 h-72">
+              <div className="bg-white/5 p-4 rounded-full text-white/20">
+                <Bookmark className="w-8 h-8" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-sans font-bold text-sm text-white">No Saved Publications</h4>
+                <p className="text-white/40 text-xs max-w-xs leading-relaxed">
+                  You haven&apos;t bookmarked any technology news articles yet. Explore the <strong>Tech News</strong> tab to save valuable articles for rapid reference.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {savedArticles.map((article) => (
+                <div
+                  key={article.id}
+                  onClick={() => handleReadArticle(article.id)}
+                  className="bg-[#0F0F0F] border border-white/5 rounded-2xl overflow-hidden hover:border-[#C5A059]/30 transition-all flex flex-col justify-between hover:translate-y-[-2px] group cursor-pointer duration-300"
+                >
+                  <div>
+                    <div className="relative h-44 bg-zinc-900/50 w-full overflow-hidden">
+                      <img
+                        src={article.imageUrl}
+                        alt={article.title}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                      <span className="absolute top-3 left-3 bg-[#C5A059] text-black text-[9px] font-mono font-bold tracking-wider px-2 py-0.5 rounded-md uppercase">
+                        {article.category}
+                      </span>
+                    </div>
+
+                    <div className="p-4 space-y-2">
+                      <div className="flex items-center gap-3 text-white/40 text-[10px] font-mono">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-2.5 h-2.5" />
+                          {article.readTime || "4 min read"}
+                        </span>
+                        <span>•</span>
+                        <span>{article.date}</span>
+                      </div>
+
+                      <h4 className="font-sans font-semibold text-white group-hover:text-[#C5A059] transition-colors text-sm leading-snug line-clamp-2">
+                        {article.title}
+                      </h4>
+
+                      <p className="text-white/50 text-xs font-sans line-clamp-3 pt-1">
+                        {article.excerpt}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 pt-0 flex gap-2">
+                    <button
+                      onClick={() => handleReadArticle(article.id)}
+                      className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-sans text-[11px] font-bold py-2 rounded-xl transition-all flex items-center justify-center gap-1 pointer-events-none group-hover:bg-[#C5A059]/10"
+                    >
+                      <span>READ BULLETIN</span>
+                      <ArrowRight className="w-3 h-3 text-[#C5A059]" />
+                    </button>
+                    <button
+                      onClick={(e) => handleUnsaveNews(article.id, e)}
+                      className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/10 text-red-400 font-sans text-[11px] font-bold px-3 py-2 rounded-xl transition-all flex items-center justify-center cursor-pointer"
+                      title="Remove Bookmark"
+                    >
+                      REMOVE
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
