@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Mail, Lock, LogIn, AlertCircle, CheckCircle2, RefreshCw, UserPlus, HelpCircle } from "lucide-react";
+import { X, Mail, Lock, LogIn, AlertCircle, CheckCircle2, RefreshCw, UserPlus, HelpCircle, Eye, EyeOff } from "lucide-react";
 import { auth, googleProvider, db } from "../firebase";
 import { 
   signInWithEmailAndPassword, 
@@ -46,6 +46,9 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [isResetMode, setIsResetMode] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const displayNameRef = useRef<HTMLInputElement>(null);
 
   // Status management states
   const [loading, setLoading] = useState(false);
@@ -54,6 +57,33 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const isLight = theme === "light";
+
+  const getPasswordStrength = (p: string) => {
+    let score = 0;
+    if (p.length >= 8) score++;
+    if (/[A-Z]/.test(p)) score++;
+    if (/[a-z]/.test(p)) score++;
+    if (/[0-9]/.test(p)) score++;
+    if (/[!@#$%^&*(),.?":{}|<>]/.test(p) || /[^a-zA-Z0-9]/.test(p)) score++;
+    
+    let color = "bg-red-500";
+    let text = "Weak";
+    if (score >= 5) {
+      color = "bg-emerald-500";
+      text = "Strong";
+    } else if (score >= 3) {
+      color = "bg-amber-500";
+      text = "Fair";
+    } else if (score > 0) {
+      color = "bg-rose-500";
+      text = "Weak";
+    } else {
+      color = "bg-zinc-350 dark:bg-zinc-700";
+      text = "Very Weak";
+    }
+
+    return { percentage: score * 100 / 5, color, text };
+  };
 
   // Auto-dismiss toast helper
   useEffect(() => {
@@ -72,7 +102,18 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
     setFullName("");
     setToast(null);
     setIsResetMode(false);
+    setShowPassword(false);
   }, [authModalMode, isAuthModalOpen]);
+
+  // Auto focus the Display Name (fullName) input field on signup mode mounting/opening
+  useEffect(() => {
+    if (isAuthModalOpen && authModalMode === "signup") {
+      const timer = setTimeout(() => {
+        displayNameRef.current?.focus();
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthModalOpen, authModalMode]);
 
   if (!isAuthModalOpen) return null;
 
@@ -92,6 +133,8 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
+
     setErrorMsg("");
     setSuccessMsg("");
 
@@ -134,6 +177,13 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
 
     const isSignUp = authModalMode === "signup";
 
+    if (isSignUp && !fullName.trim()) {
+      const msg = "Please enter your display name or business title.";
+      setErrorMsg(msg);
+      setToast({ type: "error", message: msg });
+      return;
+    }
+
     if (!password) {
       const msg = "Please provide your account security password.";
       setErrorMsg(msg);
@@ -143,25 +193,31 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
 
     if (isSignUp) {
       if (password.length < 8) {
-        const msg = "Security failure: Password must be at least 8 characters long.";
+        const msg = "Security rule failure: Password must be at least 8 characters.";
         setErrorMsg(msg);
         setToast({ type: "error", message: msg });
         return;
       }
       if (!/[A-Z]/.test(password)) {
-        const msg = "Security failure: Password must contain at least one uppercase letter (A-Z).";
+        const msg = "Security rule failure: Password must contain at least one uppercase letter (A-Z).";
         setErrorMsg(msg);
         setToast({ type: "error", message: msg });
         return;
       }
       if (!/[a-z]/.test(password)) {
-        const msg = "Security failure: Password must contain at least one lowercase letter (a-z).";
+        const msg = "Security rule failure: Password must contain at least one lowercase letter (a-z).";
         setErrorMsg(msg);
         setToast({ type: "error", message: msg });
         return;
       }
-      if (!/[0-9]/.test(password) && !/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-        const msg = "Security failure: Password must contain at least one number (0-9) or special character.";
+      if (!/[0-9]/.test(password)) {
+        const msg = "Security rule failure: Password must contain at least one digit/number (0-9).";
+        setErrorMsg(msg);
+        setToast({ type: "error", message: msg });
+        return;
+      }
+      if (!/[!@#$%^&*(),.?":{}|<>]/.test(password) && !/[^a-zA-Z0-9]/.test(password)) {
+        const msg = "Security rule failure: Password must contain at least one special character.";
         setErrorMsg(msg);
         setToast({ type: "error", message: msg });
         return;
@@ -176,25 +232,44 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
     }
 
     setLoading(true);
+    console.log("[AuthModal Registration Audit] Initiating signup submission process.", {
+      email,
+      fullName,
+      passwordLength: password.length,
+      isSignUp,
+      authConfigured: !!auth
+    });
+
     try {
       if (isSignUp) {
         try {
+          console.log("[AuthModal Firebase SDK] Invoking createUserWithEmailAndPassword...");
           const userCred = await createUserWithEmailAndPassword(auth, email, password);
+          
+          console.log("[AuthModal Firebase SDK] User created successfully. UID:", userCred.user.uid);
+          
           if (fullName) {
+            console.log("[AuthModal Firebase SDK] Updating user profile displayName to:", fullName);
             await updateProfile(userCred.user, { displayName: fullName });
           }
           await logAuthEvent("signup", "success", email, userCred.user.uid);
           
-          // Also explicitly write their user profile to Firestore to ensure prompt sync
-          const { doc, setDoc } = await import("firebase/firestore");
           const isAdminEmail = email === "techgadgetsk@gmail.com" || email === "admin@techgadgetskenya.co.ke";
-          await setDoc(doc(db, "users", userCred.user.uid), {
+          const userProfileData = {
             uid: userCred.user.uid,
             email: email,
             name: fullName || "Valued Customer",
-            role: isAdminEmail ? "admin" : "customer",
+            role: (isAdminEmail ? "admin" : "customer") as "admin" | "customer",
             createdAt: new Date().toISOString()
-          }, { merge: true });
+          };
+
+          // Also explicitly write their user profile to Firestore to ensure prompt sync
+          const { doc, setDoc } = await import("firebase/firestore");
+          await setDoc(doc(db, "users", userCred.user.uid), userProfileData, { merge: true });
+
+          // Prevent race condition on display name propagate: Set state in store manually
+          setUser({ ...userCred.user, displayName: fullName } as any);
+          setUserProfile(userProfileData);
 
           setSuccessMsg("✔ Space registry complete! Account initialized successfully.");
           setToast({ type: "success", message: "Registry complete! Account initialized successfully." });
@@ -202,6 +277,13 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
             handleClose();
           }, 1200);
         } catch (err: any) {
+          console.error("[AuthModal Firebase SDK Failure] createUserWithEmailAndPassword threw an error during signup:", {
+            code: err?.code,
+            message: err?.message,
+            stack: err?.stack,
+            email,
+            isSignUpMode: true
+          });
           if (err?.code === "auth/operation-not-allowed" || err?.message?.includes("operation-not-allowed") || err?.message?.includes("disabled")) {
             console.warn("Firebase Auth Emails/Passwords provider is disabled. Falling back to local Firestore seamless identity system.");
             const generatedUid = "cust_" + Math.random().toString(36).substr(2, 9);
@@ -496,6 +578,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                 <div className="relative flex items-center">
                   <UserPlus className={`w-3.5 h-3.5 absolute left-3.5 ${isLight ? "text-zinc-400" : "text-white/30"}`} />
                   <input 
+                    ref={displayNameRef}
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
@@ -559,19 +642,55 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                 <div className="relative flex items-center">
                   <Lock className={`w-3.5 h-3.5 absolute left-3.5 ${isLight ? "text-zinc-400" : "text-white/30"}`} />
                   <input 
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     disabled={loading}
-                    className={`w-full py-2.5 pl-10 pr-4 rounded-xl text-xs font-sans outline-none transition-all ${
+                    className={`w-full py-2.5 pl-10 pr-10 rounded-xl text-xs font-sans outline-none transition-all ${
                       isLight 
                         ? "bg-zinc-50 border-zinc-200 focus:border-[#C5A059] focus:bg-white text-zinc-900 placeholder-zinc-400" 
                         : "bg-white/[0.02] border-white/10 focus:border-[#C5A059] focus:bg-[#151515] text-white placeholder-white/30"
                     } border`}
                     required={!isResetMode}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className={`absolute right-3 p-1 rounded-md opacity-70 hover:opacity-100 transition-opacity ${
+                      isLight ? "text-zinc-400 hover:text-zinc-600" : "text-white/30 hover:text-white"
+                    }`}
+                    style={{ background: 'none', border: 'none' }}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
+
+                {authModalMode === "signup" && password && (
+                  <div className="space-y-1.5 mt-2">
+                    <div className="flex justify-between items-center text-[9px] font-mono font-bold uppercase tracking-wider">
+                      <span className={isLight ? "text-zinc-500" : "text-white/40"}>Password Strength:</span>
+                      <span 
+                        className="font-black"
+                        style={{ 
+                          color: getPasswordStrength(password).text === "Strong" 
+                            ? "#10b981" 
+                            : getPasswordStrength(password).text === "Fair" 
+                              ? "#f59e0b" 
+                              : "#ef4444" 
+                        }}
+                      >
+                        {getPasswordStrength(password).text}
+                      </span>
+                    </div>
+                    <div className={`w-full h-1.5 rounded-full overflow-hidden ${isLight ? "bg-zinc-200" : "bg-white/10"}`}>
+                      <div 
+                        className={`h-full transition-all duration-300 ${getPasswordStrength(password).color}`}
+                        style={{ width: `${getPasswordStrength(password).percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {authModalMode === "signup" && (
                   <div className={`mt-2.5 p-3 rounded-xl border text-[10px] font-sans space-y-1.5 leading-normal transition-all ${
@@ -588,8 +707,11 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                       <li className={/[a-z]/.test(password) ? "text-emerald-500 font-extrabold" : "text-amber-500/80"}>
                         At least one lowercase letter (a-z) {/[a-z]/.test(password) && "✔"}
                       </li>
-                      <li className={(/[0-9]/.test(password) || /[!@#$%^&*(),.?":{}|<>]/.test(password)) ? "text-emerald-500 font-extrabold" : "text-amber-500/80"}>
-                        At least one digit or special symbol {(/[0-9]/.test(password) || /[!@#$%^&*(),.?":{}|<>]/.test(password)) && "✔"}
+                      <li className={/[0-9]/.test(password) ? "text-emerald-500 font-extrabold" : "text-amber-500/80"}>
+                        At least one number/digit (0-9) {/[0-9]/.test(password) && "✔"}
+                      </li>
+                      <li className={(/[!@#$%^&*(),.?":{}|<>]/.test(password) || /[^a-zA-Z0-9]/.test(password)) ? "text-emerald-500 font-extrabold" : "text-amber-500/80"}>
+                        At least one special character (e.g., !, @, #, $, *) {(/[!@#$%^&*(),.?":{}|<>]/.test(password) || /[^a-zA-Z0-9]/.test(password)) && "✔"}
                       </li>
                     </ul>
                   </div>

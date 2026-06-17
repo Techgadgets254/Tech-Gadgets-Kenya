@@ -260,6 +260,28 @@ export default function NewsView() {
   const [isRefreshingWire, setIsRefreshingWire] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [activeSegment, setActiveSegment] = useState<"bulletins" | "compare">("bulletins");
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+
+  const handleImageError = (artId: string) => {
+    setImageErrors(prev => ({ ...prev, [artId]: true }));
+  };
+
+  const renderImagePlaceholder = (category: string) => {
+    let IconComponent = Laptop;
+    if (category === "Printers") IconComponent = Printer;
+    else if (category === "AI Hardware" || category === "Laptops") IconComponent = Laptop;
+    else IconComponent = Sparkles;
+    
+    return (
+      <div className="w-full h-full bg-gradient-to-br from-[#1c1a16] via-[#0d0d0d] to-[#12110f] flex flex-col items-center justify-center p-4 text-center border-b border-[#C5A059]/25 relative min-h-[160px]">
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(197,160,89,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(197,160,89,0.03)_1px,transparent_1px)] bg-[size:14px_14px] pointer-events-none" />
+        <div className="p-3 rounded-full bg-[#C5A059]/10 border border-[#C5A059]/20 text-[#C5A059] mb-1.5 shadow-inner">
+          <IconComponent className="w-5 h-5 animate-pulse" />
+        </div>
+        <span className="font-mono text-[8px] font-black uppercase tracking-widest text-[#C5A059]/70 leading-normal">Silicon Savannah Bulletin</span>
+      </div>
+    );
+  };
 
   // Dynamic live news fetched from RSS aggregator + Gemini
   const [liveArticles, setLiveArticles] = useState<Article[]>([]);
@@ -573,8 +595,18 @@ export default function NewsView() {
                 ← Back to Bulletin Board
               </button>
 
-              <div className="max-h-[420px] w-full rounded-2xl overflow-hidden border border-stone-200 dark:border-white/10 h-64 sm:h-80 lg:h-96 relative">
-                <img src={art.imageUrl} alt={art.title} className="w-full h-full object-cover animate-fadeIn" referrerPolicy="no-referrer" />
+              <div className="max-h-[420px] w-full rounded-2xl overflow-hidden border border-[#C5A059]/20 h-64 sm:h-80 lg:h-96 relative bg-[#090909]">
+                {imageErrors[art.id] ? (
+                  renderImagePlaceholder(art.category)
+                ) : (
+                  <img 
+                    src={art.imageUrl} 
+                    alt={art.title} 
+                    className="w-full h-full object-cover animate-fadeIn" 
+                    referrerPolicy="no-referrer" 
+                    onError={() => handleImageError(art.id)}
+                  />
+                )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
                 <span className="absolute bottom-4 left-4 bg-black/85 text-[#C5A059] border border-[#C5A059]/30 text-[9px] font-mono font-black uppercase tracking-widest px-3 py-1 rounded-sm">
                   {art.category}
@@ -739,13 +771,18 @@ export default function NewsView() {
                       whileHover={{ y: -3 }}
                       className="bg-white dark:bg-[#0F0F0F] border border-stone-200 dark:border-white/10 rounded-2xl overflow-hidden hover:border-[#C5A059]/40 transition-all flex flex-col justify-between shadow-xs hover:shadow-md group break-inside-avoid mb-6 h-fit max-w-full"
                     >
-                      <div className="h-40 overflow-hidden relative border-b border-stone-200 dark:border-white/5 bg-stone-100 dark:bg-black">
-                        <img 
-                          src={art.imageUrl} 
-                          alt={art.title} 
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-103 scroll-smooth" 
-                          referrerPolicy="no-referrer"
-                        />
+                      <div className="h-40 overflow-hidden relative border-b border-[#C5A059]/20 bg-[#090909] w-full">
+                        {imageErrors[art.id] ? (
+                          renderImagePlaceholder(art.category)
+                        ) : (
+                          <img 
+                            src={art.imageUrl} 
+                            alt={art.title} 
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-103 scroll-smooth" 
+                            referrerPolicy="no-referrer"
+                            onError={() => handleImageError(art.id)}
+                          />
+                        )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
                         <span className="absolute bottom-2.5 left-2.5 bg-black/80 border border-white/10 text-[#C5A059] text-[8px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm">
                           {art.category}

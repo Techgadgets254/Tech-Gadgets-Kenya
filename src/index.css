@@ -730,5 +730,472 @@ html.light-theme .font-mono.text-white\/30 {
   color: #514B42 !important;
 }
 
+/* COMPREHENSIVE LIGHT THEME PASS: Client Dashboard & Admin Table Overrides */
+html.light-theme thead th,
+html.light-theme th {
+  background-color: #EFECE6 !important;
+  color: #1c1917 !important;
+  font-weight: 800 !important;
+  border-bottom: 2.5px solid #D6CFC4 !important;
+}
+
+html.light-theme tbody tr,
+html.light-theme tr {
+  background-color: #ffffff !important;
+  color: #1cb917; /* reset color */
+  border-bottom: 1px solid #EFECE6 !important;
+}
+
+html.light-theme tbody tr td,
+html.light-theme tr td {
+  color: #1a1612 !important;
+}
+
+html.light-theme tbody tr:hover,
+html.light-theme tr:hover,
+html.light-theme tr:hover td {
+  background-color: #F5F1EB !important;
+}
+
+/* Explicit Active Tab Indicator Overrides in Light Theme */
+html.light-theme .bg-\[\#C5A059\],
+html.light-theme button.bg-\[\#C5A059\],
+html.light-theme [id="customer-profile-hub"] button.bg-\[\#C5A059\],
+html.light-theme [id="admin-management-portal"] button.bg-\[\#C5A059\] {
+  background-color: #835c17 !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  box-shadow: 0 4px 12px -2px rgba(131, 92, 23, 0.25) !important;
+}
+
+html.light-theme .bg-\[\#C5A059\] *,
+html.light-theme button.bg-\[\#C5A059\] *,
+html.light-theme [id="customer-profile-hub"] button.bg-\[\#C5A059\] *,
+html.light-theme [id="admin-management-portal"] button.bg-\[\#C5A059\] * {
+  color: #ffffff !important;
+}
+
+/* Active sub-tab badge styling */
+html.light-theme button.text-[#C5A059],
+html.light-theme button.text-\[\#C5A059\] {
+  color: #835c17 !important;
+}
+
+html.light-theme .bg-\[\#C5A059\]\/10,
+html.light-theme button.bg-\[\#C5A059\]\/10 {
+  background-color: rgba(131, 92, 23, 0.12) !important;
+  color: #835c17 !important;
+  border: 1px solid rgba(131, 92, 23, 0.35) !important;
+}
+
+html.light-theme .bg-\[\#C5A059\]\/10 *,
+html.light-theme button.bg-\[\#C5A059\]\/10 * {
+  color: #835c17 !important;
+}
+
+/* TECH NEWS VIEWPORT CHIC REDESIGN & DARK THEME ENHANCEMENTS */
+#tech-news-viewport {
+  margin-top: 1.5rem;
+}
+
+#tech-news-viewport article {
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* Dark Theme Specifics for News */
+html.dark-theme #tech-news-viewport {
+  background-color: transparent !important;
+}
+
+html.dark-theme #tech-news-viewport article,
+html.dark-theme #tech-news-viewport .bg-white,
+html.dark-theme #tech-news-viewport .bg-stone-900,
+html.dark-theme #tech-news-viewport [class*="bg-[#0D0D0D]"],
+html.dark-theme #tech-news-viewport [class*="bg-[#0F0F0F]"] {
+  background-color: #0d0d0d !important;
+  border: 1px solid rgba(197, 160, 89, 0.15) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+  border-radius: 1.25rem !important;
+}
+
+html.dark-theme #tech-news-viewport article:hover {
+  border-color: rgba(197, 160, 89, 0.45) !important;
+  box-shadow: 0 8px 30px rgba(197, 160, 89, 0.12) !important;
+  transform: translateY(-4px) !important;
+}
+
+html.dark-theme #tech-news-viewport h1,
+html.dark-theme #tech-news-viewport h2,
+html.dark-theme #tech-news-viewport h3,
+html.dark-theme #tech-news-viewport h4 {
+  color: #ffffff !important;
+}
+
+html.dark-theme #tech-news-viewport p,
+html.dark-theme #tech-news-viewport span:not(.text-[#C5A059]) {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+html.dark-theme #tech-news-viewport .font-mono,
+html.dark-theme #tech-news-viewport span.text-[#C5A059],
+html.dark-theme #tech-news-viewport .text-[#C5A059] {
+  color: #C5A059 !important;
+}
+
+/* Redesign segment switchers and filters for both themes */
+html.dark-theme #tech-news-viewport .bg-stone-100, 
+html.dark-theme #tech-news-viewport .bg-white\/5 {
+  background-color: #121212 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+html.light-theme #tech-news-viewport .bg-stone-100,
+html.light-theme #tech-news-viewport .bg-white\/5 {
+  background-color: #efece6 !important;
+  border: 1px solid #d6cfc4 !important;
+}
+
+/* Category filter tags styling */
+html.dark-theme #tech-news-viewport button.bg-stone-50,
+html.dark-theme #tech-news-viewport button.bg-\[\#0F0F0F\],
+html.dark-theme #tech-news-viewport button.bg-stone-100 {
+  background-color: #121212 !important;
+  border: 1px solid rgba(197, 160, 89, 0.12) !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+
+html.dark-theme #tech-news-viewport button.bg-stone-50:hover,
+html.dark-theme #tech-news-viewport button.bg-\[\#0F0F0F\]:hover,
+html.dark-theme #tech-news-viewport button.bg-stone-100:hover {
+  background-color: #191919 !important;
+  border-color: #C5A059 !important;
+  color: #ffffff !important;
+}
+
+html.light-theme #tech-news-viewport button.bg-stone-50,
+html.light-theme #tech-news-viewport button.bg-\[\#0F0F0F\],
+html.light-theme #tech-news-viewport button.bg-stone-100 {
+  background-color: #fcfbf9 !important;
+  border: 1px solid #d6cfc4 !important;
+  color: #514b42 !important;
+}
+
+html.light-theme #tech-news-viewport button.bg-stone-50:hover,
+html.light-theme #tech-news-viewport button.bg-\[\#0F0F0F\]:hover,
+html.light-theme #tech-news-viewport button.bg-stone-100:hover {
+  background-color: #efece6 !important;
+  border-color: #835c17 !important;
+  color: #1c1917 !important;
+}
+
+/* Active buttons */
+html.dark-theme #tech-news-viewport button.bg-\[\#C5A059\] {
+  background-color: #C5A059 !important;
+  color: #000000 !important;
+  box-shadow: 0 4px 14px rgba(197, 160, 89, 0.3) !important;
+}
+
+html.light-theme #tech-news-viewport button.bg-\[\#C5A059\] {
+  background-color: #835c17 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(131, 92, 23, 0.25) !important;
+}
+
+/* Custom scrollbar for tag row inside News Section */
+#tech-news-viewport .scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+#tech-news-viewport .scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Specs Comparator Portal specific classes */
+html.dark-theme #tech-news-viewport .bg-stone-50.dark\:bg-white\/\[0\.02\] {
+  background-color: #121212 !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+html.light-theme #tech-news-viewport .bg-stone-50.dark\:bg-white\/\[0\.02\] {
+  background-color: #fcfbf9 !important;
+  border: 1px solid #d6cfc4 !important;
+}
+
+html.dark-theme #tech-news-viewport .text-stone-900 {
+  color: #ffffff !important;
+}
+
+html.dark-theme #tech-news-viewport .text-stone-600,
+html.dark-theme #tech-news-viewport .text-stone-700 {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
+html.dark-theme #tech-news-viewport .text-stone-500,
+html.dark-theme #tech-news-viewport .text-stone-400 {
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+
+/* Highlight metrics bars */
+html.dark-theme #tech-news-viewport .bg-stone-150,
+html.dark-theme #tech-news-viewport .bg-stone-200 {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+html.light-theme #tech-news-viewport .bg-stone-150,
+html.light-theme #tech-news-viewport .bg-stone-200 {
+  background-color: #e6e0d5 !important;
+}
+
+/* Smooth fade on image loading */
+#tech-news-viewport img {
+  filter: brightness(0.95);
+  transition: filter 0.3s ease;
+}
+html.dark-theme #tech-news-viewport img {
+  filter: brightness(0.78) contrast(1.05);
+}
+#tech-news-viewport img:hover {
+  filter: brightness(1);
+}
+
+/* Bulletins spotlight section customization */
+html.dark-theme .bg-gradient-to-r.from-amber-500\/10 {
+  background-image: linear-gradient(135deg, rgba(197, 160, 89, 0.1) 0%, rgba(0, 0, 0, 0.3) 100%) !important;
+  border-color: rgba(197, 160, 89, 0.35) !important;
+}
+
+html.light-theme .bg-gradient-to-r.from-amber-500\/10 {
+  background-image: linear-gradient(135deg, #fcf6eb 0%, #faf9f6 100%) !important;
+  border-color: #ebdcb8 !important;
+  color: #1c1917 !important;
+}
+
+html.light-theme .bg-gradient-to-r.from-amber-500\/10 * {
+  color: #1c1917 !important;
+}
+
+html.light-theme .bg-gradient-to-r.from-amber-500\/10 span {
+  color: #835c17 !important;
+}
+
+html.light-theme #tech-news-viewport input {
+  color: #1c1917 !important;
+}
+
+html.dark-theme #tech-news-viewport input::placeholder {
+  color: rgba(255, 255, 255, 0.3) !important;
+}
+
+html.dark-theme #tech-news-viewport input {
+  color: #ffffff !important;
+}
+
+/* ==========================================================================
+   FORCE UNIFIED DARK ESTHETIC FOR TECH NEWS bulletins (#tech-news-viewport)
+   Guarantees all white/light elements are dark including detailed Read More segments
+   ========================================================================== */
+
+#tech-news-viewport,
+[id="tech-news-viewport"] {
+  background-color: transparent !important;
+}
+
+#tech-news-viewport article,
+#tech-news-viewport .bg-white,
+#tech-news-viewport .bg-stone-50,
+#tech-news-viewport .bg-[#050505],
+#tech-news-viewport .bg-[#0A0A0A],
+#tech-news-viewport .bg-[#0d0d0d],
+#tech-news-viewport .bg-[#0D0D0D],
+#tech-news-viewport .bg-[#0F0F0F],
+#tech-news-viewport .bg-[#111111],
+#tech-news-viewport [class*="bg-stone-50"],
+#tech-news-viewport [class*="bg-white/["],
+#tech-news-viewport .bg-stone-100 {
+  background-color: #0d0d0d !important;
+  border: 1px solid rgba(197, 160, 89, 0.25) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.55) !important;
+  border-radius: 1.25rem !important;
+  color: #ffffff !important;
+}
+
+#tech-news-viewport article:hover {
+  border-color: rgba(197, 160, 89, 0.5) !important;
+  box-shadow: 0 8px 30px rgba(197, 160, 89, 0.18) !important;
+  transform: translateY(-4px) !important;
+}
+
+#tech-news-viewport h1,
+#tech-news-viewport h2,
+#tech-news-viewport h3,
+#tech-news-viewport h4,
+#tech-news-viewport .text-stone-900 {
+  color: #ffffff !important;
+}
+
+#tech-news-viewport p,
+#tech-news-viewport span:not(.text-[#C5A059]):not(.text-emerald-400):not(.text-[#caba70]):not(.text-[#C5D570]),
+#tech-news-viewport .text-stone-600,
+#tech-news-viewport .text-stone-700,
+#tech-news-viewport .text-stone-500,
+#tech-news-viewport .text-stone-400 {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+
+#tech-news-viewport .font-mono,
+#tech-news-viewport span.text-[#C5A059],
+#tech-news-viewport .text-[#C5A059] {
+  color: #C5A059 !important;
+}
+
+/* Category filter tags & segment switcher force-dark styling */
+#tech-news-viewport button.bg-stone-50,
+#tech-news-viewport button.bg-stone-100,
+#tech-news-viewport button.bg-\[\#0F0F0F\],
+#tech-news-viewport .bg-stone-100,
+#tech-news-viewport .bg-white\/5 {
+  background-color: #121212 !important;
+  border: 1px solid rgba(197, 160, 89, 0.2) !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+#tech-news-viewport button.bg-stone-50:hover,
+#tech-news-viewport button.bg-stone-100:hover,
+#tech-news-viewport button.bg-\[\#0F0F0F\]:hover {
+  background-color: #1a1a1a !important;
+  border-color: #C5A059 !important;
+  color: #ffffff !important;
+}
+
+/* Active gold state filter buttons */
+#tech-news-viewport button.bg-\[\#C5A059\],
+#tech-news-viewport .bg-\[\#C5A059\] {
+  background-color: #C5A059 !important;
+  color: #000000 !important;
+  box-shadow: 0 4px 14px rgba(197, 160, 89, 0.35) !important;
+}
+
+/* Detailed expanded view dialog styling force-dark */
+#tech-news-viewport .max-w-4xl,
+#tech-news-viewport .animate-fadeIn {
+  background-color: #0d0d0d !important;
+  border: 1px solid rgba(197, 160, 89, 0.28) !important;
+  color: #ffffff !important;
+}
+
+#tech-news-viewport .max-w-4xl button:not(.bg-\[\#C5A059\]) {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+#tech-news-viewport .max-w-4xl button:hover:not(.bg-\[\#C5A059\]) {
+  color: #C5A059 !important;
+}
+
+/* Copy Link and Meta index badge stylings */
+#tech-news-viewport .bg-stone-100.dark\:bg-white\/\[0\.01\],
+#tech-news-viewport .bg-stone-200 {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(197, 160, 89, 0.15) !important;
+}
+
+/* Specs Comparator custom metric progress bars */
+#tech-news-viewport .bg-stone-150,
+#tech-news-viewport .bg-stone-200 {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+#tech-news-viewport input {
+  color: #ffffff !important;
+  background-color: #121212 !important;
+  border-color: rgba(197, 160, 89, 0.25) !important;
+}
+
+#tech-news-viewport input::placeholder {
+  color: rgba(255, 255, 255, 0.35) !important;
+}
+
+/* ==========================================================================
+   COMPREHENSIVE LIGHT THEME OVERRIDES FOR ADMIN DASHBOARD (#admin-operations-container)
+   Switches all lingering hardcoded dark backgrounds into light shades
+   ========================================================================== */
+
+html.light-theme #admin-operations-container {
+  background-color: #f8f6f2 !important;
+  color: #1c1917 !important;
+}
+
+html.light-theme #admin-operations-container div,
+html.light-theme #admin-operations-container section,
+html.light-theme #admin-operations-container table,
+html.light-theme #admin-operations-container tbody,
+html.light-theme #admin-operations-container thead,
+html.light-theme #admin-operations-container tr,
+html.light-theme #admin-operations-container td,
+html.light-theme #admin-operations-container th {
+  color: #1c1917 !important;
+  border-color: #ebdcb8 !important;
+}
+
+/* Remap arbitrarily declared background colors in Admin Panels to solid Light Mode shades */
+html.light-theme #admin-operations-container .bg-\[\#050505\],
+html.light-theme #admin-operations-container .bg-\[\#0a0a0a\],
+html.light-theme #admin-operations-container .bg-\[\#0A0A0A\],
+html.light-theme #admin-operations-container .bg-\[\#0D0D0D\],
+html.light-theme #admin-operations-container .bg-\[\#0d0d0d\],
+html.light-theme #admin-operations-container .bg-\[\#0f0f0f\],
+html.light-theme #admin-operations-container .bg-\[\#0F0F0F\],
+html.light-theme #admin-operations-container .bg-\[\#111111\],
+html.light-theme #admin-operations-container .bg-\[\#111\],
+html.light-theme #admin-operations-container .bg-\[\#151515\],
+html.light-theme #admin-operations-container .bg-\[\#1c1c1c\],
+html.light-theme #admin-operations-container .bg-\[\#1C1C1C\],
+html.light-theme #admin-operations-container .bg-black,
+html.light-theme #admin-operations-container .bg-stone-900,
+html.light-theme #admin-operations-container .bg-stone-950,
+html.light-theme #admin-operations-container .bg-zinc-900,
+html.light-theme #admin-operations-container .bg-zinc-950,
+html.light-theme #admin-operations-container .bg-neutral-900,
+html.light-theme #admin-operations-container .bg-neutral-950 {
+  background-color: #fcfbf9 !important;
+  border-color: #d6cfc4 !important;
+}
+
+/* Make inner content lists/inputs pure white for depth layering */
+html.light-theme #admin-operations-container [class*="bg-white/["],
+html.light-theme #admin-operations-container [class*="bg-zinc-900/["],
+html.light-theme #admin-operations-container .bg-stone-800,
+html.light-theme #admin-operations-container .bg-stone-850,
+html.light-theme #admin-operations-container select,
+html.light-theme #admin-operations-container option,
+html.light-theme #admin-operations-container input,
+html.light-theme #admin-operations-container textarea {
+  background-color: #ffffff !important;
+  color: #1c1917 !important;
+  border-color: #d6cfc4 !important;
+}
+
+html.light-theme #admin-operations-container label,
+html.light-theme #admin-operations-container span:not(.font-mono):not(.text-xs),
+html.light-theme #admin-operations-container p,
+html.light-theme #admin-operations-container h1,
+html.light-theme #admin-operations-container h2,
+html.light-theme #admin-operations-container h3,
+html.light-theme #admin-operations-container h4 {
+  color: #1c1917 !important;
+}
+
+/* Guard buttons & special badges */
+html.light-theme #admin-operations-container button.bg-\[\#C5A059\],
+html.light-theme #admin-operations-container .bg-[#835c17],
+html.light-theme #admin-operations-container .text-[#C5A059] {
+  color: #835c17 !important;
+}
+
+html.light-theme #admin-operations-container button:hover:not(.bg-red-600):not(.bg-emerald-600) {
+  border-color: #835c17 !important;
+}
+
+
+
+
 
 
