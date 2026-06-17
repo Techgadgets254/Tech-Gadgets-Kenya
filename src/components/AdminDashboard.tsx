@@ -4882,6 +4882,10 @@ Designed with a clean structural aesthetic, the ${nameGuess} from ${brandGuess} 
                                   <span className="px-2 py-0.5 rounded-sm bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/15 font-mono text-[9px] uppercase tracking-wider">
                                     Page View
                                   </span>
+                                ) : log.type === "whatsapp_click" ? (
+                                  <span className="px-2 py-0.5 rounded-sm bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/15 font-mono text-[9px] uppercase tracking-wider">
+                                    WhatsApp Chat Click
+                                  </span>
                                 ) : (
                                   <span className="px-2 py-0.5 rounded-sm bg-purple-500/10 text-purple-400 border border-purple-500/15 font-mono text-[9px] uppercase tracking-wider">
                                     Search Term
@@ -4889,7 +4893,7 @@ Designed with a clean structural aesthetic, the ${nameGuess} from ${brandGuess} 
                                 )}
                               </td>
                               <td className="p-3 font-mono font-medium text-white/80">
-                                {log.type === "page_view" ? `${log.target} Section` : `“${log.target}”`}
+                                {log.type === "page_view" ? `${log.target} Section` : log.type === "whatsapp_click" ? `Chat: ${log.target}` : `“${log.target}”`}
                               </td>
                               <td className="p-3 text-right font-mono text-white/30 text-[10px]">
                                 {log.userId || "Guest Shopper"}

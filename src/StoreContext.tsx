@@ -42,7 +42,9 @@ interface ToastNotification {
 
 interface StoreContextType {
   user: User | null;
+  setUser: React.Dispatch<React.SetStateAction<any>>;
   userProfile: UserProfile | null;
+  setUserProfile: React.Dispatch<React.SetStateAction<UserProfile | null>>;
   authLoading: boolean;
   products: Product[];
   orders: Order[];
@@ -456,7 +458,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           setAuthLoading(false);
         }
       } else {
-        setUserProfile(null);
+        const savedCustomUser = localStorage.getItem("tgk_custom_user");
+        if (savedCustomUser) {
+          try {
+            const parsed = JSON.parse(savedCustomUser);
+            setUser({ uid: parsed.uid, email: parsed.email, displayName: parsed.name } as any);
+            setUserProfile({
+              uid: parsed.uid,
+              email: parsed.email,
+              name: parsed.name,
+              role: parsed.role,
+              createdAt: parsed.createdAt || new Date().toISOString()
+            });
+          } catch (e) {
+            console.error("Failed to restore custom user:", e);
+            setUserProfile(null);
+          }
+        } else {
+          setUserProfile(null);
+        }
         setAuthLoading(false);
       }
     });
@@ -728,7 +748,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
+      localStorage.removeItem("tgk_custom_user");
       await signOut(auth);
+      setUser(null);
+      setUserProfile(null);
       setCart([]);
       setActiveView("home");
       setSelectedProductId(null);
@@ -1289,7 +1312,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     <StoreContext.Provider
       value={{
         user,
+        setUser,
         userProfile,
+        setUserProfile,
         authLoading,
         products,
         orders,

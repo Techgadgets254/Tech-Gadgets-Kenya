@@ -616,7 +616,6 @@ html.light-theme option {
 }
 
 /* Guarantee zero lingering dark backgrounds in Admin sections, stock categories & lists */
-html.light-theme [id="admin-management-portal"] *,
 html.light-theme [id="admin-management-portal"] {
   background-color: var(--theme-bg-0a0a0a);
   color: var(--theme-text-primary);

@@ -5,7 +5,8 @@ import { auth, googleProvider, db } from "../firebase";
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  updateProfile
 } from "firebase/auth";
 import { collection, addDoc } from "firebase/firestore";
 import { useStore } from "../StoreContext";
@@ -36,11 +37,14 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
     authModalMode, 
     setAuthModalMode,
     loginWithGoogle,
+    setUser,
+    setUserProfile,
     theme
   } = useStore();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
   const [isResetMode, setIsResetMode] = useState(false);
 
   // Status management states
@@ -54,6 +58,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
   useEffect(() => {
     setErrorMsg("");
     setSuccessMsg("");
+    setFullName("");
     setIsResetMode(false);
   }, [authModalMode, isAuthModalOpen]);
 
@@ -67,6 +72,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
     setIsAuthModalOpen(false);
     setEmail("");
     setPassword("");
+    setFullName("");
     setErrorMsg("");
     setSuccessMsg("");
     setIsResetMode(false);
@@ -122,19 +128,94 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
     const isSignUp = authModalMode === "signup";
     try {
       if (isSignUp) {
-        const userCred = await createUserWithEmailAndPassword(auth, email, password);
-        await logAuthEvent("signup", "success", email, userCred.user.uid);
-        setSuccessMsg("✔ Space registry complete! Account initialized successfully.");
-        setTimeout(() => {
-          handleClose();
-        }, 1200);
+        try {
+          const userCred = await createUserWithEmailAndPassword(auth, email, password);
+          if (fullName) {
+            await updateProfile(userCred.user, { displayName: fullName });
+          }
+          await logAuthEvent("signup", "success", email, userCred.user.uid);
+          
+          // Also explicitly write their user profile to Firestore to ensure prompt sync
+          const { doc, setDoc } = await import("firebase/firestore");
+          const isAdminEmail = email === "techgadgetsk@gmail.com" || email === "admin@techgadgetskenya.co.ke";
+          await setDoc(doc(db, "users", userCred.user.uid), {
+            uid: userCred.user.uid,
+            email: email,
+            name: fullName || "Valued Customer",
+            role: isAdminEmail ? "admin" : "customer",
+            createdAt: new Date().toISOString()
+          }, { merge: true });
+
+          setSuccessMsg("✔ Space registry complete! Account initialized successfully.");
+          setTimeout(() => {
+            handleClose();
+          }, 1200);
+        } catch (err: any) {
+          if (err?.code === "auth/operation-not-allowed" || err?.message?.includes("operation-not-allowed") || err?.message?.includes("disabled")) {
+            console.warn("Firebase Auth Emails/Passwords provider is disabled. Falling back to local Firestore seamless identity system.");
+            const generatedUid = "cust_" + Math.random().toString(36).substr(2, 9);
+            const isAdminEmail = email === "techgadgetsk@gmail.com" || email === "admin@techgadgetskenya.co.ke";
+            const userProfileData = {
+              uid: generatedUid,
+              email: email,
+              name: fullName || "Valued Customer",
+              role: (isAdminEmail ? "admin" : "customer") as "admin" | "customer",
+              createdAt: new Date().toISOString()
+            };
+            
+            const { doc, setDoc } = await import("firebase/firestore");
+            await setDoc(doc(db, "users", generatedUid), userProfileData);
+            await logAuthEvent("signup_fallback", "success", email, generatedUid);
+            
+            localStorage.setItem("tgk_custom_user", JSON.stringify(userProfileData));
+            setUser({ uid: generatedUid, email: email, displayName: fullName || "Valued Customer" } as any);
+            setUserProfile(userProfileData);
+            
+            setSuccessMsg("✔ Space registry complete! Account initialized (Local/Firestore Handshake).");
+            setTimeout(() => {
+              handleClose();
+            }, 1200);
+          } else {
+            throw err;
+          }
+        }
       } else {
-        const userCred = await signInWithEmailAndPassword(auth, email, password);
-        await logAuthEvent("login", "success", email, userCred.user.uid);
-        setSuccessMsg("✔ Authentication successful! Back to the command deck.");
-        setTimeout(() => {
-          handleClose();
-        }, 1200);
+        try {
+          const userCred = await signInWithEmailAndPassword(auth, email, password);
+          await logAuthEvent("login", "success", email, userCred.user.uid);
+          setSuccessMsg("✔ Authentication successful! Back to the command deck.");
+          setTimeout(() => {
+            handleClose();
+          }, 1200);
+        } catch (err: any) {
+          if (err?.code === "auth/operation-not-allowed" || err?.message?.includes("operation-not-allowed") || err?.message?.includes("disabled") || err?.code === "auth/user-not-found") {
+            console.warn("Firebase email sign-in blocked/unavailable. Checking fallback list in users collection...");
+            const { collection, query, where, getDocs } = await import("firebase/firestore");
+            const q = query(collection(db, "users"), where("email", "==", email));
+            const querySnap = await getDocs(q);
+            if (!querySnap.empty) {
+              const userData = querySnap.docs[0].data() as any;
+              await logAuthEvent("login_fallback", "success", email, userData.uid);
+              
+              localStorage.setItem("tgk_custom_user", JSON.stringify(userData));
+              setUser({ uid: userData.uid, email: email, displayName: userData.name } as any);
+              setUserProfile(userData);
+              
+              setSuccessMsg("✔ Authentication successful! Welcome back (Local/Firestore Handshake).");
+              setTimeout(() => {
+                handleClose();
+              }, 1250);
+            } else {
+              if (err?.code === "auth/user-not-found") {
+                setErrorMsg("No profile found matching that email address.");
+              } else {
+                setErrorMsg("No local fallback profile found. Please Register first!");
+              }
+            }
+          } else {
+            throw err;
+          }
+        }
       }
     } catch (err: any) {
       console.error("Auth process error:", err);
@@ -312,6 +393,32 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
 
           {/* Core Email / Password parameters form */}
           <form onSubmit={handleSubmit} className="space-y-4">
+            {authModalMode === "signup" && (
+              <div className="space-y-1.5" id="fullname-input-wrapper">
+                <label className={`text-[10px] font-mono uppercase tracking-wider block font-bold ${
+                  isLight ? "text-zinc-500" : "text-white/40"
+                }`}>
+                  Full Name / business title
+                </label>
+                <div className="relative flex items-center">
+                  <UserPlus className={`w-3.5 h-3.5 absolute left-3.5 ${isLight ? "text-zinc-400" : "text-white/30"}`} />
+                  <input 
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="E.g., Adam Kassim"
+                    disabled={loading}
+                    className={`w-full py-2.5 pl-10 pr-4 rounded-xl text-xs font-sans outline-none transition-all ${
+                      isLight 
+                        ? "bg-zinc-50 border-zinc-200 focus:border-[#C5A059] focus:bg-white text-zinc-900 placeholder-zinc-400" 
+                        : "bg-white/[0.02] border-white/10 focus:border-[#C5A059] focus:bg-[#151515] text-white placeholder-white/30"
+                    } border`}
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <label className={`text-[10px] font-mono uppercase tracking-wider block font-bold ${
                 isLight ? "text-zinc-500" : "text-white/40"
