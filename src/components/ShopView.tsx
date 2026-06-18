@@ -106,7 +106,17 @@ export default function ShopView() {
   const [quickBuyQuantity, setQuickBuyQuantity] = useState<number>(1);
 
   const getProductVariants = (product: Product) => {
-    if (product.customVariants && product.customVariants.options && product.customVariants.options.length > 0) {
+    if (product.enableVariants === false) return null;
+
+    const hasCustom = product.customVariants && product.customVariants.options && product.customVariants.options.length > 0;
+    const hasOther = (product.variants && product.variants.length > 0) || (product.variantGroups && product.variantGroups.length > 0);
+
+    // Default legacy product to omit default variants helper if not turned on explicitly
+    if (product.enableVariants === undefined && !hasCustom && !hasOther) {
+      return null;
+    }
+
+    if (hasCustom) {
       return {
         label: product.customVariants.label || "Available Feature Options",
         options: product.customVariants.options.map(opt => {
@@ -178,7 +188,8 @@ export default function ShopView() {
         setQuickBuyRam(uniqueRams[0] || "");
         setQuickBuySsd(uniqueSsds[0] || "");
       } else {
-        const variants = getProductVariants(quickBuyProduct).options;
+        const variantsInfo = getProductVariants(quickBuyProduct);
+        const variants = variantsInfo ? variantsInfo.options : [];
         setSelectedVariant(variants[0] || "");
       }
       setQuickBuyQuantity(1);
@@ -944,13 +955,13 @@ export default function ShopView() {
                   </div>
                 )}
               </div>
-            ) : (
+            ) : getProductVariants(quickBuyProduct) ? (
               <div className="space-y-2">
                 <label className="text-[10px] font-mono text-white/40 uppercase tracking-wider block font-bold">
-                  {getProductVariants(quickBuyProduct).label}
+                  {getProductVariants(quickBuyProduct)?.label}
                 </label>
                 <div className="space-y-2">
-                  {getProductVariants(quickBuyProduct).options.map((option) => (
+                  {getProductVariants(quickBuyProduct)?.options.map((option) => (
                     <button
                       key={option}
                       type="button"
@@ -976,7 +987,7 @@ export default function ShopView() {
                   ))}
                 </div>
               </div>
-            )}
+            ) : null}
 
             {/* Quantity Selector Section */}
             <div className="flex items-center justify-between py-2 border-t border-b border-white/5">

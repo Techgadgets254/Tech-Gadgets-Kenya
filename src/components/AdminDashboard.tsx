@@ -1062,7 +1062,8 @@ export default function AdminDashboard() {
     gallery4: "",
     specificationsStr: "", // start empty so AI/user fills it
     customVariantsLabel: "Memory & Storage Options",
-    customVariantsStr: ""
+    customVariantsStr: "",
+    enableVariants: false
   });
 
   const [formVariants, setFormVariants] = useState<any[]>([]);
@@ -2029,7 +2030,8 @@ Designed with a clean structural aesthetic, the ${nameGuess} from ${brandGuess} 
       customVariantsLabel: prod.customVariants?.label || "Memory & Storage Options",
       customVariantsStr: prod.customVariants?.options
         ? prod.customVariants.options.map(o => `${o.name} | ${o.price}`).join("\n")
-        : ""
+        : "",
+      enableVariants: prod.enableVariants !== false
     });
     setShowAddForm(true);
   };
@@ -2055,7 +2057,8 @@ Designed with a clean structural aesthetic, the ${nameGuess} from ${brandGuess} 
       gallery4: "",
       specificationsStr: "",
       customVariantsLabel: "Memory & Storage Options",
-      customVariantsStr: ""
+      customVariantsStr: "",
+      enableVariants: false
     });
     setShowAddForm(true);
   };
@@ -2110,7 +2113,8 @@ Designed with a clean structural aesthetic, the ${nameGuess} from ${brandGuess} 
       gallery: galleryArr,
       specifications: parseSpecifications(productForm.specificationsStr),
       variants: formVariants || [],
-      variantGroups: formVariantGroups || []
+      variantGroups: formVariantGroups || [],
+      enableVariants: productForm.enableVariants
     };
 
     if (customVariantsParsed !== undefined) {
@@ -3182,8 +3186,34 @@ Designed with a clean structural aesthetic, the ${nameGuess} from ${brandGuess} 
                   />
                 </div>
 
+                {/* UPGRADES / VARIANTS ENABLED TOGGLE */}
+                <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        id="enableVariantsCheckbox"
+                        checked={productForm.enableVariants}
+                        onChange={(e) => setProductForm({ ...productForm, enableVariants: e.target.checked })}
+                        className="w-4 h-4 rounded-sm border-white/10 text-[#C5A059] focus:ring-[#C5A059] focus:ring-offset-0 bg-[#0A0A0A] cursor-pointer"
+                      />
+                      <label htmlFor="enableVariantsCheckbox" className="font-mono text-xs font-bold text-white uppercase tracking-wider cursor-pointer">
+                        Enable Product Variants & System Performance Customizations
+                      </label>
+                    </div>
+                    <span className={`font-mono text-[9px] font-bold px-2 py-0.5 rounded-full ${productForm.enableVariants ? "bg-emerald-500/10 text-emerald-400" : "bg-white/10 text-white/40"}`}>
+                      {productForm.enableVariants ? "ACTIVE" : "DISABLED"}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-white/40 leading-relaxed font-sans mt-1">
+                    When enabled, users can select RAM/SSD options, different product warranty/customization bundles, etc. Turn this off if the item is a standalone product without any variants or upgrades.
+                  </p>
+                </div>
+
                 {/* DYNAMIC VARIANT GROUPS EDITOR */}
-                <div className="border border-white/5 rounded-2xl p-5 bg-white/[0.01] space-y-4">
+                {productForm.enableVariants && (
+                  <div className="space-y-4">
+                    <div className="border border-white/5 rounded-2xl p-5 bg-white/[0.01] space-y-4">
                   <div className="flex items-center justify-between">
                     <label className="font-mono text-[10px] font-bold text-[#C5A059] block uppercase tracking-wider">
                       ★ Active Product Variant Groups Setup
@@ -3492,6 +3522,8 @@ Designed with a clean structural aesthetic, the ${nameGuess} from ${brandGuess} 
                     + Add Custom SKU Combination manually
                   </button>
                 </div>
+              </div>
+            )}
 
                 <div className="flex gap-3 justify-end pt-4 border-t border-white/10">
                   <button

@@ -172,7 +172,17 @@ export default function ProductDetailsView() {
 
   const getProductVariants = (p: typeof product) => {
     if (!p) return null;
-    if (p.customVariants && p.customVariants.options && p.customVariants.options.length > 0) {
+    if (p.enableVariants === false) return null;
+
+    const hasCustom = p.customVariants && p.customVariants.options && p.customVariants.options.length > 0;
+    const hasOther = (p.variants && p.variants.length > 0) || (p.variantGroups && p.variantGroups.length > 0);
+
+    // Default legacy product to omit default variants helper if not turned on explicitly
+    if (p.enableVariants === undefined && !hasCustom && !hasOther) {
+      return null;
+    }
+
+    if (hasCustom) {
       return {
         label: p.customVariants.label || "Available Feature Options",
         options: p.customVariants.options.map(opt => {
@@ -524,127 +534,129 @@ export default function ProductDetailsView() {
           </p>
 
           {/* Variants Selector Section */}
-          {product.variantGroups && product.variantGroups.length > 0 ? (
-            <div className="space-y-4 pt-2">
-              {product.variantGroups.map((group) => (
-                <div key={group.name} className="space-y-2">
+          {product.enableVariants !== false && (
+            product.variantGroups && product.variantGroups.length > 0 ? (
+              <div className="space-y-4 pt-2">
+                {product.variantGroups.map((group) => (
+                  <div key={group.name} className="space-y-2">
+                    <span className="text-[#C5A059] font-mono text-[10px] uppercase font-bold tracking-wider block">
+                      Choose {group.name}
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {group.options.map((opt) => {
+                        const isSelected = selectedSelections[group.name] === opt;
+                        return (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => {
+                              setSelectedSelections({
+                                ...selectedSelections,
+                                [group.name]: opt
+                              });
+                            }}
+                            className={`px-3.5 py-2.5 rounded-xl text-[11px] font-semibold transition-all cursor-pointer border ${
+                              isSelected
+                                ? "bg-[#C5A059]/15 border-[#C5A059] text-white"
+                                : "bg-white/[0.02] border-white/5 hover:border-white/10 text-white/70"
+                            }`}
+                          >
+                            {opt}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : product.variants && product.variants.length > 0 ? (
+              <div className="space-y-4 pt-2">
+                {uniqueRams.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-[#C5A059] font-mono text-[10px] uppercase font-bold tracking-wider block">
+                      Choose System RAM Configuration
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {uniqueRams.map((ramOption) => (
+                        <button
+                          key={ramOption}
+                          type="button"
+                          onClick={() => setSelectedRam(ramOption)}
+                          className={`px-3 py-2 rounded-xl text-[11px] font-semibold transition-all cursor-pointer border ${
+                            selectedRam === ramOption
+                              ? "bg-[#C5A059]/15 border-[#C5A059] text-white"
+                              : "bg-white/[0.02] border-white/5 hover:border-white/10 text-white/70"
+                          }`}
+                        >
+                          {ramOption}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {uniqueSsds.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-[#C5A059] font-mono text-[10px] uppercase font-bold tracking-wider block">
+                      Choose SSD Storage Capacity
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {uniqueSsds.map((ssdOption) => (
+                        <button
+                          key={ssdOption}
+                          type="button"
+                          onClick={() => setSelectedSsd(ssdOption)}
+                          className={`px-3 py-2 rounded-xl text-[11px] font-semibold transition-all cursor-pointer border ${
+                            selectedSsd === ssdOption
+                              ? "bg-[#C5A059]/15 border-[#C5A059] text-white"
+                              : "bg-white/[0.02] border-white/5 hover:border-white/10 text-white/70"
+                          }`}
+                        >
+                          {ssdOption}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              variantsInfo && variantsInfo.options.length > 0 && (
+                <div className="space-y-3 pt-2">
                   <span className="text-[#C5A059] font-mono text-[10px] uppercase font-bold tracking-wider block">
-                    Choose {group.name}
+                    {variantsInfo.label}
                   </span>
-                  <div className="flex flex-wrap gap-2">
-                    {group.options.map((opt) => {
-                      const isSelected = selectedSelections[group.name] === opt;
+                  <div className="flex flex-col gap-2">
+                    {variantsInfo.options.map((option) => {
+                      const isSelected = selectedVariant === option;
+                      const cleanOpt = option.split(" (")[0];
                       return (
                         <button
-                          key={opt}
+                          key={option}
                           type="button"
-                          onClick={() => {
-                            setSelectedSelections({
-                              ...selectedSelections,
-                              [group.name]: opt
-                            });
-                          }}
-                          className={`px-3.5 py-2.5 rounded-xl text-[11px] font-semibold transition-all cursor-pointer border ${
+                          onClick={() => setSelectedVariant(option)}
+                          className={`w-full text-left px-4 py-3 rounded-xl text-xs font-semibold flex justify-between items-center transition-all cursor-pointer border ${
                             isSelected
                               ? "bg-[#C5A059]/15 border-[#C5A059] text-white"
                               : "bg-white/[0.02] border-white/5 hover:border-white/10 text-white/70"
                           }`}
                         >
-                          {opt}
+                          <span>{cleanOpt}</span>
+                          {option.includes("(+") && (
+                            <span className="text-[10px] font-mono text-[#C5A059] font-bold">
+                              +{option.split("(+")[1].replace(")", "")}
+                            </span>
+                          )}
+                          {option.includes("(-") && (
+                            <span className="text-[10px] font-mono text-emerald-400 font-bold">
+                              -{option.split("(-")[1].replace(")", "")}
+                            </span>
+                          )}
                         </button>
                       );
                     })}
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : product.variants && product.variants.length > 0 ? (
-            <div className="space-y-4 pt-2">
-              {uniqueRams.length > 0 && (
-                <div className="space-y-2">
-                  <span className="text-[#C5A059] font-mono text-[10px] uppercase font-bold tracking-wider block">
-                    Choose System RAM Configuration
-                  </span>
-                  <div className="flex flex-wrap gap-2">
-                    {uniqueRams.map((ramOption) => (
-                      <button
-                        key={ramOption}
-                        type="button"
-                        onClick={() => setSelectedRam(ramOption)}
-                        className={`px-3 py-2 rounded-xl text-[11px] font-semibold transition-all cursor-pointer border ${
-                          selectedRam === ramOption
-                            ? "bg-[#C5A059]/15 border-[#C5A059] text-white"
-                            : "bg-white/[0.02] border-white/5 hover:border-white/10 text-white/70"
-                        }`}
-                      >
-                        {ramOption}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {uniqueSsds.length > 0 && (
-                <div className="space-y-2">
-                  <span className="text-[#C5A059] font-mono text-[10px] uppercase font-bold tracking-wider block">
-                    Choose SSD Storage Capacity
-                  </span>
-                  <div className="flex flex-wrap gap-2">
-                    {uniqueSsds.map((ssdOption) => (
-                      <button
-                        key={ssdOption}
-                        type="button"
-                        onClick={() => setSelectedSsd(ssdOption)}
-                        className={`px-3 py-2 rounded-xl text-[11px] font-semibold transition-all cursor-pointer border ${
-                          selectedSsd === ssdOption
-                            ? "bg-[#C5A059]/15 border-[#C5A059] text-white"
-                            : "bg-white/[0.02] border-white/5 hover:border-white/10 text-white/70"
-                        }`}
-                      >
-                        {ssdOption}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            variantsInfo && variantsInfo.options.length > 0 && (
-              <div className="space-y-3 pt-2">
-                <span className="text-[#C5A059] font-mono text-[10px] uppercase font-bold tracking-wider block">
-                  {variantsInfo.label}
-                </span>
-                <div className="flex flex-col gap-2">
-                  {variantsInfo.options.map((option) => {
-                    const isSelected = selectedVariant === option;
-                    const cleanOpt = option.split(" (")[0];
-                    return (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => setSelectedVariant(option)}
-                        className={`w-full text-left px-4 py-3 rounded-xl text-xs font-semibold flex justify-between items-center transition-all cursor-pointer border ${
-                          isSelected
-                            ? "bg-[#C5A059]/15 border-[#C5A059] text-white"
-                            : "bg-white/[0.02] border-white/5 hover:border-white/10 text-white/70"
-                        }`}
-                      >
-                        <span>{cleanOpt}</span>
-                        {option.includes("(+") && (
-                          <span className="text-[10px] font-mono text-[#C5A059] font-bold">
-                            +{option.split("(+")[1].replace(")", "")}
-                          </span>
-                        )}
-                        {option.includes("(-") && (
-                          <span className="text-[10px] font-mono text-emerald-400 font-bold">
-                            -{option.split("(-")[1].replace(")", "")}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              )
             )
           )}
 

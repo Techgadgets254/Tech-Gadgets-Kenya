@@ -17,6 +17,7 @@ export interface Product {
   specifications: Record<string, string>;
   tags?: string[];
   rating?: number;
+  enableVariants?: boolean;
   customVariants?: {
     label: string;
     options: {
