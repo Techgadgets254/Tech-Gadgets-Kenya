@@ -121,6 +121,14 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
   };
 
+  const isPasswordValid = (pw: string): boolean => {
+    if (pw.length < 8) return false;
+    if (!/[A-Z]/.test(pw)) return false;
+    if (!/[0-9]/.test(pw)) return false;
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(pw) && !/[^a-zA-Z0-9]/.test(pw)) return false;
+    return true;
+  };
+
   const handleClose = () => {
     setIsAuthModalOpen(false);
     setEmail("");
@@ -277,14 +285,25 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
             handleClose();
           }, 1200);
         } catch (err: any) {
+          const authCode = err?.code || "";
           console.error("[AuthModal Firebase SDK Failure] createUserWithEmailAndPassword threw an error during signup:", {
-            code: err?.code,
+            code: authCode,
             message: err?.message,
             stack: err?.stack,
             email,
             isSignUpMode: true
           });
-          if (err?.code === "auth/operation-not-allowed" || err?.message?.includes("operation-not-allowed") || err?.message?.includes("disabled")) {
+
+          // Specific logging for Firebase Auth 'invalid-email', 'email-already-in-use', and 'weak-password' codes
+          if (authCode === "auth/invalid-email" || authCode === "invalid-email") {
+            console.warn(`[Registration Incident] invalid-email detected for registration email target: ${email}`);
+          } else if (authCode === "auth/email-already-in-use" || authCode === "email-already-in-use") {
+            console.warn(`[Registration Incident] email-already-in-use detected. Access requested for persistent email: ${email}`);
+          } else if (authCode === "auth/weak-password" || authCode === "weak-password") {
+            console.warn(`[Registration Incident] weak-password rejected during registration schema validation.`);
+          }
+
+          if (authCode === "auth/operation-not-allowed" || err?.message?.includes("operation-not-allowed") || err?.message?.includes("disabled")) {
             console.warn("Firebase Auth Emails/Passwords provider is disabled. Falling back to local Firestore seamless identity system.");
             const generatedUid = "cust_" + Math.random().toString(36).substr(2, 9);
             const isAdminEmail = email === "techgadgetsk@gmail.com" || email === "admin@techgadgetskenya.co.ke";
@@ -310,7 +329,20 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
               handleClose();
             }, 1200);
           } else {
-            throw err;
+            // Localized custom messages mapping for outer error block
+            let localizedMsg = err?.message || "Authentication attempt rejected.";
+            if (authCode === "auth/invalid-email" || authCode === "invalid-email") {
+              localizedMsg = "The email address provided is formatted incorrectly. Please verify the syntax of your email.";
+            } else if (authCode === "auth/email-already-in-use" || authCode === "email-already-in-use") {
+              localizedMsg = "This email address is already bound to an active customer identifier. Please login or reset your passcode.";
+            } else if (authCode === "auth/weak-password" || authCode === "weak-password") {
+              localizedMsg = "The password passcode does not satisfy deep firewall strength parameters. Please provide a stronger password.";
+            }
+            
+            // Re-throw custom error object so that outer catch handles it elegantly with localization
+            const localizedError = new Error(localizedMsg) as any;
+            localizedError.code = authCode;
+            throw localizedError;
           }
         }
       } else {
@@ -363,8 +395,12 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
       let errMsg = err?.message || "Authentication attempt rejected.";
       if (err?.code === "auth/user-not-found" || err?.code === "auth/wrong-password" || err?.code === "auth/invalid-credential") {
         errMsg = "Invalid authorization credentials. Please verify your email and password.";
-      } else if (err?.code === "auth/email-already-in-use") {
+      } else if (err?.code === "auth/email-already-in-use" || err?.code === "email-already-in-use") {
         errMsg = "This email address is already bound to an active customer identifier.";
+      } else if (err?.code === "auth/invalid-email" || err?.code === "invalid-email") {
+        errMsg = "The email address provided is formatted incorrectly. Please verify the syntax of your email.";
+      } else if (err?.code === "auth/weak-password" || err?.code === "weak-password") {
+        errMsg = "The password passcode does not satisfy deep firewall strength parameters. Please provide a stronger password.";
       }
       setErrorMsg(errMsg);
       setToast({ type: "error", message: errMsg });
@@ -732,7 +768,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
             <div className="pt-2">
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || (authModalMode === "signup" && !isResetMode && !isPasswordValid(password))}
                 className={`w-full py-3 rounded-2xl flex items-center justify-center gap-1.5 font-bold text-xs uppercase tracking-wider cursor-pointer shadow-lg transform active:scale-95 transition-all ${
                   isLight 
                     ? "bg-[#835c17] hover:bg-[#704e12] text-white" 

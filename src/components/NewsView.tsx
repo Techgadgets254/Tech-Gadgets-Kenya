@@ -267,6 +267,13 @@ export default function NewsView() {
     setImageErrors(prev => ({ ...prev, [artId]: true }));
   };
 
+  const isValidImageUrl = (url: string | undefined): boolean => {
+    if (!url || typeof url !== "string") return false;
+    const cleanUrl = url.trim();
+    if (!cleanUrl) return false;
+    return cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://");
+  };
+
   const renderImagePlaceholder = (category: string) => {
     let IconComponent = Laptop;
     if (category === "Printers") IconComponent = Printer;
@@ -597,7 +604,7 @@ export default function NewsView() {
               </button>
 
               <div className="max-h-[420px] w-full rounded-2xl overflow-hidden border border-[#C5A059]/40 h-64 sm:h-80 lg:h-96 relative bg-[#090909]">
-                {imageErrors[art.id] || !art.imageUrl ? (
+                {imageErrors[art.id] || !isValidImageUrl(art.imageUrl) ? (
                   renderImagePlaceholder(art.category)
                 ) : (
                   <img
@@ -747,7 +754,32 @@ export default function NewsView() {
               )}
 
               {/* Filtering News Grid */}
-              {filteredArticles.length === 0 ? (
+              {loadingNews ? (
+                <div className="columns-1 sm:columns-2 gap-6 space-y-6 [&>*]:break-inside-avoid pb-4 text-left">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div
+                      key={`skeleton-${i}`}
+                      className="bg-[#0D0D0D] border border-white/10 rounded-2xl overflow-hidden p-4 space-y-4 animate-pulse mb-6 break-inside-avoid w-full"
+                    >
+                      {/* Image Skeleton */}
+                      <div className="h-40 bg-white/[0.03] rounded-xl w-full" />
+                      {/* Sub-header text skeleton */}
+                      <div className="space-y-2">
+                        <div className="h-3 bg-white/[0.05] rounded-sm w-1/3" />
+                        <div className="h-4 bg-white/[0.07] rounded-sm w-3/4" />
+                        <div className="h-4 bg-white/[0.07] rounded-sm w-1/2" />
+                        <div className="h-3 bg-white/[0.03] rounded-sm w-full" />
+                        <div className="h-3 bg-white/[0.03] rounded-sm w-5/6" />
+                      </div>
+                      {/* Bottom row skeleton */}
+                      <div className="flex justify-between items-center pt-3 border-t border-white/5">
+                        <div className="h-3 bg-white/[0.05] rounded-sm w-1/4" />
+                        <div className="w-5 h-5 bg-white/[0.05] rounded-full" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : filteredArticles.length === 0 ? (
                 <div className="bg-stone-50 dark:bg-[#0F0F0F] border border-stone-200 dark:border-white/10 rounded-3xl p-12 text-center max-w-sm mx-auto">
                   <Bookmark className="w-10 h-10 text-stone-300 dark:text-white/10 mx-auto mb-3" />
                   <h4 className="font-sans font-bold text-stone-800 dark:text-white text-sm">No Bulletins Matched</h4>
@@ -773,7 +805,7 @@ export default function NewsView() {
                       className="bg-[#0D0D0D] border border-white/10 rounded-2xl overflow-hidden hover:border-[#C5A059]/40 transition-all flex flex-col justify-between shadow-xs hover:shadow-md group break-inside-avoid mb-6 h-fit max-w-full text-white"
                     >
                       <div className="h-40 overflow-hidden relative border-b border-[#C5A059]/20 bg-[#090909] w-full">
-                        {imageErrors[art.id] || !art.imageUrl ? (
+                        {imageErrors[art.id] || !isValidImageUrl(art.imageUrl) ? (
                           renderImagePlaceholder(art.category)
                         ) : (
                           <img

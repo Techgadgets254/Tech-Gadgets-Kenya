@@ -1128,21 +1128,23 @@ export default function AdminDashboard() {
 
           const prompt = `
 Generate a highly polished, professional product profile based on the details provided:
-- Given Headline Name: ${productForm.name || "Not set/infer from outline"}
-- Given Manufacturer Brand: ${productForm.brand || "Not set/infer from outline"}
+- Given Headline Name: ${productForm.name || ""}
+- Given Manufacturer Brand: ${productForm.brand || ""}
 - Category: ${productForm.category || "Electronics"}
-- Outline Idea: ${productForm.description || ""}
-- Specifications Outline: ${productForm.specificationsStr || "None explicitly listed separately. Please look for any specifications or features described in the Outline Idea/Commodity Description above."}
+- Outline Idea (User Provided Product Description): ${productForm.description || ""}
+- Specifications Outline: ${productForm.specificationsStr || ""}
 
 Your task:
-1. Identify/generate a high-end, precise retail product headline commercial name (e.g., "Apple MacBook Pro 14 M3", "Epson EcoTank L3250 Wifi Printer", "HP EliteBook 840 G10"). If the Given Headline Name is set and meaningful, reuse or polish it.
-2. Identify/generate the manufacturer brand name (e.g. "Apple", "Epson", "HP", "Samsung").
-3. Determine a stock-keeping SKU prefix based on the FIRST WORD of the product name (e.g., "APPLE", "EPSON", "HP", "SAMSUNG"), translated to uppercase, alphanumeric, no spaces or symbols.
-4. Generate a highly polished, professional, and SEO-friendly product description highlighting the hardware's capabilities, target user group, and value. You MUST output a detailed 'Product Overview' followed by a specialized 'About Product' section detailing the craftsmanship, premium durability, and enterprise value. Do NOT use markdown bold, asterisks (*), or formatting stars anywhere.
-5. Create a clean newline-separated list of technical specifications. Format each item on a new line as 'Key: Value' (e.g. 'Processor: Core i7 13th Gen\\nMemory: 16GB LPDDR5\\nStorage: 512GB PCIe NVMe SSD\\nGraphics: Intel Iris Xe'). Do NOT include any asterisks (*) or star bullet points.
-- You MUST extract these specifications, features, capacities, configurations, or hardware options directly from the 'Outline Idea / Commodity Description' and the 'Given Headline Name' provided above.
-- If there are specs like '16GB RAM', '512GB SSD', 'Core i7', 'STK Push' or similar terms mentioned, render them as clean 'Key: Value' lines.
-- Only if absolutely NO specifications, features, components, or options are mentioned or implied in any of the inputs, set the "specifications" field to a completely empty string ("").
+1. Identify/generate a high-end, precise retail product headline commercial name.
+2. Identify/generate the manufacturer brand name.
+3. Determine a stock-keeping SKU prefix based on the FIRST WORD of the product name.
+4. Generate a highly polished, professional, and SEO-friendly product description highlighting the hardware's capabilities, target user group, and value. Keep it professional.
+5. Create a clean newline-separated list of technical specifications. Format each item on a new line as 'Key: Value'.
+
+CRITICAL REQUIREMENT FOR SPECIFICATIONS:
+- You MUST ONLY extract and generate technical specifications, features, capacities, configurations, or hardware options directly from the user-provided 'Outline Idea' (which is the user's specific product description) and the 'Given Headline Name' provided above.
+- You MUST NOT invent, guess, or assume any generic technical specifications (such as RAM size, Storage capacity, CPU count, or Ports) if they are not explicitly mentioned or clearly implied in the provided 'Outline Idea' or 'Given Headline Name'. Do NOT use generic placeholders or filler text when inputs are empty or lack technical details.
+- If the 'Outline Idea' is empty, or lacks any technical specifications, configurations, or hardware details, you MUST return a completely empty string ("") for the "specifications" field.
 
 Return a strictly valid JSON object structured exactly like this:
 {
@@ -1173,7 +1175,7 @@ Return a strictly valid JSON object structured exactly like this:
               brand: productForm.brand || "Premium Brand",
               sku_base: (productForm.brand || productForm.name || "PROD").split(" ")[0].toUpperCase().replace(/[^A-Z0-9]/g, ""),
               description: resultText.replace(/\*/g, ""),
-              specifications: "Processor: Premium Specs\nGraphics: High Performance"
+              specifications: ""
             };
           }
 
