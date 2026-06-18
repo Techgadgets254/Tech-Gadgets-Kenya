@@ -759,6 +759,26 @@ export default function ProductDetailsView() {
                     )}`}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onMouseEnter={() => {
+                      try {
+                        const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+                        if (AudioCtxClass) {
+                          const audioCtx = new AudioCtxClass();
+                          const osc = audioCtx.createOscillator();
+                          const gain = audioCtx.createGain();
+                          osc.type = "sine";
+                          osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                          osc.frequency.exponentialRampToValueAtTime(1000, audioCtx.currentTime + 0.12);
+                          gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                          gain.gain.linearRampToValueAtTime(0.015, audioCtx.currentTime + 0.02);
+                          gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.22);
+                          osc.connect(gain);
+                          gain.connect(audioCtx.destination);
+                          osc.start();
+                          osc.stop(audioCtx.currentTime + 0.25);
+                        }
+                      } catch (e) {}
+                    }}
                     className="bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/20 px-4 py-3.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all focus:outline-hidden"
                     title="Share directly via WhatsApp"
                   >

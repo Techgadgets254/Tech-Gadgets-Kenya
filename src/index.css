@@ -1194,6 +1194,117 @@ html.light-theme #admin-operations-container button:hover:not(.bg-red-600):not(.
   border-color: #835c17 !important;
 }
 
+/* ==========================================================================
+   SURGICAL LIGHT MODE OVERRIDES FOR TABLES AND CLIENT PROFILE HUB
+   ========================================================================== */
+
+/* Surgical overrides for Admin Dashboard Tables in Light Mode */
+html.light-theme [id="admin-operations-container"] table,
+html.light-theme [id="admin-management-portal"] table,
+html.light-theme table {
+  background-color: #ffffff !important;
+  color: #1c1917 !important;
+}
+
+html.light-theme [id="admin-operations-container"] thead,
+html.light-theme [id="admin-operations-container"] thead tr,
+html.light-theme [id="admin-operations-container"] thead th,
+html.light-theme [id="admin-management-portal"] thead,
+html.light-theme [id="admin-management-portal"] thead tr,
+html.light-theme [id="admin-management-portal"] thead th,
+html.light-theme thead th,
+html.light-theme th {
+  background-color: #F4F1EB !important; /* Elegant light sandy grey */
+  color: #1c1917 !important;
+  border-color: #E2DDD5 !important;
+}
+
+html.light-theme [id="admin-operations-container"] tbody tr,
+html.light-theme [id="admin-management-portal"] tbody tr,
+html.light-theme tbody tr,
+html.light-theme tr {
+  background-color: #ffffff !important;
+  color: #1c1917 !important;
+}
+
+html.light-theme [id="admin-operations-container"] tbody tr:nth-child(even),
+html.light-theme [id="admin-management-portal"] tbody tr:nth-child(even),
+html.light-theme tbody tr:nth-child(even),
+html.light-theme tr:nth-child(even) {
+  background-color: #FCFBF9 !important; /* Alternating rows */
+}
+
+html.light-theme [id="admin-operations-container"] tbody tr:hover,
+html.light-theme [id="admin-management-portal"] tbody tr:hover,
+html.light-theme tbody tr:hover,
+html.light-theme tr:hover {
+  background-color: #f8f6f2 !important; /* Hover row state */
+}
+
+html.light-theme [id="admin-operations-container"] td,
+html.light-theme [id="admin-operations-container"] th,
+html.light-theme [id="admin-management-portal"] td,
+html.light-theme [id="admin-management-portal"] th,
+html.light-theme td,
+html.light-theme th,
+html.light-theme tr td {
+  color: #1c1917 !important;
+  border-color: #E2DDD5 !important;
+  background-color: transparent !important; /* inherit row background */
+}
+
+/* Surgical overrides for Client Dashboard profile hub in Light Mode */
+html.light-theme [id="customer-profile-hub"],
+html.light-theme [id="customer-profile-hub"] section,
+html.light-theme [id="customer-profile-hub"] form,
+html.light-theme [id="customer-profile-hub"] h1,
+html.light-theme [id="customer-profile-hub"] h2,
+html.light-theme [id="customer-profile-hub"] h3,
+html.light-theme [id="customer-profile-hub"] label {
+  color: #1c1917 !important;
+  border-color: #E2DDD5 !important;
+}
+
+html.light-theme [id="customer-profile-hub"] div {
+  border-color: #E2DDD5 !important;
+}
+
+html.light-theme [id="customer-profile-hub"] .bg-\[\#0a0a0a\],
+html.light-theme [id="customer-profile-hub"] .bg-\[\#0A0A0A\],
+html.light-theme [id="customer-profile-hub"] .bg-\[\#0f0f0f\],
+html.light-theme [id="customer-profile-hub"] .bg-\[\#0F0F0F\],
+html.light-theme [id="customer-profile-hub"] .bg-zinc-900,
+html.light-theme [id="customer-profile-hub"] .bg-black,
+html.light-theme [id="customer-profile-hub"] [class*="bg-["],
+html.light-theme [id="customer-profile-hub"] form div {
+  background-color: #FCFBF9 !important;
+  border-color: #E2DDD5 !important;
+}
+
+html.light-theme [id="customer-profile-hub"] input,
+html.light-theme [id="customer-profile-hub"] select,
+html.light-theme [id="customer-profile-hub"] textarea {
+  background-color: #ffffff !important;
+  color: #1c1917 !important;
+  border-color: #D6CFC4 !important;
+}
+
+html.light-theme [id="customer-profile-hub"] .text-white,
+html.light-theme [id="customer-profile-hub"] .text-zinc-100,
+html.light-theme [id="customer-profile-hub"] .text-zinc-200,
+html.light-theme [id="customer-profile-hub"] .font-black {
+  color: #171412 !important;
+}
+
+html.light-theme [id="customer-profile-hub"] .text-white\/40,
+html.light-theme [id="customer-profile-hub"] .text-white\/30,
+html.light-theme [id="customer-profile-hub"] .text-white\/60,
+html.light-theme [id="customer-profile-hub"] .placeholder-white,
+html.light-theme [id="customer-profile-hub"] span:not(.text-white) {
+  color: #514B42 !important;
+}
+
+
 
 
 

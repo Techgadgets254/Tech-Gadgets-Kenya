@@ -138,6 +138,32 @@ function StoreLayout() {
     }
   };
 
+  const playSubtleWhatsappHoverSound = () => {
+    try {
+      const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtxClass) return;
+      const audioCtx = new AudioCtxClass();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(600, audioCtx.currentTime); // subtle warm base freq
+      osc.frequency.exponentialRampToValueAtTime(1000, audioCtx.currentTime + 0.12); // pleasant up-sweep
+      
+      gain.gain.setValueAtTime(0, audioCtx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.015, audioCtx.currentTime + 0.02); // very quiet/non-disruptive
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.22); // fade out
+      
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.25);
+    } catch (e) {
+      console.warn("Audio cue failed:", e);
+    }
+  };
+
   // Specific interactive motion configurations custom-matched to each view's theme and purpose
   const transitionVariants = {
     home: {
@@ -264,6 +290,7 @@ function StoreLayout() {
           rel="noopener noreferrer"
           referrerPolicy="no-referrer"
           onClick={handleWhatsAppClick}
+          onMouseEnter={playSubtleWhatsappHoverSound}
           className="fixed bottom-6 left-6 z-50 bg-[#25D366] hover:bg-[#20ba5a] hover:scale-105 active:scale-95 transition-all p-3.5 sm:p-4 rounded-full shadow-2xl flex items-center justify-center group border border-white/10"
           title="Immediate Chat on WhatsApp"
           id="floating-whatsapp-trigger"
