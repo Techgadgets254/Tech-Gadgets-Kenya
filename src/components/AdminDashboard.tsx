@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { useStore } from "../StoreContext";
 import { 
   Plus, 
@@ -1063,7 +1064,8 @@ export default function AdminDashboard() {
     specificationsStr: "", // start empty so AI/user fills it
     customVariantsLabel: "Memory & Storage Options",
     customVariantsStr: "",
-    enableVariants: false
+    enableVariants: false,
+    includeSpecs: false
   });
 
   const [formVariants, setFormVariants] = useState<any[]>([]);
@@ -1218,7 +1220,8 @@ Return a strictly valid JSON object structured exactly like this:
           brand: data.brand || prev.brand,
           sku: finalGeneratedSku,
           description: data.description!,
-          specificationsStr: data.specifications || prev.specificationsStr
+          specificationsStr: data.specifications || prev.specificationsStr,
+          includeSpecs: data.specifications ? true : prev.includeSpecs
         }));
         
         if (finalBaseCategory !== adminBaseCategory) {
@@ -1292,11 +1295,91 @@ Designed with a clean structural aesthetic, the ${nameGuess} from ${brandGuess} 
         ...prev,
         sku: finalGeneratedSku,
         description: descriptionFallback,
-        specificationsStr: specStr
+        specificationsStr: specStr,
+        includeSpecs: !specStr ? prev.includeSpecs : true
       }));
       setAiError("");
     } finally {
       setAiGeneratingDescription(false);
+    }
+  };
+
+  const [generatingSpecs, setGeneratingSpecs] = useState(false);
+
+  const handleGenerateAISpecifications = async () => {
+    if (!productForm.name.trim()) {
+      setAiError("Please write a Product Name first so Gemini can advisor-generate the technical specifications.");
+      return;
+    }
+    setGeneratingSpecs(true);
+    setAiError("");
+    try {
+      let specStr = "";
+      const clientApiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      if (clientApiKey) {
+        const { GoogleGenAI } = await import("@google/genai");
+        const clientAi = new GoogleGenAI({ apiKey: clientApiKey });
+        const prompt = `
+Generate a clean, professional, newline-separated list of technical specifications for the product below:
+- Name: ${productForm.name}
+- Brand: ${productForm.brand}
+- Category: ${productForm.category}
+- Description context: ${productForm.description || ""}
+
+Format each item on a new line *strictly* as 'Key: Value'. Keep it compact.
+Example:
+Processor: Intel Core i7
+Memory: 16GB LPDDR5
+Storage: 512GB NVMe SSD
+Do not include any Markdown like asterisks, list markers, or bullet points. Just return the specifications directly. Max 6 lines.
+`;
+        const response = await clientAi.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: prompt
+        });
+        specStr = response.text || "";
+      } else {
+        try {
+          const response = await fetch("/api/ai/describe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: productForm.name,
+              brand: productForm.brand,
+              category: productForm.category,
+              commodityDescription: productForm.description
+            })
+          });
+          if (response.ok) {
+            const text = await response.text();
+            const data = JSON.parse(text);
+            specStr = data.specifications || "";
+          }
+        } catch (srvErr) {
+          console.warn("Unreachable AI API proxy, using local specifications template builder: ", srvErr);
+        }
+      }
+
+      if (specStr) {
+        setProductForm(prev => ({
+          ...prev,
+          specificationsStr: specStr.trim().replace(/\*/g, "")
+        }));
+      } else {
+        const brandGuess = productForm.brand.trim() || "Premium";
+        const isDevice = productForm.name.toLowerCase().includes("laptop") || productForm.category.toLowerCase().includes("laptop");
+        setProductForm(prev => ({
+          ...prev,
+          specificationsStr: isDevice 
+            ? `Processor: High-Performance Octa-Core\nMemory: 16GB Unified\nStorage: 512GB SSD\nBrand: ${brandGuess}\nCategory: ${productForm.category}`
+            : `Manufacturer: ${brandGuess}\nCategory: ${productForm.category}\nCondition: Standard Tier`
+        }));
+      }
+    } catch (err: any) {
+      console.error(err);
+      setAiError(err.message || "Failed generating specifications.");
+    } finally {
+      setGeneratingSpecs(false);
     }
   };
 
@@ -2031,7 +2114,8 @@ Designed with a clean structural aesthetic, the ${nameGuess} from ${brandGuess} 
       customVariantsStr: prod.customVariants?.options
         ? prod.customVariants.options.map(o => `${o.name} | ${o.price}`).join("\n")
         : "",
-      enableVariants: prod.enableVariants !== false
+      enableVariants: prod.enableVariants !== false,
+      includeSpecs: !!specsStr.trim()
     });
     setShowAddForm(true);
   };
@@ -2058,7 +2142,8 @@ Designed with a clean structural aesthetic, the ${nameGuess} from ${brandGuess} 
       specificationsStr: "",
       customVariantsLabel: "Memory & Storage Options",
       customVariantsStr: "",
-      enableVariants: false
+      enableVariants: false,
+      includeSpecs: false
     });
     setShowAddForm(true);
   };
@@ -2111,7 +2196,7 @@ Designed with a clean structural aesthetic, the ${nameGuess} from ${brandGuess} 
       description: productForm.description,
       image: productForm.image,
       gallery: galleryArr,
-      specifications: parseSpecifications(productForm.specificationsStr),
+      specifications: productForm.includeSpecs ? parseSpecifications(productForm.specificationsStr) : {},
       variants: formVariants || [],
       variantGroups: formVariantGroups || [],
       enableVariants: productForm.enableVariants
@@ -3174,17 +3259,96 @@ Designed with a clean structural aesthetic, the ${nameGuess} from ${brandGuess} 
                   )}
                 </div>
 
-                <div>
-                  <label className="font-mono text-[10px] font-bold text-white/30 block mb-1 uppercase">TECHNICAL SPECIFICATIONS STRING (Processor: Intel Core i5)</label>
-                  <textarea
-                    rows={4}
-                    required
-                    value={productForm.specificationsStr}
-                    onChange={(e) => setProductForm({ ...productForm, specificationsStr: e.target.value })}
-                    className="w-full bg-[#0A0A0A] border border-white/10 py-2.5 px-3 rounded-lg focus:outline-hidden focus:border-[#C5A059] text-white font-mono text-xs leading-relaxed"
-                    placeholder="Key: Value (One specification per line)"
-                  />
+                {/* INCLUDE TECHNICAL SPECIFICATIONS TOGGLE */}
+                <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        id="includeSpecsCheckbox"
+                        checked={productForm.includeSpecs}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setProductForm(prev => ({ 
+                            ...prev, 
+                            includeSpecs: checked,
+                            // If toggled off, clear the specifications string entirely to ensure no stale data
+                            specificationsStr: checked ? prev.specificationsStr : ""
+                          }));
+                        }}
+                        className="w-4 h-4 rounded-sm border-white/10 text-[#C5A059] focus:ring-[#C5A059] focus:ring-offset-0 bg-[#0A0A0A] cursor-pointer"
+                      />
+                      <label htmlFor="includeSpecsCheckbox" className="font-mono text-xs font-bold text-white uppercase tracking-wider cursor-pointer">
+                        Include Technical Specifications
+                      </label>
+                    </div>
+                    <span className={`font-mono text-[9px] font-bold px-2 py-0.5 rounded-full ${productForm.includeSpecs ? "bg-emerald-500/10 text-emerald-400" : "bg-white/10 text-white/40"}`}>
+                      {productForm.includeSpecs ? "ACTIVE" : "DISABLED"}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-white/40 leading-relaxed font-sans mt-1">
+                    Check this to detail specific parameters such as Processor, RAM, GPU, and Storage for display in product details grids.
+                  </p>
                 </div>
+
+                {/* THE TECHNICAL SPECIFICATIONS INPUT & AI GENERATION CONTROLS (WITH SLIDE-DOWN ANIMATION) */}
+                <AnimatePresence>
+                  {productForm.includeSpecs && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3, ease: "easeInOut" }}
+                      className="overflow-hidden space-y-3"
+                    >
+                      <div className="border border-white/5 bg-white/[0.01] p-4 rounded-2xl space-y-3 mt-1">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <label className="font-mono text-[10px] font-bold text-white/30 block uppercase">
+                            Technical Specifications String (Key: Value)
+                          </label>
+                          <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                            <button
+                              type="button"
+                              disabled={generatingSpecs}
+                              onClick={handleGenerateAISpecifications}
+                              className="text-[9px] font-sans font-bold text-[#C5A059] flex items-center gap-1 bg-[#C5A059]/10 border border-[#C5A059]/30 hover:bg-[#C5A059]/20 disabled:opacity-50 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+                            >
+                              {generatingSpecs ? (
+                                <>
+                                  <Loader2 className="w-3 h-3 animate-spin text-[#C5A059]" />
+                                  <span>Generating Specs...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles className="w-3 h-3 text-[#C5A059]" />
+                                  <span>Generate Specs with AI</span>
+                                </>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setProductForm(prev => ({ ...prev, specificationsStr: "" }))}
+                              className="text-[9px] font-sans font-bold text-red-400 hover:text-red-300 py-1 px-2.5 bg-red-500/10 hover:bg-red-500/15 border border-red-500/20 active:bg-red-500/25 rounded-lg transition-all cursor-pointer flex items-center gap-1"
+                            >
+                              Clear Specs
+                            </button>
+                          </div>
+                        </div>
+                        <textarea
+                          rows={4}
+                          required={productForm.includeSpecs}
+                          value={productForm.specificationsStr}
+                          onChange={(e) => setProductForm({ ...productForm, specificationsStr: e.target.value })}
+                          className="w-full bg-[#0A0A0A] border border-white/10 py-2.5 px-3 rounded-lg focus:outline-hidden focus:border-[#C5A059] text-white font-mono text-xs leading-relaxed"
+                          placeholder="Processor: Intel Core i5&#10;Memory: 16GB RAM&#10;Storage: 512GB SSD"
+                        />
+                        <p className="text-[10px] text-white/30 font-sans leading-normal">
+                          Provide one key-value pair per line (e.g. <strong>Processor: Intel core i7</strong>). These will be rendered dynamically in product specification grids.
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* UPGRADES / VARIANTS ENABLED TOGGLE */}
                 <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-4 space-y-3">
