@@ -1131,15 +1131,18 @@ Generate a highly polished, professional product profile based on the details pr
 - Given Headline Name: ${productForm.name || "Not set/infer from outline"}
 - Given Manufacturer Brand: ${productForm.brand || "Not set/infer from outline"}
 - Category: ${productForm.category || "Electronics"}
-- Outline Idea: ${productForm.description || "High performance standard hardware"}
-- Specifications Outline: ${productForm.specificationsStr || "None. Please extract and generate appropriate technical specifications strictly based on the Outline Idea/Commodity Description provided above. If no specifications or options are explicitly named or described in the Outline Idea, do NOT guess/generate dummy specifications - set \"specifications\" to an empty string."}
+- Outline Idea: ${productForm.description || ""}
+- Specifications Outline: ${productForm.specificationsStr || "None explicitly listed separately. Please look for any specifications or features described in the Outline Idea/Commodity Description above."}
 
 Your task:
 1. Identify/generate a high-end, precise retail product headline commercial name (e.g., "Apple MacBook Pro 14 M3", "Epson EcoTank L3250 Wifi Printer", "HP EliteBook 840 G10"). If the Given Headline Name is set and meaningful, reuse or polish it.
 2. Identify/generate the manufacturer brand name (e.g. "Apple", "Epson", "HP", "Samsung").
 3. Determine a stock-keeping SKU prefix based on the FIRST WORD of the product name (e.g., "APPLE", "EPSON", "HP", "SAMSUNG"), translated to uppercase, alphanumeric, no spaces or symbols.
 4. Generate a highly polished, professional, and SEO-friendly product description highlighting the hardware's capabilities, target user group, and value. You MUST output a detailed 'Product Overview' followed by a specialized 'About Product' section detailing the craftsmanship, premium durability, and enterprise value. Do NOT use markdown bold, asterisks (*), or formatting stars anywhere.
-5. Create a clean newline-separated list of technical specifications. Format each item on a new line as 'Key: Value' (e.g. 'Processor: Core i7 13th Gen\\nMemory: 16GB LPDDR5\\nStorage: 512GB PCIe NVMe SSD\\nGraphics: Intel Iris Xe'). Do NOT include any asterisks (*) or star bullet points. If there are no options or specs described in the Outline Idea / Commodity Description, do NOT generate any dummy specifications - set "specifications" to an empty string.
+5. Create a clean newline-separated list of technical specifications. Format each item on a new line as 'Key: Value' (e.g. 'Processor: Core i7 13th Gen\\nMemory: 16GB LPDDR5\\nStorage: 512GB PCIe NVMe SSD\\nGraphics: Intel Iris Xe'). Do NOT include any asterisks (*) or star bullet points.
+- You MUST extract these specifications, features, capacities, configurations, or hardware options directly from the 'Outline Idea / Commodity Description' and the 'Given Headline Name' provided above.
+- If there are specs like '16GB RAM', '512GB SSD', 'Core i7', 'STK Push' or similar terms mentioned, render them as clean 'Key: Value' lines.
+- Only if absolutely NO specifications, features, components, or options are mentioned or implied in any of the inputs, set the "specifications" field to a completely empty string ("").
 
 Return a strictly valid JSON object structured exactly like this:
 {
@@ -1233,29 +1236,39 @@ Return a strictly valid JSON object structured exactly like this:
       let specStr = "";
       
       if (productForm.specificationsStr && productForm.specificationsStr.trim() && productForm.specificationsStr.toLowerCase() !== "none") {
-        if (cat.includes("laptop")) {
-          specStr = "Processor: Intel Core i5 10th Gen\nMemory: 8GB DDR4 RAM\nStorage: 256GB NVMe SSD\nDisplay: 14-inch Full HD LED Matte Panel\nWireless: Wi-Fi 6 & Bluetooth 5.0\nOperating System: Windows 10 Pro Installed";
-        } else if (cat.includes("phone")) {
-          specStr = "Processor: High-speed Octa-Core Chipset\nMemory: 8GB System RAM\nStorage: 128GB High-Performance Flash\nConnectivity: 4G LTE & Dual-band Wireless\nCamera: Dual 12MP Ultra-clear Lens Assembly\nBattery: 4500 mAh with Fast Charging Support";
-        } else if (cat.includes("desktop") || cat.includes("all-in-one")) {
-          specStr = "Processor: Intel Quad-Core Processor\nMemory: 8GB RAM Module\nStorage: 512GB High-Speed SATA SSD\nGraphics: Integrated Ultra-HD Graphics\nNetworking: Gigabit Ethernet & Wi-Fi Ready\nForm Factor: Modern Space-saving Layout";
-        } else if (cat.includes("printer")) {
-          specStr = "Type: Multi-function All-in-One Printer\nResolution: 1200 x 1200 DPI clear print layout\nSpeed: Up to 20 text print pages per minute\nConnectivity: Smart Wi-Fi Wireless Print Capability\nPaper Handling: 100-slice capacity A4 load tray";
-        } else {
-          specStr = "Connectivity: Universal High-performance Connection\nForm Factor: Portable lightweight layout\nCompatibility: Multi-OS cross-platform ready\nBuild Quality: Reinforced rugged housing";
-        }
+        specStr = productForm.specificationsStr.trim();
       } else if (productForm.description && productForm.description.trim()) {
-        // No explicit specs outline, but they typed a commodity description. Let's try to extract key:value specs lines if present.
-        const lines = productForm.description.split("\n").map(l => l.trim());
-        const extractedSpecs = lines.filter(l => {
-          const hasColon = l.includes(":") && l.indexOf(":") > 2 && l.indexOf(":") < l.length - 2;
-          return hasColon && l.length > 5 && l.length < 90;
+        const descText = productForm.description;
+        const specsList: string[] = [];
+        
+        const lines = descText.split("\n").map(l => l.trim());
+        const colonLines = lines.filter(l => {
+          const idx = l.indexOf(":");
+          return idx > 1 && idx < l.length - 1 && l.length > 5 && l.length < 80;
         });
-        if (extractedSpecs.length >= 1) {
-          specStr = extractedSpecs.join("\n");
+        
+        if (colonLines.length > 0) {
+          specsList.push(...colonLines);
         } else {
-          specStr = "";
+          const ramMatch = descText.match(/\b(\d+GB|\d+gb|\d+ GB|\d+ gb)\s*(RAM|ram|DDR\d|Unified|Memory)\b/i) || descText.match(/\b(8GB|16GB|24GB|32GB|64GB|128GB)\b/i);
+          if (ramMatch) specsList.push(`Memory: ${ramMatch[1] || ramMatch[0]}`);
+
+          const cpuMatch = descText.match(/\b(Core i\d|Ryzen \d|M\d Pro|M\d Max|M\d Ultra|Intel|AMD|Snapdragon|Apple M\d|M3|M4)\b/i);
+          if (cpuMatch) specsList.push(`Processor: ${cpuMatch[0]}`);
+
+          const ssdMatch = descText.match(/\b(\d+GB|\d+TB|\d+ gb|\d+ tb|1TB|2TB|512GB|256GB)\s*(SSD|NVMe|Storage|ROM|Hard Drive)\b/i) || descText.match(/\b(256GB|512GB|1TB|2TB)\b/i);
+          if (ssdMatch) specsList.push(`Storage: ${ssdMatch[1] || ssdMatch[0]}`);
+
+          const displayMatch = descText.match(/\b(\d+(\.\d+)?-inch|\d+(\.\d+)? inch|\d+["”'])\b/i);
+          if (displayMatch) specsList.push(`Display: ${displayMatch[0]}`);
+
+          const graphicsMatch = descText.match(/\b(RTX\s*\d{4}|GTX\s*\d{4}|Radeon|GeForce|Iris Xe|Intel HD|NVIDIA)\b/i);
+          if (graphicsMatch) specsList.push(`Graphics: ${graphicsMatch[0]}`);
+
+          const connMatch = descText.match(/\b(WiFi\s*\d?|Wi-Fi\s*\d?|Bluetooth\s*\d?|5G|4G|Ethernet)\b/i);
+          if (connMatch) specsList.push(`Connectivity: ${connMatch[0]}`);
         }
+        specStr = specsList.join("\n");
       } else {
         specStr = "";
       }
