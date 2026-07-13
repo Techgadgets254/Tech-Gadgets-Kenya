@@ -6,6 +6,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { motion } from "motion/react";
 import { useStore } from "../StoreContext";
+import Pagination from "./Pagination";
 import { 
   SlidersHorizontal, 
   RotateCcw, 
@@ -958,51 +959,16 @@ export default function ShopView() {
                 })}
               </motion.div>
 
-              {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-1.5 sm:gap-2 mt-12 pb-6 flex-wrap">
-                  <button
-                    disabled={currentPage === 1}
-                    onClick={() => {
-                      setCurrentPage(prev => Math.max(prev - 1, 1));
-                      const el = document.getElementById("shop-view-grid");
-                      if (el) el.scrollIntoView({ behavior: "smooth" });
-                    }}
-                    className="px-3 py-2 text-[11px] font-mono font-bold uppercase tracking-wider rounded-xl border border-white/10 hover:border-[#C5A059]/40 hover:text-[#C5A059] disabled:opacity-30 disabled:hover:text-white/40 disabled:hover:border-white/10 transition-all cursor-pointer bg-[#0F0F0F] text-white flex items-center gap-1 active:scale-95 animate-fadeIn"
-                  >
-                    Prev
-                  </button>
-                  
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => {
-                        setCurrentPage(page);
-                        const el = document.getElementById("shop-view-grid");
-                        if (el) el.scrollIntoView({ behavior: "smooth" });
-                      }}
-                      className={`w-9 h-9 rounded-xl text-xs font-mono font-bold transition-all border cursor-pointer active:scale-95 ${
-                        currentPage === page
-                          ? "bg-[#C5A059] text-black border-[#C5A059] font-extrabold shadow-md"
-                          : "bg-[#0F0F0F] text-white border-white/10 hover:border-[#C5A059]/40 hover:text-[#C5A059]"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
-
-                  <button
-                    disabled={currentPage === totalPages}
-                    onClick={() => {
-                      setCurrentPage(prev => Math.min(prev + 1, totalPages));
-                      const el = document.getElementById("shop-view-grid");
-                      if (el) el.scrollIntoView({ behavior: "smooth" });
-                    }}
-                    className="px-3 py-2 text-[11px] font-mono font-bold uppercase tracking-wider rounded-xl border border-white/10 hover:border-[#C5A059]/40 hover:text-[#C5A059] disabled:opacity-30 disabled:hover:text-white/40 disabled:hover:border-white/10 transition-all cursor-pointer bg-[#0F0F0F] text-white flex items-center gap-1 active:scale-95 animate-fadeIn"
-                  >
-                    Next
-                  </button>
-                </div>
-              )}
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredProducts.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+                onPageChange={setCurrentPage}
+                itemNameSingular="product"
+                itemNamePlural="products"
+                scrollToId="shop-view-grid"
+              />
             </div>
           )}
 

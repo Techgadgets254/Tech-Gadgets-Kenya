@@ -6,6 +6,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useStore } from "../StoreContext";
+import Pagination from "./Pagination";
 import { 
   Plus, 
   Trash2, 
@@ -4045,49 +4046,15 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
               </div>
 
               {/* Table Footer with Entries Info & Numbered Pagination */}
-              {totalInventoryPages > 1 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 bg-[#0F0F0F] border border-white/10 rounded-2xl p-4 shadow-md font-mono text-[11px] text-white/50">
-                  <div>
-                    Showing <span className="text-[#C5A059] font-bold">{(inventoryPage - 1) * INVENTORY_ITEMS_PER_PAGE + 1}</span> to{" "}
-                    <span className="text-[#C5A059] font-bold">
-                      {Math.min(inventoryPage * INVENTORY_ITEMS_PER_PAGE, sortedProducts.length)}
-                    </span> of{" "}
-                    <span className="text-white font-bold">{sortedProducts.length}</span> warehouse assets
-                  </div>
-                  
-                  <div className="flex items-center gap-1">
-                    <button
-                      disabled={inventoryPage === 1}
-                      onClick={() => setInventoryPage(prev => Math.max(prev - 1, 1))}
-                      className="px-2.5 py-1 text-[10px] font-bold uppercase rounded-lg border border-white/10 hover:border-[#C5A059]/40 hover:text-[#C5A059] disabled:opacity-30 disabled:hover:text-white/40 disabled:hover:border-white/10 transition-all cursor-pointer bg-[#0F0F0F] text-white active:scale-95"
-                    >
-                      Prev
-                    </button>
-                    
-                    {Array.from({ length: totalInventoryPages }, (_, i) => i + 1).map((page) => (
-                      <button
-                        key={page}
-                        onClick={() => setInventoryPage(page)}
-                        className={`w-7 h-7 rounded-lg text-[10px] font-bold transition-all border cursor-pointer active:scale-95 ${
-                          inventoryPage === page
-                            ? "bg-[#C5A059] text-black border-[#C5A059] font-extrabold"
-                            : "bg-[#0F0F0F] text-white border-white/10 hover:border-[#C5A059]/40 hover:text-[#C5A059]"
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    ))}
-
-                    <button
-                      disabled={inventoryPage === totalInventoryPages}
-                      onClick={() => setInventoryPage(prev => Math.min(prev + 1, totalInventoryPages))}
-                      className="px-2.5 py-1 text-[10px] font-bold uppercase rounded-lg border border-white/10 hover:border-[#C5A059]/40 hover:text-[#C5A059] disabled:opacity-30 disabled:hover:text-white/40 disabled:hover:border-white/10 transition-all cursor-pointer bg-[#0F0F0F] text-white active:scale-95"
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              )}
+              <Pagination
+                currentPage={inventoryPage}
+                totalPages={totalInventoryPages}
+                totalItems={sortedProducts.length}
+                itemsPerPage={INVENTORY_ITEMS_PER_PAGE}
+                onPageChange={setInventoryPage}
+                itemNameSingular="warehouse asset"
+                itemNamePlural="warehouse assets"
+              />
             </div>
           )}
 

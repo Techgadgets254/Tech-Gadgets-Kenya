@@ -164,6 +164,15 @@ service cloud.firestore {
         && data.createdAt is string && data.createdAt.size() <= 100;
     }
 
+    function isValidWhatsAppClick(data) {
+      return data.page is string && data.page.size() > 0 && data.page.size() <= 100
+        && data.referralSource is string && data.referralSource.size() <= 1000
+        && (!data.keys().hasAll(['productName']) || (data.productName is string && data.productName.size() <= 300))
+        && (!data.keys().hasAll(['productId']) || (data.productId is string && data.productId.size() <= 128))
+        && (!data.keys().hasAll(['userId']) || (data.userId is string && data.userId.size() <= 128))
+        && data.createdAt is string && data.createdAt.size() <= 100;
+    }
+
     // --- Collection Routes ---
 
     // Products collection: anybody can browse (read/list), only admins can edit products
@@ -310,6 +319,14 @@ service cloud.firestore {
     // - Only administrators can read or list them
     match /search_queries/{queryId} {
       allow create: if isValidSearchQuery(incoming());
+      allow read, list, delete: if isAdmin();
+    }
+
+    // WhatsApp Clicks logs collection:
+    // - Anyone can log clicks (create)
+    // - Only administrators can read or list them
+    match /whatsapp_clicks/{clickId} {
+      allow create: if isValidWhatsAppClick(incoming());
       allow read, list, delete: if isAdmin();
     }
   }

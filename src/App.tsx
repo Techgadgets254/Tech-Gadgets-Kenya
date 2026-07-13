@@ -26,6 +26,28 @@ import { motion, AnimatePresence } from "motion/react";
 
 function StoreLayout() {
   const { activeView, authLoading, isAuthModalOpen, selectedProductId, products } = useStore();
+  const [isWhatsAppVisible, setIsWhatsAppVisible] = React.useState(true);
+  const lastScrollTopRef = React.useRef(0);
+
+  React.useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      
+      if (scrollTop <= 50) {
+        setIsWhatsAppVisible(true);
+      } else if (scrollTop > lastScrollTopRef.current) {
+        // Scrolling down - hide
+        setIsWhatsAppVisible(false);
+      } else {
+        // Scrolling up - show
+        setIsWhatsAppVisible(true);
+      }
+      lastScrollTopRef.current = scrollTop <= 0 ? 0 : scrollTop;
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   React.useEffect(() => {
     window.scrollTo(0, 0);
@@ -122,19 +144,53 @@ function StoreLayout() {
     return `https://wa.me/${phone}`;
   }, [activeProduct]);
 
+  const whatsappLabel = React.useMemo(() => {
+    switch (activeView) {
+      case "product-details":
+        return "Ask about this product";
+      case "checkout":
+        return "Need checkout assistance?";
+      case "shop":
+        return "Inquire about inventory";
+      case "news":
+        return "Discuss tech news";
+      default:
+        return "Direct WhatsApp Chat";
+    }
+  }, [activeView]);
+
   const handleWhatsAppClick = async () => {
+    // 1. Device vibration feedback for mobile
+    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      try {
+        navigator.vibrate(50);
+      } catch (e) {
+        console.warn("Vibration feedback not supported or blocked by user/browser:", e);
+      }
+    }
+
+    // 2. Log engagement metrics to whatsapp_clicks Firestore collection
     try {
       const { collection, addDoc } = await import("firebase/firestore");
       const { db, auth } = await import("./firebase");
-      const activityCol = collection(db, "activity_logs");
-      await addDoc(activityCol, {
-        type: "whatsapp_click",
-        target: activeProduct ? activeProduct.name : "General Inquiry",
+      
+      let referral = document.referrer || "direct";
+      const urlParams = new URLSearchParams(window.location.search);
+      const utmSource = urlParams.get("utm_source");
+      if (utmSource) {
+        referral = `${referral} (utm_source: ${utmSource})`;
+      }
+
+      await addDoc(collection(db, "whatsapp_clicks"), {
+        page: activeView,
+        referralSource: referral,
+        productName: activeProduct ? activeProduct.name : null,
+        productId: activeProduct ? activeProduct.id : null,
         userId: auth.currentUser?.uid || null,
         createdAt: new Date().toISOString()
       });
     } catch (err) {
-      console.warn("Failed tracking whatsapp click:", err);
+      console.warn("Failed logging whatsapp engagement metric:", err);
     }
   };
 
@@ -282,9 +338,14 @@ function StoreLayout() {
       {/* Persistent Floating WhatsApp Chat Button */}
       {activeView !== "admin-dashboard" && activeView !== "client-dashboard" && (
         <motion.a
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, ease: "easeOut", delay: 1 }}
+          initial={{ opacity: 0, scale: 0.8, y: 0 }}
+          animate={{ 
+            opacity: isWhatsAppVisible ? 1 : 0, 
+            scale: isWhatsAppVisible ? 1 : 0,
+            y: isWhatsAppVisible ? 0 : 20
+          }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
+          style={{ pointerEvents: isWhatsAppVisible ? "auto" : "none" }}
           href={whatsappUrl}
           target="_blank"
           rel="noopener noreferrer"
@@ -292,11 +353,11 @@ function StoreLayout() {
           onClick={handleWhatsAppClick}
           onMouseEnter={playSubtleWhatsappHoverSound}
           className="fixed bottom-6 left-6 z-50 bg-[#25D366] hover:bg-[#20ba5a] hover:scale-105 active:scale-95 transition-all p-3.5 sm:p-4 rounded-full shadow-2xl flex items-center justify-center group border border-white/10"
-          title="Immediate Chat on WhatsApp"
+          title={whatsappLabel}
           id="floating-whatsapp-trigger"
         >
           <span className="absolute left-full ml-3 px-2.5 py-1 rounded-md bg-[#0F0F0F]/95 text-[10px] font-mono font-bold uppercase tracking-wider text-white border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap hidden sm:inline-block">
-            Direct WhatsApp Chat
+            {whatsappLabel}
           </span>
           <svg
             className="w-5 h-5 sm:w-6 sm:h-6 text-black fill-current"
