@@ -89,7 +89,9 @@ export default function CheckoutView() {
     setInvoiceOrderId,
     loginWithGoogle,
     affiliates,
-    addCustomNotification
+    addCustomNotification,
+    setIsAuthModalOpen,
+    setAuthModalMode
   } = useStore();
 
   // Shipments state
@@ -397,7 +399,12 @@ export default function CheckoutView() {
   // Validate mobile formats & card details
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user) {
+      setIsAuthModalOpen(true);
+      setAuthModalMode("login");
+      alert("Please log in or sign up to finalize your payment and place your order.");
+      return;
+    }
 
     if (!customerName || !customerPhone || !deliveryDetails) {
       alert("Please fill in all requested fields to dispatch billing");
@@ -1055,32 +1062,19 @@ export default function CheckoutView() {
               </div>
             </div>
 
-            {/* Security authorization roadblock (Strict Firebase Auth tracking) */}
-            {!user ? (
-              <div className="bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/20 rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center">
-                <div className="p-3 bg-[#0F0F0F] rounded-full border border-[#C5A059]/30 text-[#C5A059] mb-3 shrink-0">
-                  <Key className="w-6 h-6 text-[#C5A059]" />
+            {/* Guest Checkout notice or Auth status */}
+            <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 shadow-xs animate-fadeIn">
+              {!user && (
+                <div className="bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/20 rounded-2xl p-4 mb-5 text-left text-xs leading-relaxed font-sans">
+                  <strong>Guest Checkout Active:</strong> You are currently placing an order as a guest. You will be prompted to sign in with Google to finalize your payment, secure your digital receipts, and track dispatch logs in real-time.
                 </div>
-                <h3 className="font-serif italic font-light text-xl text-white">Authentication Required</h3>
-                <p className="text-white/65 text-xs mt-1.5 max-w-sm leading-relaxed">
-                  Tech Gadgets Kenya requires you to log in with Google to tie purchases directly to your profile. This is required to access your invoices, print them, and track delivery logs.
-                </p>
-                <button
-                  onClick={loginWithGoogle}
-                  className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-black font-sans text-xs font-bold px-6 py-2.5 rounded-xl shadow-xs transition-colors mt-4 flex items-center gap-2 cursor-pointer"
-                >
-                  <CreditCard className="w-4 h-4 text-black" />
-                  <span>Authorize with Google Profile</span>
-                </button>
-              </div>
-            ) : (
-              <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 shadow-xs animate-fadeIn">
-                <h2 className="font-sans font-semibold text-lg text-white pb-3 border-b border-white/10 mb-5 flex items-center gap-2">
-                  <Truck className="w-5 h-5 text-[#C5A059]" />
-                  Shipping & Courier Dispatch
-                </h2>
+              )}
+              <h2 className="font-sans font-semibold text-lg text-white pb-3 border-b border-white/10 mb-5 flex items-center gap-2">
+                <Truck className="w-5 h-5 text-[#C5A059]" />
+                Shipping & Courier Dispatch
+              </h2>
 
-                <form onSubmit={handleCheckoutSubmit} className="space-y-4">
+              <form onSubmit={handleCheckoutSubmit} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="font-mono text-[10px] font-bold text-white/35 block mb-1 uppercase">RECIPIENT NAME</label>
@@ -1279,7 +1273,6 @@ export default function CheckoutView() {
                   </button>
                 </form>
               </div>
-            )}
 
           </div>
 
@@ -1489,7 +1482,7 @@ export default function CheckoutView() {
           <div className="grid grid-cols-2 gap-3 bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-left text-xs mb-6 font-sans">
             <div>
               <span className="text-white/30 block text-[9.5px] font-mono font-bold uppercase tracking-wide">Recipient Merchant</span>
-              <span className="text-white font-semibold">Tech Gadgets Kenya</span>
+              <span className="text-white font-semibold">Tech Soko Kenya</span>
             </div>
             <div>
               <span className="text-white/30 block text-[9.5px] font-mono font-bold uppercase tracking-wide">Till Number</span>
@@ -1497,7 +1490,7 @@ export default function CheckoutView() {
             </div>
             <div className="mt-2.5">
               <span className="text-white/30 block text-[9.5px] font-mono font-bold uppercase tracking-wide">System Reference</span>
-              <span className="text-white font-semibold font-mono text-[11px]">TGK-{mpesaQrOrderId.substring(0, 8).toUpperCase()}</span>
+              <span className="text-white font-semibold font-mono text-[11px]">TSK-{mpesaQrOrderId.substring(0, 8).toUpperCase()}</span>
             </div>
             <div className="mt-2.5">
               <span className="text-white/30 block text-[9.5px] font-mono font-bold uppercase tracking-wide">Invoice Amount</span>
@@ -1629,11 +1622,11 @@ export default function CheckoutView() {
                 <div className="space-y-4">
                   <div className="bg-white/90 border border-black/5 rounded-xl p-3.5 space-y-2 text-xs text-center border-l-4 border-l-[#4f9e31]">
                     <p className="font-semibold text-[13px] text-gray-800 leading-snug">
-                      Do you want to pay KES {mpesaQrAmount.toLocaleString()} to Tech Gadgets Kenya?
+                      Do you want to pay KES {mpesaQrAmount.toLocaleString()} to Tech Soko Kenya?
                     </p>
                     <div className="pt-2 border-t border-gray-200 flex justify-between font-mono text-[10.5px] font-bold text-[#4f9e31]">
                       <span>TILL NO: 9309020</span>
-                      <span>REF: TGK-{mpesaQrOrderId.substring(0,6).toUpperCase()}</span>
+                      <span>REF: TSK-{mpesaQrOrderId.substring(0,6).toUpperCase()}</span>
                     </div>
                   </div>
 

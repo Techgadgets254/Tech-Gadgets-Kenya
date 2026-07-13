@@ -755,7 +755,7 @@ export default function AdminDashboard() {
       phone = "254" + phone;
     }
 
-    const message = `Hello! This is Tech Gadgets Kenya. You requested a price drop notification for "${alert.productName}". Good news! The price has dropped to KES ${alert.currentPrice.toLocaleString()} (your target price was KES ${alert.targetPrice.toLocaleString()}). Place your order now at Tech Gadgets Kenya!`;
+    const message = `Hello! This is Tech Soko Kenya. You requested a price drop notification for "${alert.productName}". Good news! The price has dropped to KES ${alert.currentPrice.toLocaleString()} (your target price was KES ${alert.targetPrice.toLocaleString()}). Place your order now at Tech Soko Kenya!`;
     const whatsappUrl = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, "_blank");
   };
@@ -1461,7 +1461,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
           price: `${p.price} KES`,
           link: `${window.location.origin}/?view=product-details&id=${p.id}`,
           image_link: p.image || "https://images.unsplash.com/photo-1546868871-7041f2a55e12",
-          brand: p.brand || "Tech Gadgets"
+          brand: p.brand || "Tech Soko"
         };
       });
 
@@ -4385,7 +4385,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
               <div>
                 <h3 className="text-white font-semibold text-lg font-sans">Database of Registered Subscribers</h3>
                 <p className="text-white/40 text-xs mt-1">
-                  Manage users synced from live Tech Gadgets Kenya newsletter subscriptions or fallback storages.
+                  Manage users synced from live Tech Soko Kenya newsletter subscriptions or fallback storages.
                 </p>
               </div>
 

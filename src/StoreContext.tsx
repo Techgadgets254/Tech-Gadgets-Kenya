@@ -138,8 +138,39 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [productsLoading, setProductsLoading] = useState(true);
+  const [products, setProducts] = useState<Product[]>(() => {
+    try {
+      const cached = localStorage.getItem("tsk_products_cache");
+      const cacheTime = localStorage.getItem("tsk_products_cache_time");
+      if (cached && cacheTime) {
+        const parsedTime = parseInt(cacheTime, 10);
+        // 5 minutes in milliseconds
+        if (Date.now() - parsedTime < 5 * 60 * 1000) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            console.log("Loaded products from client-side cache");
+            return parsed;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Error reading products cache from localStorage:", e);
+    }
+    return [];
+  });
+
+  const [productsLoading, setProductsLoading] = useState(() => {
+    try {
+      const cacheTime = localStorage.getItem("tsk_products_cache_time");
+      if (cacheTime) {
+        const parsedTime = parseInt(cacheTime, 10);
+        if (Date.now() - parsedTime < 5 * 60 * 1000) {
+          return false; // Valid cache, don't trigger loading screen
+        }
+      }
+    } catch (e) {}
+    return true;
+  });
   const [productsLimit, setProductsLimit] = useState(12);
   const [hasMoreProducts, setHasMoreProducts] = useState(true);
 
@@ -566,6 +597,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             return dateB - dateA;
           });
           setProducts(sorted);
+          try {
+            localStorage.setItem("tsk_products_cache", JSON.stringify(sorted));
+            localStorage.setItem("tsk_products_cache_time", Date.now().toString());
+          } catch (err) {
+            console.warn("Failed to write products to localStorage cache:", err);
+          }
           setHasMoreProducts(snapshot.docs.length >= productsLimit);
           setProductsLoading(false);
         }

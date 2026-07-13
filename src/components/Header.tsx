@@ -89,10 +89,6 @@ export default function Header() {
 
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [customLogo, setCustomLogo] = useState<string | null>(() => {
-    return localStorage.getItem("tgk_custom_logo");
-  });
-
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -100,25 +96,6 @@ export default function Header() {
     if (activeView !== "shop") {
       setActiveView("shop");
     }
-  };
-
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        setCustomLogo(base64String);
-        localStorage.setItem("tgk_custom_logo", base64String);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleResetLogo = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCustomLogo(null);
-    localStorage.removeItem("tgk_custom_logo");
   };
 
   return (
@@ -133,7 +110,7 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="h-16 flex items-center justify-between gap-4">
           
-          {/* Brand Logo & Custom Upload Interaction */}
+          {/* Brand Logo & Static Setup */}
           <div 
             id="brand-logo" 
             className="flex items-center gap-3 cursor-pointer shrink-0 group relative select-none transition-transform duration-300 ease-in-out hover:scale-105"
@@ -142,7 +119,7 @@ export default function Header() {
             {/* The rotate-45 framing wrapper with premium gold glow transition */}
             <div className="relative w-9 h-9 bg-[#0F0F0F] rounded-lg flex items-center justify-center shadow-lg shrink-0 border border-[#C5A059]/30 overflow-hidden transition-all duration-300 group-hover:scale-110 group-hover:shadow-[0_0_15px_rgba(197,160,89,0.7)] group-hover:border-[#C5A059]">
               <img 
-                src={customLogo || brandLogo} 
+                src={brandLogo} 
                 alt="Tech Soko Kenya Logo" 
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"
@@ -150,25 +127,14 @@ export default function Header() {
             </div>
 
             {/* Custom Brand Labels */}
-            {!customLogo ? (
-              <div className="text-left">
-                <span className="font-serif italic text-base sm:text-lg font-bold tracking-[0.12em] uppercase text-white block leading-none">
-                  TECH SOKO
-                </span>
-                <span className="font-mono text-[8px] tracking-[0.16em] text-[#C5A059] block font-bold mt-1">
-                  KENYA • PREMIUM
-                </span>
-              </div>
-            ) : (
-              <div className="text-left">
-                <span className="font-serif italic text-sm sm:text-base font-bold tracking-[0.08em] uppercase text-[#C5A059] block leading-none">
-                  CUSTOM LOGO
-                </span>
-                <span className="font-mono text-[8px] tracking-[0.12em] text-white/50 block font-semibold mt-1">
-                  ACTIVE PARTNER
-                </span>
-              </div>
-            )}
+            <div className="text-left">
+              <span className="font-serif italic text-base sm:text-lg font-bold tracking-[0.12em] uppercase text-white block leading-none">
+                TECH SOKO
+              </span>
+              <span className="font-mono text-[8px] tracking-[0.16em] text-[#C5A059] block font-bold mt-1">
+                KENYA • PREMIUM
+              </span>
+            </div>
           </div>
 
           {/* Global Search Bar (Optimized desktop viewport) */}

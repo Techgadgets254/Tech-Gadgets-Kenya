@@ -125,7 +125,7 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
 
   const handleStartPayment = async () => {
     setStep("initializing");
-    addLog(`Contacting Tech Gadgets transaction bridge for Order ${orderId}...`);
+    addLog(`Contacting Tech Soko transaction bridge for Order ${orderId}...`);
     addLog(`Authenticating currency parameters and invoice sum: KES ${totalAmount.toLocaleString()}`);
 
     try {

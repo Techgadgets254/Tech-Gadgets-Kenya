@@ -5,6 +5,7 @@
 
 import React, { useState, useMemo } from "react";
 import { useStore } from "../StoreContext";
+import LazyImage from "./LazyImage";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { 
   ArrowLeft, 
@@ -131,7 +132,7 @@ export default function ProductDetailsView() {
   // Simulated static and dynamic reviews builder
   const displayedReviews = useMemo(() => {
     const base = [
-      { name: "Edwin K. (Senior Lead Dev)", rating: 5, date: "3 weeks ago", text: "Exceptional hardware. Processed payment via M-Pesa STK and received the MacBook within 2 hours at our office along Waiyaki Way. Highly recommend Tech Gadgets Kenya for genuine equipment.", location: "Nairobi, KE" },
+      { name: "Edwin K. (Senior Lead Dev)", rating: 5, date: "3 weeks ago", text: "Exceptional hardware. Processed payment via M-Pesa STK and received the MacBook within 2 hours at our office along Waiyaki Way. Highly recommend Tech Soko Kenya for genuine equipment.", location: "Nairobi, KE" },
       { name: "Phyllis N. (Studio Director)", rating: 5, date: "1 month ago", text: "Genuine article verified through the manufacturer portal. The screens look flawless. Best local pricing for authentic titanium specs.", location: "Mombasa, KE" },
       { name: "Abdi H. (Freelance Architect)", rating: 4, date: "2 months ago", text: "Clean transactional clearance. Checked specs thoroughly; they match the physical inventory sheet exactly. Stock levels are live, which is incredible.", location: "Kisumu, KE" }
     ];
@@ -463,6 +464,7 @@ export default function ProductDetailsView() {
             <img
               src={activeImage || product.image}
               alt={product.name}
+              loading="lazy"
               referrerPolicy="no-referrer"
               className="w-full h-full object-contain p-3 transition-transform duration-75 ease-out"
               style={zoomStyle}
@@ -484,7 +486,7 @@ export default function ProductDetailsView() {
                         : "border-white/10 hover:border-white/20"
                     }`}
                   >
-                    <img src={img} alt={`Asset View ${index + 1}`} className="w-full h-full object-cover" />
+                    <LazyImage src={img} alt={`Asset View ${index + 1}`} className="w-full h-full object-cover" />
                   </button>
                 );
               })}
@@ -745,7 +747,7 @@ export default function ProductDetailsView() {
                   <button
                     type="button"
                     onClick={() => {
-                      const shareText = `Check out ${product.name} (KES ${product.price.toLocaleString()}) at Tech Gadgets Kenya!`;
+                      const shareText = `Check out ${product.name} (KES ${product.price.toLocaleString()}) at Tech Soko Kenya!`;
                       const shareUrl = `${window.location.origin}/?product=${product.id}`;
                       if (navigator.share) {
                         navigator.share({
@@ -767,7 +769,7 @@ export default function ProductDetailsView() {
 
                   <a
                     href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                      `Check out this premium gadget on Tech Gadgets Kenya: *${product.name}* (${product.brand} - ${product.category})!\n\n💰 Price: KES ${product.price.toLocaleString()}\n📦 Stock: ${product.stock} units available\n\nTake a look here: ${window.location.origin}/?product=${product.id}`
+                      `Check out this premium gadget on Tech Soko Kenya: *${product.name}* (${product.brand} - ${product.category})!\n\n💰 Price: KES ${product.price.toLocaleString()}\n📦 Stock: ${product.stock} units available\n\nTake a look here: ${window.location.origin}/?product=${product.id}`
                     )}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -1017,7 +1019,7 @@ export default function ProductDetailsView() {
             ) : reviewSuccess ? (
               <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-4 rounded-xl text-xs space-y-1 my-4">
                 <p className="font-bold">✓ Feedback Logged Successfully!</p>
-                <p className="text-white/60">Your review and star ratings have been compiled. Thank you for rating Tech Gadgets Kenya.</p>
+                <p className="text-white/60">Your review and star ratings have been compiled. Thank you for rating Tech Soko Kenya.</p>
               </div>
             ) : (
               <form onSubmit={handleReviewSubmit} className="space-y-4">
@@ -1174,10 +1176,9 @@ export default function ProductDetailsView() {
                 className="bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden p-4 cursor-pointer hover:border-[#C5A059]/55 transition-all flex gap-4 items-center group shadow-md"
               >
                 <div className="w-16 h-16 rounded-xl overflow-hidden bg-[#1A1A1A] shrink-0">
-                  <img
+                  <LazyImage
                     src={item.image}
                     alt={item.name}
-                    referrerPolicy="no-referrer"
                     className="w-full h-full object-cover transition-transform group-hover:scale-102"
                   />
                 </div>

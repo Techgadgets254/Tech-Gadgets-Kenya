@@ -618,7 +618,7 @@ export default function HomeView() {
             Secure Safaricom Till Verification
           </h3>
           <p className="text-white/40 text-xs sm:text-sm mt-1 leading-relaxed border-l-2 border-[#C5A059]/30 pl-3">
-            Tech Gadgets Kenya utilizes registered Buy Goods Till terminals. When checking out, enter your registered Safaricom number to trigger an instant secure STK push pin prompt. Receipts update in seconds, generating clean downloadable tax invoices.
+            Tech Soko Kenya utilizes registered Buy Goods Till terminals. When checking out, enter your registered Safaricom number to trigger an instant secure STK push pin prompt. Receipts update in seconds, generating clean downloadable tax invoices.
           </p>
         </div>
         <div className="flex gap-4 shrink-0 font-mono text-xs text-[#C5A059] bg-white/[0.02] border border-white/10 p-4 rounded-xl">

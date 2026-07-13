@@ -509,7 +509,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
           {/* Title Header */}
           <div className="mb-5">
             <span className="font-mono text-[9px] uppercase tracking-widest text-[#C5A059] font-bold">
-              Tech Gadgets Kenya Portal
+              Tech Soko Kenya Portal
             </span>
             <h2 className={`text-xl font-sans font-black tracking-tight mt-1 ${isLight ? "text-zinc-900" : "text-white"}`}>
               {isResetMode 
