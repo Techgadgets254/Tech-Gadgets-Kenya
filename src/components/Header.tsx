@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useStore } from "../StoreContext";
+import brandLogo from "../assets/images/tech_soko_logo_1783961449391.jpg";
 import { 
   ShoppingBag, 
   User as UserIcon, 
@@ -21,7 +22,8 @@ import {
   Menu,
   X,
   Upload,
-  RotateCcw
+  RotateCcw,
+  Download
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -49,7 +51,22 @@ export default function Header() {
   const [desktopFocused, setDesktopFocused] = useState(false);
   const [mobileFocused, setMobileFocused] = useState(false);
 
-  const trimmedQuery = searchQuery.trim().toLowerCase();
+  const [localSearch, setLocalSearch] = useState(searchQuery);
+
+  // Sync local search when global searchQuery changes
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+  }, [searchQuery]);
+
+  // Debounce the search query update to 250ms
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchQuery(localSearch);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [localSearch, setSearchQuery]);
+
+  const trimmedQuery = localSearch.trim().toLowerCase();
   const suggestions = React.useMemo(() => {
     if (!trimmedQuery) return { categories: [], products: [] };
 
@@ -70,7 +87,7 @@ export default function Header() {
       categories: matchingCategories,
       products: matchingProducts
     };
-  }, [searchQuery, products]);
+  }, [trimmedQuery, products]);
 
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -81,7 +98,7 @@ export default function Header() {
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
+    setLocalSearch(e.target.value);
     if (activeView !== "shop") {
       setActiveView("shop");
     }
@@ -122,31 +139,23 @@ export default function Header() {
           <div 
             id="brand-logo" 
             className="flex items-center gap-3 cursor-pointer shrink-0 group relative select-none transition-transform duration-300 ease-in-out hover:scale-105"
-            onClick={() => { setActiveView("home"); setSearchQuery(""); setMobileMenuOpen(false); }}
+            onClick={() => { setActiveView("home"); setLocalSearch(""); setSearchQuery(""); setMobileMenuOpen(false); }}
           >
             {/* The rotate-45 framing wrapper with premium gold glow transition */}
-            <div className="relative w-9 h-9 bg-gradient-to-tr from-[#C5A059] to-[#8E6E3E] rounded-xs rotate-45 flex items-center justify-center shadow-lg shrink-0 border border-[#C5A059]/20 overflow-hidden transition-all duration-300 group-hover:scale-110 group-hover:shadow-[0_0_15px_rgba(197,160,89,0.7)] group-hover:border-[#C5A059]">
-              {customLogo ? (
-                <div className="-rotate-45 w-full h-full p-1 bg-black/50">
-                  <img 
-                    src={customLogo} 
-                    alt="Custom partner logo" 
-                    className="w-full h-full object-contain rounded-xs"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-              ) : (
-                <div className="-rotate-45">
-                  <Monitor className="w-4 h-4 text-black" />
-                </div>
-              )}
+            <div className="relative w-9 h-9 bg-[#0F0F0F] rounded-lg flex items-center justify-center shadow-lg shrink-0 border border-[#C5A059]/30 overflow-hidden transition-all duration-300 group-hover:scale-110 group-hover:shadow-[0_0_15px_rgba(197,160,89,0.7)] group-hover:border-[#C5A059]">
+              <img 
+                src={customLogo || brandLogo} 
+                alt="Tech Soko Kenya Logo" 
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
             </div>
 
             {/* Custom Brand Labels */}
             {!customLogo ? (
               <div className="text-left">
-                <span className="font-serif italic text-base sm:text-lg font-light tracking-[0.12em] uppercase text-white block leading-none">
-                  TECH GADGETS
+                <span className="font-serif italic text-base sm:text-lg font-bold tracking-[0.12em] uppercase text-white block leading-none">
+                  TECH SOKO
                 </span>
                 <span className="font-mono text-[8px] tracking-[0.16em] text-[#C5A059] block font-bold mt-1">
                   KENYA • PREMIUM
@@ -183,6 +192,16 @@ export default function Header() {
                 onChange={handleLogoUpload} 
                 className="hidden" 
               />
+              <span className="text-white/20 select-none text-[8px]">•</span>
+              <a 
+                href={customLogo || brandLogo}
+                download="tech_soko_kenya_logo.jpg"
+                className="text-[8px] font-mono font-bold text-[#C5A059] hover:text-white flex items-center gap-0.5 transition-colors cursor-pointer"
+                title="Download brand logo"
+              >
+                <Download className="w-2 h-2" />
+                <span>Download</span>
+              </a>
               {customLogo && (
                 <>
                   <span className="text-white/20 select-none text-[8px]">•</span>
@@ -207,16 +226,16 @@ export default function Header() {
             <Search className="w-4 h-4 text-white/30 absolute left-3.5 group-focus-within:text-[#C5A059] transition-colors pointer-events-none" />
             <input
               type="text"
-              value={searchQuery}
+              value={localSearch}
               onChange={handleSearchChange}
               onFocus={() => setDesktopFocused(true)}
               onBlur={() => setTimeout(() => setDesktopFocused(false), 200)}
               placeholder="Search specs, desktops, Kenyatta Ave bulletins..."
               className="w-full bg-[#161616] border border-white/10 hover:border-white/20 text-xs py-2.5 pl-10 pr-4 rounded-xl focus:outline-none focus:border-[#C5A059] focus:bg-[#1C1C1C] transition-all text-white placeholder-white/40 font-sans shadow-inner group-focus-within:ring-1 group-focus-within:ring-[#C5A059]/20"
             />
-            {searchQuery && (
+            {localSearch && (
               <button 
-                onClick={() => setSearchQuery("")}
+                onClick={() => { setLocalSearch(""); setSearchQuery(""); }}
                 className="absolute right-3 text-white/40 hover:text-white text-[10px] uppercase font-mono cursor-pointer"
               >
                 Clear
@@ -236,11 +255,12 @@ export default function Header() {
                       {suggestions.categories.map((cat, idx) => (
                         <button
                           key={idx}
-                          onClick={() => {
-                            setSearchQuery(cat);
-                            setActiveView("shop");
-                            setDesktopFocused(false);
-                          }}
+                        onClick={() => {
+                          setLocalSearch(cat);
+                          setSearchQuery(cat);
+                          setActiveView("shop");
+                          setDesktopFocused(false);
+                        }}
                           className="w-full text-left px-2 py-1.5 rounded-lg text-xs text-white/80 hover:bg-white/[0.04] hover:text-[#C5A059] transition-colors flex items-center justify-between font-medium cursor-pointer"
                         >
                           <span>{cat}</span>
@@ -490,16 +510,16 @@ export default function Header() {
           <Search className="w-3.5 h-3.5 text-white/30 absolute left-3 pointer-events-none group-focus-within:text-[#C5A059]" />
           <input
             type="text"
-            value={searchQuery}
+            value={localSearch}
             onChange={handleSearchChange}
             onFocus={() => setMobileFocused(true)}
             onBlur={() => setTimeout(() => setMobileFocused(false), 200)}
             placeholder="Search laptops, setups, printers..."
             className="w-full bg-[#161616] border border-white/10 text-xs py-2 pl-9 pr-8 rounded-xl focus:outline-none focus:border-[#C5A059] focus:bg-[#1E1E1E] text-white transition-all font-sans"
           />
-          {searchQuery && (
+          {localSearch && (
             <button
-              onClick={() => setSearchQuery("")}
+              onClick={() => { setLocalSearch(""); setSearchQuery(""); }}
               className="absolute right-3 text-[10px] font-mono text-white/40 hover:text-white cursor-pointer active:scale-95"
             >
               Esc
@@ -520,6 +540,7 @@ export default function Header() {
                       <button
                         key={idx}
                         onClick={() => {
+                          setLocalSearch(cat);
                           setSearchQuery(cat);
                           setActiveView("shop");
                           setMobileFocused(false);

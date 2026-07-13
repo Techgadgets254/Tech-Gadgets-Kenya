@@ -52,6 +52,100 @@ function highlightText(text: string, highlight: string) {
   }
 }
 
+// Custom Levenshtein Distance helper for spell-checking and spelling tolerance
+function getLevenshteinDistance(a: string, b: string): number {
+  const tmp = [];
+  let i, j, al = a.length, bl = b.length, r;
+  if (al === 0) return bl;
+  if (bl === 0) return al;
+  for (i = 0; i <= al; i++) tmp[i] = [i];
+  for (j = 1; j <= bl; j++) tmp[0][j] = j;
+  for (i = 1; i <= al; i++) {
+    for (j = 1; j <= bl; j++) {
+      r = a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1;
+      tmp[i][j] = Math.min(tmp[i - 1][j] + 1, tmp[i][j - 1] + 1, tmp[i - 1][j - 1] + r);
+    }
+  }
+  return tmp[al][bl];
+}
+
+// Custom Fuzzy Search ranker that searches name, category, and technical specifications
+function fuzzyMatchProducts(products: Product[], query: string): Product[] {
+  const qClean = query.trim().toLowerCase();
+  if (!qClean) return products;
+
+  const queryWords = qClean.split(/\s+/).filter(Boolean);
+  if (queryWords.length === 0) return products;
+
+  const scoredProducts = products.map(p => {
+    let score = 0;
+    const name = (p.name || "").toLowerCase();
+    const brand = (p.brand || "").toLowerCase();
+    const category = (p.category || "").toLowerCase();
+    const desc = (p.description || "").toLowerCase();
+    
+    // Construct specifications search string to search technical specs as requested
+    let specsStr = "";
+    if (p.specifications) {
+      specsStr = Object.entries(p.specifications)
+        .map(([k, v]) => `${k} ${v}`)
+        .join(" ")
+        .toLowerCase();
+    }
+
+    queryWords.forEach(word => {
+      // Direct substring matches
+      if (name.includes(word)) {
+        score += 50;
+        if (name.startsWith(word)) score += 20; // Prefix bonus
+      }
+      if (brand.includes(word)) {
+        score += 30;
+      }
+      if (category.includes(word)) {
+        score += 40;
+      }
+      if (specsStr.includes(word)) {
+        score += 45; // Technical specifications matching
+      }
+      if (desc.includes(word)) {
+        score += 10;
+      }
+
+      // Typos and close spellings using Levenshtein distance
+      const nameWords = name.split(/\s+/).filter(Boolean);
+      nameWords.forEach(nw => {
+        if (nw.length >= 3 && Math.abs(nw.length - word.length) <= 2) {
+          const distance = getLevenshteinDistance(nw, word);
+          if (distance <= 1) {
+            score += 25; // 1-character typo
+          } else if (distance === 2 && nw.length >= 5) {
+            score += 10; // 2-character typo
+          }
+        }
+      });
+      
+      const brandWords = brand.split(/\s+/).filter(Boolean);
+      brandWords.forEach(bw => {
+        if (bw.length >= 3 && Math.abs(bw.length - word.length) <= 1) {
+          const distance = getLevenshteinDistance(bw, word);
+          if (distance <= 1) {
+            score += 20;
+          }
+        }
+      });
+    });
+
+    return { product: p, score };
+  });
+
+  // Filter out products with 0 score (no matches), and sort descending by score
+  return scoredProducts
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(item => item.product);
+}
+
 export default function ShopView() {
   const { 
     products, 
@@ -97,6 +191,13 @@ export default function ShopView() {
   const [selectedBrand, setSelectedBrand] = useState<string>("All");
   const [sortBy, setSortBy] = useState<string>("default");
   const [onlyShowWishlist, setOnlyShowWishlist] = useState<boolean>(false);
+
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  // Reset currentPage to 1 when filters or search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedMainCategory, selectedCondition, selectedBrand, sortBy, onlyShowWishlist]);
 
   // Quick Buy interactive modal configurations
   const [quickBuyProduct, setQuickBuyProduct] = useState<Product | null>(null);
@@ -323,15 +424,9 @@ export default function ShopView() {
   const filteredProducts = useMemo(() => {
     let result = [...products];
 
-    // Search Query matching
+    // Search Query matching (Fuzzy search matching name, brand, category, and specifications)
     if (searchQuery.trim() !== "") {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        p => p.name.toLowerCase().includes(q) || 
-             p.brand.toLowerCase().includes(q) || 
-             p.category.toLowerCase().includes(q) ||
-             p.description.toLowerCase().includes(q)
-      );
+      result = fuzzyMatchProducts(result, searchQuery);
     }
 
     // Main Category Filter
@@ -354,7 +449,7 @@ export default function ShopView() {
       result = result.filter(p => wishlist.includes(p.id));
     }
 
-    // Sorting Logic
+    // Sorting Logic (Only sort if not using 'default' so that fuzzy matching score rank is preserved)
     if (sortBy === "price-low") {
       result.sort((a, b) => a.price - b.price);
     } else if (sortBy === "price-high") {
@@ -373,6 +468,12 @@ export default function ShopView() {
 
     return result;
   }, [products, searchQuery, selectedMainCategory, selectedCondition, selectedBrand, sortBy, onlyShowWishlist, wishlist]);
+
+  const ITEMS_PER_PAGE = 12;
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const paginatedProducts = useMemo(() => {
+    return filteredProducts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  }, [filteredProducts, currentPage]);
 
   return (
     <div id="shop-view-grid" className="animate-fadeIn">
@@ -680,7 +781,7 @@ export default function ShopView() {
                 animate="show"
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
               >
-                {filteredProducts.map((p) => {
+                {paginatedProducts.map((p) => {
                   const isLowStock = p.stock <= 5;
                   const isOutOfStock = p.stock === 0;
 
@@ -857,15 +958,48 @@ export default function ShopView() {
                 })}
               </motion.div>
 
-              {hasMoreProducts && (
-                <div className="flex justify-center mt-12 pb-6">
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-1.5 sm:gap-2 mt-12 pb-6 flex-wrap">
                   <button
-                    disabled={productsLoading}
-                    onClick={loadMoreProducts}
-                    className="bg-transparent border border-white/20 hover:border-[#C5A059]/60 text-white hover:text-[#C5A059] px-6 py-2.5 rounded-xl text-xs font-mono font-bold tracking-wider uppercase transition-all cursor-pointer shadow-md hover:shadow-[#C5A059]/10 hover:scale-102 active:scale-98 flex items-center gap-2"
+                    disabled={currentPage === 1}
+                    onClick={() => {
+                      setCurrentPage(prev => Math.max(prev - 1, 1));
+                      const el = document.getElementById("shop-view-grid");
+                      if (el) el.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="px-3 py-2 text-[11px] font-mono font-bold uppercase tracking-wider rounded-xl border border-white/10 hover:border-[#C5A059]/40 hover:text-[#C5A059] disabled:opacity-30 disabled:hover:text-white/40 disabled:hover:border-white/10 transition-all cursor-pointer bg-[#0F0F0F] text-white flex items-center gap-1 active:scale-95 animate-fadeIn"
                   >
-                    {productsLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#C5A059]" />}
-                    {productsLoading ? "Inventory Syncing..." : "Load More Premium Commodities"}
+                    Prev
+                  </button>
+                  
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => {
+                        setCurrentPage(page);
+                        const el = document.getElementById("shop-view-grid");
+                        if (el) el.scrollIntoView({ behavior: "smooth" });
+                      }}
+                      className={`w-9 h-9 rounded-xl text-xs font-mono font-bold transition-all border cursor-pointer active:scale-95 ${
+                        currentPage === page
+                          ? "bg-[#C5A059] text-black border-[#C5A059] font-extrabold shadow-md"
+                          : "bg-[#0F0F0F] text-white border-white/10 hover:border-[#C5A059]/40 hover:text-[#C5A059]"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+
+                  <button
+                    disabled={currentPage === totalPages}
+                    onClick={() => {
+                      setCurrentPage(prev => Math.min(prev + 1, totalPages));
+                      const el = document.getElementById("shop-view-grid");
+                      if (el) el.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="px-3 py-2 text-[11px] font-mono font-bold uppercase tracking-wider rounded-xl border border-white/10 hover:border-[#C5A059]/40 hover:text-[#C5A059] disabled:opacity-30 disabled:hover:text-white/40 disabled:hover:border-white/10 transition-all cursor-pointer bg-[#0F0F0F] text-white flex items-center gap-1 active:scale-95 animate-fadeIn"
+                  >
+                    Next
                   </button>
                 </div>
               )}

@@ -5,6 +5,7 @@
 
 import React, { useState } from "react";
 import { useStore } from "../StoreContext";
+import brandLogo from "../assets/images/tech_soko_logo_1783961449391.jpg";
 import { 
   Monitor, 
   CreditCard, 
@@ -156,11 +157,16 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           
           <div className="md:col-span-2">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="bg-[#C5A059] p-1.5 rounded-lg text-black">
-                <Monitor className="w-4 h-4 text-black" />
+            <div className="flex items-center gap-2.5 mb-4 animate-fadeIn">
+              <div className="w-8 h-8 rounded-lg overflow-hidden border border-[#C5A059]/30">
+                <img 
+                  src={brandLogo} 
+                  alt="Tech Soko Kenya Logo" 
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
               </div>
-              <span className="text-white font-bold tracking-tight">TECH GADGETS KENYA</span>
+              <span className="text-white font-bold tracking-wider uppercase">TECH SOKO KENYA</span>
             </div>
             <p className="text-xs text-white/30 max-w-sm leading-relaxed">
               Kenya's premier portal for luxury personal electronics and business computer arrays. From elite hardware like Apple M3 developer suites to industrial Epson ink reservoirs, we maintain absolute uptime for your technical life.
@@ -207,19 +213,19 @@ export default function Footer() {
 
         <div className="border-t border-white/10 mt-12 pt-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
           <div>
-            <p>© {new Date().getFullYear()} Tech Gadgets Kenya. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} Tech Soko Kenya. All rights reserved.</p>
             {/* Social media connections */}
             <div className="flex gap-4 mt-3 justify-center md:justify-start">
-              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="hover:text-[#C5A059] text-white/40 transition-colors" title="Tech Gadgets Kenya Facebook">
+              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="hover:text-[#C5A059] text-white/40 transition-colors" title="Tech Soko Kenya Facebook">
                 <Facebook className="w-4 h-4" />
               </a>
-              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="hover:text-[#C5A059] text-white/40 transition-colors" title="Tech Gadgets Kenya on X">
+              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="hover:text-[#C5A059] text-white/40 transition-colors" title="Tech Soko Kenya on X">
                 <Twitter className="w-4 h-4" />
               </a>
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="hover:text-[#C5A059] text-white/40 transition-colors" title="Tech Gadgets Kenya Instagram">
+              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="hover:text-[#C5A059] text-white/40 transition-colors" title="Tech Soko Kenya Instagram">
                 <Instagram className="w-4 h-4" />
               </a>
-              <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="hover:text-[#C5A059] text-white/40 transition-colors" title="Tech Gadgets Kenya YouTube Channel">
+              <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="hover:text-[#C5A059] text-white/40 transition-colors" title="Tech Soko Kenya YouTube Channel">
                 <Youtube className="w-4 h-4" />
               </a>
             </div>

@@ -1,5 +1,5 @@
 {
-  "name": "Tech Gadgets Kenya",
+  "name": "Tech Soko Kenya",
   "description": "Premium electronics store with live inventory management, user authentication, M-Pesa tracking, and a client dashboard with downloadable invoices.",
   "requestFramePermissions": [
     "camera"

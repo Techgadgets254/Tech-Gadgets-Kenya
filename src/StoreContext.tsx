@@ -278,6 +278,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       } catch (err) {
         console.warn("Soft non-blocking warning logging search query:", err);
       }
+
+      try {
+        const searchQueriesCol = collection(db, "search_queries");
+        await addDoc(searchQueriesCol, {
+          query: searchQuery.trim(),
+          userId: auth.currentUser?.uid || null,
+          createdAt: new Date().toISOString()
+        });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.CREATE, "search_queries");
+      }
     }, 1200);
 
     return () => clearTimeout(handler);

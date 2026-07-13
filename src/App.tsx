@@ -58,49 +58,49 @@ function StoreLayout() {
     switch (activeView) {
       case "home":
         return {
-          title: "Tech Gadgets Kenya | Premium Imports & Hardware",
+          title: "Tech Soko Kenya | Premium Imports & Hardware",
           description: "Premium laptops, desktops, and phones imported directly to Kenya. Fast, secure Lipa Na M-Pesa checkout with Nairobi CBD same-day dispatch.",
-          keywords: "Tech Gadgets Kenya, laptops Nairobi, M-Pesa electronics, refurbished laptops Kenya, Apple MacBook Nairobi"
+          keywords: "Tech Soko Kenya, laptops Nairobi, M-Pesa electronics, refurbished laptops Kenya, Apple MacBook Nairobi"
         };
       case "shop":
         return {
-          title: "Browse Stock Storefront | Tech Gadgets Kenya",
+          title: "Browse Stock Storefront | Tech Soko Kenya",
           description: "Explore our live stock of high-end business laptops, Intel Core i7 systems, dedicated graphics cards, and enterprise accessories.",
           keywords: "HP EliteBook Nairobi, ThinkPad Kenya, refurbished MacBooks, Buy laptops Kenya"
         };
       case "product-details":
         return {
-          title: "Detailed Specifications | Tech Gadgets Kenya",
+          title: "Detailed Specifications | Tech Soko Kenya",
           description: "Inspect component specifications, live local inventory levels, and configure direct WhatsApp price drop alerts instantly.",
           keywords: "Refurbished specs, laptop hardware configuration, tech price drop alert"
         };
       case "checkout":
         return {
-          title: "Secure Lipa Na M-Pesa Checkout | Tech Gadgets Kenya",
+          title: "Secure Lipa Na M-Pesa Checkout | Tech Soko Kenya",
           description: "Authorize purchase settlement securely with Safaricom Daraja STK Push pin prompt instantly. Quick regional courier dispatch.",
           keywords: "STK push, pay till number Nairobi, Safaricom Daraja checkout"
         };
       case "client-dashboard":
         return {
-          title: "Client Profile Hub | Tech Gadgets Kenya",
+          title: "Client Profile Hub | Tech Soko Kenya",
           description: "Trace active delivery courier timelines, view transaction history, download tax invoices, and retrieve partner affiliate codes.",
-          keywords: "Tech Gadgets invoice download, Nairobi county shipper tracking, Kenya tech partner"
+          keywords: "Tech Soko invoice download, Nairobi county shipper tracking, Kenya tech partner"
         };
       case "admin-dashboard":
         return {
-          title: "Admin Portal Console | Tech Gadgets Kenya",
+          title: "Admin Portal Console | Tech Soko Kenya",
           description: "Confidential administration console. Manage product assets, bulk ingest inventory CSV, and process customer price drop signals.",
           keywords: "Admin management console, inventory CSV ingestion, Kenya Daraja API"
         };
       case "news":
         return {
-          title: "Kenya Technology & Hardware Blog | Tech Gadgets Kenya",
+          title: "Kenya Technology & Hardware Blog | Tech Soko Kenya",
           description: "Inside coverage on global computer imports, KRA customs clearance procedures, and Nairobi hardware price forecasts.",
           keywords: "Kenya tech blogs, Nairobi computers price drop forecasts, customs gadgets Nairobi"
         };
       default:
         return {
-          title: "Tech Gadgets Kenya | High-Performance Electronics",
+          title: "Tech Soko Kenya | High-Performance Electronics",
           description: "Premium computer imports, electronics, and accessories along Kenyatta Avenue, Nairobi. Fast Safaricom M-Pesa checkout."
         };
     }

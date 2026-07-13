@@ -158,6 +158,12 @@ service cloud.firestore {
         && data.updatedAt is string && data.updatedAt.size() <= 100;
     }
 
+    function isValidSearchQuery(data) {
+      return data.query is string && data.query.size() > 0 && data.query.size() <= 300
+        && (!data.keys().hasAll(['userId']) || (data.userId is string && data.userId.size() <= 128))
+        && data.createdAt is string && data.createdAt.size() <= 100;
+    }
+
     // --- Collection Routes ---
 
     // Products collection: anybody can browse (read/list), only admins can edit products
@@ -297,6 +303,14 @@ service cloud.firestore {
       allow read, get, list: if true;
       allow create, update: if isAdmin() && isValidSeoMetadata(incoming());
       allow delete: if isAdmin();
+    }
+
+    // Search Queries logs collection:
+    // - Anyone can log their searches (create)
+    // - Only administrators can read or list them
+    match /search_queries/{queryId} {
+      allow create: if isValidSearchQuery(incoming());
+      allow read, list, delete: if isAdmin();
     }
   }
 }

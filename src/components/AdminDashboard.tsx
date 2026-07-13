@@ -262,6 +262,7 @@ export default function AdminDashboard() {
   const [lowStockThreshold, setLowStockThreshold] = useState(5);
   const [orderSearchQuery, setOrderSearchQuery] = useState("");
   const [inventorySearchQuery, setInventorySearchQuery] = useState("");
+  const [inventoryPage, setInventoryPage] = useState(1);
   const [showQrScanner, setShowQrScanner] = useState(false);
   const [qrScannerError, setQrScannerError] = useState("");
   const [orderStatusFilter, setOrderStatusFilter] = useState("All");
@@ -397,6 +398,17 @@ export default function AdminDashboard() {
       return 0;
     });
   }, [products, productSortField, productSortDirection, inventorySearchQuery]);
+
+  // Reset inventory page when search queries or sorting fields change
+  useEffect(() => {
+    setInventoryPage(1);
+  }, [inventorySearchQuery, productSortField, productSortDirection]);
+
+  const INVENTORY_ITEMS_PER_PAGE = 12;
+  const totalInventoryPages = Math.ceil(sortedProducts.length / INVENTORY_ITEMS_PER_PAGE);
+  const paginatedProducts = useMemo(() => {
+    return sortedProducts.slice((inventoryPage - 1) * INVENTORY_ITEMS_PER_PAGE, inventoryPage * INVENTORY_ITEMS_PER_PAGE);
+  }, [sortedProducts, inventoryPage]);
 
   const sortedOrders = useMemo(() => {
     let filtered = [...orders];
@@ -3877,13 +3889,13 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                         <th className="p-2.5 sm:p-4 w-12 text-center select-none">
                           <input
                             type="checkbox"
-                            checked={sortedProducts.length > 0 && sortedProducts.every(p => selectedProductIds.includes(p.id))}
+                            checked={paginatedProducts.length > 0 && paginatedProducts.every(p => selectedProductIds.includes(p.id))}
                             onChange={(e) => {
-                              const allSel = sortedProducts.length > 0 && sortedProducts.every(p => selectedProductIds.includes(p.id));
+                              const allSel = paginatedProducts.length > 0 && paginatedProducts.every(p => selectedProductIds.includes(p.id));
                               if (allSel) {
                                 setSelectedProductIds([]);
                               } else {
-                                setSelectedProductIds(sortedProducts.map(p => p.id));
+                                setSelectedProductIds(paginatedProducts.map(p => p.id));
                               }
                             }}
                             className="w-4 h-4 rounded border-white/20 bg-black text-[#C5A059] focus:ring-[#C5A059] focus:ring-offset-0 cursor-pointer"
@@ -3943,14 +3955,14 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5 font-sans text-white/85 text-[11px] sm:text-xs">
-                      {sortedProducts.length === 0 ? (
+                      {paginatedProducts.length === 0 ? (
                         <tr>
                           <td colSpan={7} className="p-8 text-center text-white/30 font-mono uppercase tracking-wider bg-black/10">
                             No warehouse assets registered under the current filter selection
                           </td>
                         </tr>
                       ) : (
-                        sortedProducts.map((p) => (
+                        paginatedProducts.map((p) => (
                           <tr key={p.id} className="hover:bg-white/[0.01] transition-colors">
                             <td className="p-2.5 sm:p-4 w-12 text-center">
                               <input
@@ -4031,6 +4043,51 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                   </table>
                 </div>
               </div>
+
+              {/* Table Footer with Entries Info & Numbered Pagination */}
+              {totalInventoryPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 bg-[#0F0F0F] border border-white/10 rounded-2xl p-4 shadow-md font-mono text-[11px] text-white/50">
+                  <div>
+                    Showing <span className="text-[#C5A059] font-bold">{(inventoryPage - 1) * INVENTORY_ITEMS_PER_PAGE + 1}</span> to{" "}
+                    <span className="text-[#C5A059] font-bold">
+                      {Math.min(inventoryPage * INVENTORY_ITEMS_PER_PAGE, sortedProducts.length)}
+                    </span> of{" "}
+                    <span className="text-white font-bold">{sortedProducts.length}</span> warehouse assets
+                  </div>
+                  
+                  <div className="flex items-center gap-1">
+                    <button
+                      disabled={inventoryPage === 1}
+                      onClick={() => setInventoryPage(prev => Math.max(prev - 1, 1))}
+                      className="px-2.5 py-1 text-[10px] font-bold uppercase rounded-lg border border-white/10 hover:border-[#C5A059]/40 hover:text-[#C5A059] disabled:opacity-30 disabled:hover:text-white/40 disabled:hover:border-white/10 transition-all cursor-pointer bg-[#0F0F0F] text-white active:scale-95"
+                    >
+                      Prev
+                    </button>
+                    
+                    {Array.from({ length: totalInventoryPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => setInventoryPage(page)}
+                        className={`w-7 h-7 rounded-lg text-[10px] font-bold transition-all border cursor-pointer active:scale-95 ${
+                          inventoryPage === page
+                            ? "bg-[#C5A059] text-black border-[#C5A059] font-extrabold"
+                            : "bg-[#0F0F0F] text-white border-white/10 hover:border-[#C5A059]/40 hover:text-[#C5A059]"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+
+                    <button
+                      disabled={inventoryPage === totalInventoryPages}
+                      onClick={() => setInventoryPage(prev => Math.min(prev + 1, totalInventoryPages))}
+                      className="px-2.5 py-1 text-[10px] font-bold uppercase rounded-lg border border-white/10 hover:border-[#C5A059]/40 hover:text-[#C5A059] disabled:opacity-30 disabled:hover:text-white/40 disabled:hover:border-white/10 transition-all cursor-pointer bg-[#0F0F0F] text-white active:scale-95"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

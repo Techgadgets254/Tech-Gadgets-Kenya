@@ -154,6 +154,17 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["action", "details", "adminEmail", "createdAt"]
+    },
+    "search_query": {
+      "title": "Search Query",
+      "description": "Log of users' search queries for store intelligence",
+      "type": "object",
+      "properties": {
+        "query": { "type": "string", "description": "The search term entered by the user" },
+        "userId": { "type": "string", "description": "UID of the user if logged in" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["query", "createdAt"]
     }
   },
   "firestore": {
@@ -200,6 +211,10 @@
     "/audit_logs/{logId}": {
       "schema": "audit_log",
       "description": "Comprehensive security and operational logs tracking administrative actions"
+    },
+    "/search_queries/{queryId}": {
+      "schema": "search_query",
+      "description": "Logs of user search terms for trend analysis"
     }
   }
 }
