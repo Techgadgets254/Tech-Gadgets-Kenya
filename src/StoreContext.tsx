@@ -516,7 +516,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // 2. Load Products and Real-time Snapshot with Auto-Seeding
   useEffect(() => {
     const productsColRef = collection(db, "products");
-    setProductsLoading(true);
+    if (products.length === 0) {
+      setProductsLoading(true);
+    }
 
     let activeUnsubscribe: (() => void) | null = null;
 

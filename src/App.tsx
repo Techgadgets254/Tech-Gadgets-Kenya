@@ -21,13 +21,26 @@ import AIAdvisor from "./components/AIAdvisor";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { Helmet } from "./components/Helmet";
 import AuthModal from "./components/AuthModal";
-import { Loader2 } from "lucide-react";
+import { Loader2, MessageSquare, HelpCircle, Share2, Package, PhoneCall, ShoppingBag } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 function StoreLayout() {
-  const { activeView, authLoading, isAuthModalOpen, selectedProductId, products } = useStore();
+  const { activeView, authLoading, isAuthModalOpen, selectedProductId, products, setActiveView } = useStore();
   const [isWhatsAppVisible, setIsWhatsAppVisible] = React.useState(true);
+  const [isMicroMenuOpen, setIsMicroMenuOpen] = React.useState(false);
+  const [hasBeenOnProductPageTenSecs, setHasBeenOnProductPageTenSecs] = React.useState(false);
   const lastScrollTopRef = React.useRef(0);
+
+  React.useEffect(() => {
+    setHasBeenOnProductPageTenSecs(false);
+    setIsMicroMenuOpen(false);
+    if (activeView === "product-details") {
+      const timer = setTimeout(() => {
+        setHasBeenOnProductPageTenSecs(true);
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [activeView, selectedProductId]);
 
   React.useEffect(() => {
     const handleScroll = () => {
@@ -194,6 +207,33 @@ function StoreLayout() {
     }
   };
 
+  const handleShareClick = async () => {
+    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      try {
+        navigator.vibrate(50);
+      } catch (e) {}
+    }
+
+    const shareData = {
+      title: document.title || "Tech Soko Kenya",
+      text: activeProduct 
+        ? `Check out ${activeProduct.name} on Tech Soko Kenya!` 
+        : "Check out Tech Soko Kenya for premium imported hardware!",
+      url: window.location.href,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        alert("Link copied to clipboard!");
+      }
+    } catch (err) {
+      console.warn("Share failed:", err);
+    }
+  };
+
   const playSubtleWhatsappHoverSound = () => {
     try {
       const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -335,42 +375,134 @@ function StoreLayout() {
         {isAuthModalOpen && <AuthModal />}
       </AnimatePresence>
 
-      {/* Persistent Floating WhatsApp Chat Button */}
+      {/* Persistent Floating WhatsApp Chat Button & Actions */}
       {activeView !== "admin-dashboard" && activeView !== "client-dashboard" && (
-        <motion.a
-          initial={{ opacity: 0, scale: 0.8, y: 0 }}
-          animate={{ 
-            opacity: isWhatsAppVisible ? 1 : 0, 
-            scale: isWhatsAppVisible ? 1 : 0,
-            y: isWhatsAppVisible ? 0 : 20
-          }}
-          transition={{ duration: 0.3, ease: "easeOut" }}
+        <div 
+          className="fixed bottom-6 left-6 z-50 flex items-center gap-3"
           style={{ pointerEvents: isWhatsAppVisible ? "auto" : "none" }}
-          href={whatsappUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          referrerPolicy="no-referrer"
-          onClick={handleWhatsAppClick}
-          onMouseEnter={playSubtleWhatsappHoverSound}
-          className="fixed bottom-6 left-6 z-50 bg-[#25D366] hover:bg-[#20ba5a] hover:scale-105 active:scale-95 transition-all p-3.5 sm:p-4 rounded-full shadow-2xl flex items-center justify-center group border border-white/10"
-          title={whatsappLabel}
-          id="floating-whatsapp-trigger"
         >
-          <span className="absolute left-full ml-3 px-2.5 py-1 rounded-md bg-[#0F0F0F]/95 text-[10px] font-mono font-bold uppercase tracking-wider text-white border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap hidden sm:inline-block">
-            {whatsappLabel}
-          </span>
-          <svg
-            className="w-5 h-5 sm:w-6 sm:h-6 text-black fill-current"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
+          {/* Main Trigger Button Container for micro-menu absolute positioning */}
+          <div className="relative">
+            {/* Pulsating Radiating Ring Animation (triggers after 10s on product page) */}
+            {hasBeenOnProductPageTenSecs && (
+              <motion.div
+                className="absolute -inset-2 rounded-full border-2 border-[#25D366] pointer-events-none"
+                animate={{
+                  scale: [1, 1.3, 1.6],
+                  opacity: [0.7, 0.35, 0]
+                }}
+                transition={{
+                  duration: 2.0,
+                  repeat: Infinity,
+                  ease: "easeOut"
+                }}
+              />
+            )}
+
+            {/* Floating Menu Toggle Button */}
+            <motion.button
+              initial={{ opacity: 0, scale: 0.8, y: 0 }}
+              animate={{ 
+                opacity: isWhatsAppVisible ? 1 : 0, 
+                scale: isWhatsAppVisible ? 1 : 0,
+                y: isWhatsAppVisible ? 0 : 20
+              }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              onClick={() => {
+                // Device vibration feedback for mobile on tap
+                if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+                  try {
+                    navigator.vibrate(50);
+                  } catch (e) {}
+                }
+                setIsMicroMenuOpen(!isMicroMenuOpen);
+              }}
+              onMouseEnter={playSubtleWhatsappHoverSound}
+              className="bg-[#25D366] hover:bg-[#20ba5a] hover:scale-105 active:scale-95 transition-all p-3.5 sm:p-4 rounded-full shadow-2xl flex items-center justify-center group border border-white/10 cursor-pointer relative"
+              title={whatsappLabel}
+              id="floating-whatsapp-trigger"
+            >
+              <span className="absolute left-full ml-3 px-2.5 py-1 rounded-md bg-[#0F0F0F]/95 text-[10px] font-mono font-bold uppercase tracking-wider text-white border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap hidden sm:inline-block">
+                {whatsappLabel}
+              </span>
+              
+              {/* Dynamically swapped icon based on view */}
+              {activeView === "checkout" ? (
+                <HelpCircle className="w-5 h-5 sm:w-6 sm:h-6 text-black" />
+              ) : (
+                <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 text-black" />
+              )}
+
+              <span className="absolute top-0 right-0 flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+              </span>
+            </motion.button>
+
+            {/* Micro-Menu */}
+            <AnimatePresence>
+              {isMicroMenuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute bottom-16 left-0 mb-2 bg-[#0F0F0F] border border-white/10 rounded-2xl p-2.5 shadow-2xl min-w-[175px] flex flex-col gap-1.5 z-50 font-mono text-[10px] uppercase tracking-wider text-white select-none"
+                >
+                  <button
+                    onClick={() => {
+                      setActiveView("checkout");
+                      setIsMicroMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/5 text-white/80 hover:text-[#C5A059] transition-all cursor-pointer text-left w-full"
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>View Cart</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveView("client-dashboard");
+                      setIsMicroMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/5 text-white/80 hover:text-[#C5A059] transition-all cursor-pointer text-left w-full"
+                  >
+                    <Package className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>My Orders</span>
+                  </button>
+                  <a
+                    href={whatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => {
+                      handleWhatsAppClick();
+                      setIsMicroMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/5 text-white/80 hover:text-[#C5A059] transition-all cursor-pointer text-left w-full"
+                  >
+                    <PhoneCall className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>Contact Support</span>
+                  </a>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Secondary 'Share' Button */}
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8, y: 0 }}
+            animate={{ 
+              opacity: isWhatsAppVisible ? 1 : 0, 
+              scale: isWhatsAppVisible ? 1 : 0,
+              y: isWhatsAppVisible ? 0 : 20
+            }}
+            transition={{ duration: 0.3, ease: "easeOut", delay: 0.1 }}
+            onClick={handleShareClick}
+            className="bg-[#0F0F0F]/90 hover:bg-[#1A1A1A] hover:scale-105 active:scale-95 transition-all p-3.5 sm:p-4 rounded-full shadow-2xl flex items-center justify-center border border-white/10 text-[#C5A059] hover:text-white cursor-pointer relative"
+            title="Share current page link"
           >
-            <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.73-1.45L0 24zm11.954-20.244c-4.529 0-8.214 3.68-8.217 8.204-.002 1.637.485 3.234 1.411 4.616l.245.365-1.002 3.662 3.75-.983.356.212c1.32.784 2.827 1.197 4.364 1.198l.006.001c4.529 0 8.215-3.68 8.219-8.203.002-2.192-.852-4.253-2.404-5.808C16.915 4.636 14.808 3.757 12.011 3.756zm4.845 10.02c-.266-.134-1.576-.777-1.82-.866-.245-.089-.423-.134-.601.134-.178.266-.69.866-.846 1.043-.156.178-.311.2-.577.066-.266-.134-1.12-.413-2.133-1.317-.789-.704-1.321-1.573-1.476-1.839-.156-.266-.017-.41.117-.543.12-.12.266-.31.4-.466.133-.156.178-.266.266-.443.089-.178.044-.333-.022-.466-.067-.134-.601-1.443-.823-1.976-.216-.52-.439-.443-.601-.451l-.511-.01c-.178 0-.467.067-.71.333-.245.267-.934.91-.934 2.22s.956 2.575 1.089 2.753c.133.178 1.88 2.87 4.554 4.024.637.275 1.134.439 1.522.562.64.203 1.222.174 1.682.105.513-.077 1.576-.644 1.8-.1233.222-.589.222-1.083.156-1.171-.067-.09-.245-.134-.51-.268z" />
-          </svg>
-          <span className="absolute top-0 right-0 flex h-3 w-3">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-          </span>
-        </motion.a>
+            <Share2 className="w-5 h-5 sm:w-6 sm:h-6" />
+          </motion.button>
+        </div>
       )}
 
       {/* 3. Base footer elements */}

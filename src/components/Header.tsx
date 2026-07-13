@@ -21,9 +21,7 @@ import {
   Moon,
   Menu,
   X,
-  Upload,
-  RotateCcw,
-  Download
+  RotateCcw
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -171,51 +169,6 @@ export default function Header() {
                 </span>
               </div>
             )}
-
-            {/* Embedded Logo Actions */}
-            <div 
-              className="absolute -bottom-2 -left-1 hidden group-hover:flex items-center gap-1 bg-black/95 border border-[#C5A059]/30 rounded-md px-1.5 py-0.5 scale-90 shadow-2xl z-30" 
-              onClick={(e) => e.stopPropagation()}
-            >
-              <label 
-                htmlFor="header-logo-upload-input" 
-                className="text-[8px] font-mono font-bold text-[#C5A059] hover:text-white cursor-pointer flex items-center gap-1 transition-colors"
-                title="Upload brand logo"
-              >
-                <Upload className="w-2 h-2" />
-                <span>Upload</span>
-              </label>
-              <input 
-                type="file" 
-                id="header-logo-upload-input" 
-                accept="image/*" 
-                onChange={handleLogoUpload} 
-                className="hidden" 
-              />
-              <span className="text-white/20 select-none text-[8px]">•</span>
-              <a 
-                href={customLogo || brandLogo}
-                download="tech_soko_kenya_logo.jpg"
-                className="text-[8px] font-mono font-bold text-[#C5A059] hover:text-white flex items-center gap-0.5 transition-colors cursor-pointer"
-                title="Download brand logo"
-              >
-                <Download className="w-2 h-2" />
-                <span>Download</span>
-              </a>
-              {customLogo && (
-                <>
-                  <span className="text-white/20 select-none text-[8px]">•</span>
-                  <button
-                    onClick={handleResetLogo}
-                    className="text-[8px] font-mono font-black text-red-400 hover:text-red-300 flex items-center gap-0.5 cursor-pointer bg-transparent border-none"
-                    title="Reset default text branding"
-                  >
-                    <RotateCcw className="w-2 h-2" />
-                    <span>Reset</span>
-                  </button>
-                </>
-              )}
-            </div>
           </div>
 
           {/* Global Search Bar (Optimized desktop viewport) */}

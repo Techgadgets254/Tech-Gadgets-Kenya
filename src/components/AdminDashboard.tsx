@@ -1579,35 +1579,75 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
     e.target.value = ""; // Clear
   };
 
-  const handleBulkImagesUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (file: File, maxWidth = 800, maxHeight = 800, quality = 0.75): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve(e.target?.result as string);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL("image/jpeg", quality);
+          resolve(dataUrl);
+        };
+        img.onerror = () => {
+          reject(new Error("Failed to load image for compression"));
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => {
+        reject(new Error("Failed to read file"));
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleBulkImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     const list = Array.from(files).slice(0, 5);
-    const MAX_SIZE = 5 * 1024 * 1024;
     setUploadError("");
 
-    list.forEach((file, index) => {
-      if (file.size > MAX_SIZE) {
-        setUploadError(`File ${file.name} is too large. Max permitted is 5.00MB.`);
-        return;
+    try {
+      setActionSuccessNotification("Optimizing and ingesting images...");
+      for (let index = 0; index < list.length; index++) {
+        const file = list[index];
+        const compressedBase64 = await compressImage(file);
+        const fieldName = index === 0 ? "image" : `gallery${index}`;
+        setProductForm((prev) => ({
+          ...prev,
+          [fieldName]: compressedBase64,
+        }));
       }
-
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === "string") {
-          const fieldName = index === 0 ? "image" : `gallery${index}`;
-          setProductForm((prev) => ({
-            ...prev,
-            [fieldName]: reader.result as string,
-          }));
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-
-    setActionSuccessNotification(`Ingested ${list.length} images into product form slots!`);
-    setTimeout(() => setActionSuccessNotification(""), 5000);
+      setActionSuccessNotification(`Optimized and ingested ${list.length} images into product slots!`);
+      setTimeout(() => setActionSuccessNotification(""), 5000);
+    } catch (err: any) {
+      console.error(err);
+      setUploadError("An error occurred during bulk image optimization.");
+    }
     e.target.value = ""; // Clear
   };
 
@@ -1708,35 +1748,27 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
     }
   };
 
-  const handleImageUploadChange = (
+  const handleImageUploadChange = async (
     e: React.ChangeEvent<HTMLInputElement>,
     field: "image" | "gallery1" | "gallery2" | "gallery3" | "gallery4"
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Reject files larger than 5MB
-    const MAX_SIZE = 5 * 1024 * 1024;
-    if (file.size > MAX_SIZE) {
-      setUploadError(`File is too large (${(file.size / (1024 * 1024)).toFixed(2)}MB). Max permitted is 5.00MB.`);
-      e.target.value = "";
-      return;
-    }
-
     setUploadError("");
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setProductForm((prev) => ({
-          ...prev,
-          [field]: reader.result as string,
-        }));
-      }
-    };
-    reader.onerror = () => {
+    try {
+      setActionSuccessNotification("Optimizing image size...");
+      const compressedBase64 = await compressImage(file);
+      setProductForm((prev) => ({
+        ...prev,
+        [field]: compressedBase64,
+      }));
+      setActionSuccessNotification("Image optimized successfully!");
+      setTimeout(() => setActionSuccessNotification(""), 3000);
+    } catch (err: any) {
+      console.error(err);
       setUploadError("An error occurred converting the uploaded image to product assets.");
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const renderUploader = (
