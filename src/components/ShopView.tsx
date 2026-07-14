@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { useStore } from "../StoreContext";
 import Pagination from "./Pagination";
 import LazyImage from "./LazyImage";
@@ -207,6 +207,16 @@ export default function ShopView() {
   const [quickBuyRam, setQuickBuyRam] = useState<string>("");
   const [quickBuySsd, setQuickBuySsd] = useState<string>("");
   const [quickBuyQuantity, setQuickBuyQuantity] = useState<number>(1);
+
+  // Expandable product cards state to reveal basic technical specifications directly in the grid
+  const [expandedProductIds, setExpandedProductIds] = useState<Record<string, boolean>>({});
+
+  const toggleExpandSpecs = (productId: string) => {
+    setExpandedProductIds(prev => ({
+      ...prev,
+      [productId]: !prev[productId]
+    }));
+  };
 
   const getProductVariants = (product: Product) => {
     if (product.enableVariants === false) return null;
@@ -914,15 +924,45 @@ export default function ShopView() {
                         {/* Inventory specifications visual trigger */}
                         <div className="mt-4 pt-3 border-t border-white/5">
                           <button
-                            onClick={() => {
-                              setSelectedProductId(p.id);
-                              setActiveView("product-details");
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleExpandSpecs(p.id);
                             }}
-                            className="text-[10px] text-white/30 font-mono hover:text-[#C5A059] transition-colors flex items-center gap-1 leading-none mb-3 cursor-pointer"
+                            className="text-[10px] text-[#C5A059] font-mono hover:text-white transition-colors flex items-center justify-between w-full leading-none mb-3 cursor-pointer"
                           >
-                            <BookOpen className="w-3.5 h-3.5 text-white/30" />
-                            <span>View technical specifications</span>
+                            <span className="flex items-center gap-1">
+                              <BookOpen className="w-3.5 h-3.5" />
+                              <span>{expandedProductIds[p.id] ? "Hide technical specifications" : "Reveal technical specifications"}</span>
+                            </span>
+                            <span className="text-[12px]">
+                              {expandedProductIds[p.id] ? "▲" : "▼"}
+                            </span>
                           </button>
+
+                          <AnimatePresence initial={false}>
+                            {expandedProductIds[p.id] && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.25, ease: "easeInOut" }}
+                                className="overflow-hidden"
+                              >
+                                <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3 mb-3 text-[11px] font-mono space-y-1.5 text-white/80">
+                                  {p.specifications && Object.keys(p.specifications).length > 0 ? (
+                                    Object.entries(p.specifications).map(([key, val]) => (
+                                      <div key={key} className="flex justify-between border-b border-white/5 pb-1 last:border-b-0 last:pb-0 font-mono">
+                                        <span className="text-white/40 uppercase tracking-tight">{key}</span>
+                                        <span className="text-right text-white font-semibold">{val}</span>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <p className="text-white/30 text-center py-1 font-mono">Standard hardware configurations apply.</p>
+                                  )}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
 
                           <div className="flex items-center justify-between gap-2">
                             <div>

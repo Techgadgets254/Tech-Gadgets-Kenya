@@ -557,13 +557,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       let productsQuery;
       if (useOrdering) {
         try {
-          productsQuery = query(productsColRef, orderBy("createdAt", "desc"), limit(productsLimit));
+          productsQuery = query(productsColRef, orderBy("createdAt", "desc"));
         } catch (e) {
           console.warn("Could not form sorted query, reverting to unordered:", e);
-          productsQuery = query(productsColRef, limit(productsLimit));
+          productsQuery = query(productsColRef);
         }
       } else {
-        productsQuery = query(productsColRef, limit(productsLimit));
+        productsQuery = query(productsColRef);
       }
 
       const unsubscribe = onSnapshot(productsQuery, async (snapshot) => {
@@ -622,7 +622,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           } catch (err) {
             console.warn("Failed to write products to localStorage cache:", err);
           }
-          setHasMoreProducts(snapshot.docs.length >= productsLimit);
+          setHasMoreProducts(false);
           setProductsLoading(false);
         }
       }, (error) => {

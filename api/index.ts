@@ -21,6 +21,8 @@ import {
   signInWithEmailAndPassword as serverSignIn,
   createUserWithEmailAndPassword as serverCreateUser
 } from "firebase/auth";
+import { initializeApp as adminInitApp, getApps as getAdminApps } from "firebase-admin/app";
+import { getFirestore as adminGetFirestore, Firestore as AdminFirestore } from "firebase-admin/firestore";
 
 dotenv.config();
 
@@ -40,9 +42,24 @@ try {
 
 const app = express();
 
-// Initialize server-side Firebase
+// Initialize server-side Firebase Client SDK (kept for potential other references)
 const serverApp = serverInitApp(serverFirebaseConfig);
 const serverDb = serverGetFS(serverApp, serverFirebaseConfig.firestoreDatabaseId || "(default)");
+
+// Initialize server-side Firebase Admin SDK
+let adminDb: AdminFirestore;
+try {
+  const adminApps = getAdminApps();
+  if (adminApps.length === 0) {
+    adminInitApp({
+      projectId: serverFirebaseConfig.projectId
+    });
+  }
+  adminDb = adminGetFirestore();
+  console.log("[Firebase Admin] Initialized Admin SDK successfully for project:", serverFirebaseConfig.projectId);
+} catch (e) {
+  console.error("[Firebase Admin] Error initializing Admin SDK:", e);
+}
 
 app.use(express.json());
 
@@ -515,48 +532,17 @@ app.post("/api/email/send-restock-alert", async (req, res) => {
 // ----------------------------------------------------
 
 async function authenticateServerAsAdmin() {
-  const auth = serverGetAuth(serverApp);
-  const email = "techgadgetsk@gmail.com";
-  const password = "admin123";
-
-  try {
-    await serverSignIn(auth, email, password);
-    console.log("[Server Auth] Successfully authenticated server as admin:", email);
-  } catch (err: any) {
-    // If the user does not exist or credentials are invalid (e.g. newly provisioned Firebase auth)
-    if (err.code === "auth/user-not-found" || err.code === "auth/invalid-credential" || err.code === "auth/user-disabled") {
-      try {
-        await serverCreateUser(auth, email, password);
-        console.log("[Server Auth] Created and authenticated brand new admin user on Firebase Auth:", email);
-        
-        // Also seed user document role dynamically
-        const userRef = serverDoc(serverDb, "users", auth.currentUser?.uid || "admin-uid");
-        await serverSetDoc(userRef, {
-          role: "admin",
-          email: email,
-          name: "Administrator",
-          "admin-claims": true,
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-      } catch (createErr: any) {
-        console.error("[Server Auth] Failed to create admin user during fallback:", createErr.message || createErr);
-      }
-    } else {
-      console.error("[Server Auth] Error during server authentication:", err.message || err);
-    }
-  }
+  // Safe no-op on the server. Admin queries are handled by server-authoritative firebase-admin.
+  return;
 }
 
 // Ensure default admin exists on server launch
 async function ensureDefaultAdmin() {
   try {
-    // Authenticate server client first to gain admin privileges
-    await authenticateServerAsAdmin();
-
-    const adminRef = serverDoc(serverDb, "admin_accounts", "techgadgetsk@gmail.com");
-    const adminSnap = await serverGetDoc(adminRef);
-    if (!adminSnap.exists()) {
-      await serverSetDoc(adminRef, {
+    const adminRef = adminDb.collection("admin_accounts").doc("techgadgetsk@gmail.com");
+    const adminSnap = await adminRef.get();
+    if (!adminSnap.exists) {
+      await adminRef.set({
         username: "techgadgetsk@gmail.com",
         password: "admin123",
         createdAt: new Date().toISOString()
@@ -586,18 +572,18 @@ app.post("/api/admin/login", async (req, res) => {
 
   try {
     const sanitizedUsername = username.trim().toLowerCase();
-    const adminRef = serverDoc(serverDb, "admin_accounts", sanitizedUsername);
-    const adminSnap = await serverGetDoc(adminRef);
+    const adminRef = adminDb.collection("admin_accounts").doc(sanitizedUsername);
+    const adminSnap = await adminRef.get();
 
     let isValid = false;
-    if (adminSnap.exists()) {
+    if (adminSnap.exists) {
       const data = adminSnap.data();
-      if (data.password === password) {
+      if (data && data.password === password) {
         isValid = true;
       }
     } else if (sanitizedUsername === "techgadgetsk@gmail.com" && password === "admin123") {
       isValid = true;
-      await serverSetDoc(adminRef, {
+      await adminRef.set({
         username: sanitizedUsername,
         password: "admin123",
         createdAt: new Date().toISOString()
@@ -607,8 +593,8 @@ app.post("/api/admin/login", async (req, res) => {
     if (isValid) {
       if (firebaseUid) {
         // Promote logged-in client account to admin role dynamically in Firestore
-        const userRef = serverDoc(serverDb, "users", firebaseUid);
-        await serverSetDoc(userRef, {
+        const userRef = adminDb.collection("users").doc(firebaseUid);
+        await userRef.set({
           role: "admin",
           email: sanitizedUsername,
           name: "Administrator",
@@ -638,13 +624,13 @@ app.post("/api/admin/accounts/list", async (req, res) => {
   }
 
   try {
-    const adminRef = serverDoc(serverDb, "admin_accounts", requestorUsername.trim().toLowerCase());
-    const adminSnap = await serverGetDoc(adminRef);
-    if (!adminSnap.exists() || adminSnap.data()?.password !== requestorPassword) {
+    const adminRef = adminDb.collection("admin_accounts").doc(requestorUsername.trim().toLowerCase());
+    const adminSnap = await adminRef.get();
+    if (!adminSnap.exists || adminSnap.data()?.password !== requestorPassword) {
       return res.status(401).json({ error: "Access Denied: Invalid requestor credentials." });
     }
 
-    const querySnapshot = await serverGetDocs(serverCollection(serverDb, "admin_accounts"));
+    const querySnapshot = await adminDb.collection("admin_accounts").get();
     const accounts: any[] = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
@@ -668,14 +654,14 @@ app.post("/api/admin/accounts/change-password", async (req, res) => {
 
   try {
     const sanitizedUsername = adminUsername.trim().toLowerCase();
-    const adminRef = serverDoc(serverDb, "admin_accounts", sanitizedUsername);
-    const adminSnap = await serverGetDoc(adminRef);
+    const adminRef = adminDb.collection("admin_accounts").doc(sanitizedUsername);
+    const adminSnap = await adminRef.get();
 
-    if (!adminSnap.exists() || adminSnap.data()?.password !== currentPassword) {
+    if (!adminSnap.exists || adminSnap.data()?.password !== currentPassword) {
       return res.status(401).json({ error: "Authentication failed. Invalid current password." });
     }
 
-    await serverSetDoc(adminRef, {
+    await adminRef.set({
       password: newPassword,
       updatedAt: new Date().toISOString()
     }, { merge: true });
@@ -695,22 +681,22 @@ app.post("/api/admin/accounts/create", async (req, res) => {
 
   try {
     const sanitizedRequestor = requestorUsername.trim().toLowerCase();
-    const requestorRef = serverDoc(serverDb, "admin_accounts", sanitizedRequestor);
-    const requestorSnap = await serverGetDoc(requestorRef);
+    const requestorRef = adminDb.collection("admin_accounts").doc(sanitizedRequestor);
+    const requestorSnap = await requestorRef.get();
 
-    if (!requestorSnap.exists() || requestorSnap.data()?.password !== requestorPassword) {
+    if (!requestorSnap.exists || requestorSnap.data()?.password !== requestorPassword) {
       return res.status(401).json({ error: "Access Denied: Invalid requestor credentials." });
     }
 
     const sanitizedNewUsername = newUsername.trim().toLowerCase();
-    const newAdminRef = serverDoc(serverDb, "admin_accounts", sanitizedNewUsername);
-    const newAdminSnap = await serverGetDoc(newAdminRef);
+    const newAdminRef = adminDb.collection("admin_accounts").doc(sanitizedNewUsername);
+    const newAdminSnap = await newAdminRef.get();
 
-    if (newAdminSnap.exists()) {
+    if (newAdminSnap.exists) {
       return res.status(400).json({ error: "An administrator with that username/email already exists." });
     }
 
-    await serverSetDoc(newAdminRef, {
+    await newAdminRef.set({
       username: sanitizedNewUsername,
       password: newPassword,
       createdAt: new Date().toISOString()
@@ -958,9 +944,9 @@ app.post("/api/paystack/webhook", async (req, res) => {
 
         if (orderId) {
           try {
-            const orderRef = serverDoc(serverDb, "orders", orderId);
+            const orderRef = adminDb.collection("orders").doc(orderId);
 
-            await serverUpdateDoc(orderRef, {
+            await orderRef.update({
               paymentStatus: "Paid",
               receiptNo: reference,
               updatedAt: new Date().toISOString()
@@ -987,16 +973,13 @@ app.post("/api/paystack/webhook", async (req, res) => {
 
 async function triggerDataBackup(adminUid: string, adminEmail: string) {
   try {
-    // Authenticate server client first to gain admin privileges and prevent session/token expiration
-    await authenticateServerAsAdmin();
-
-    const productsSnap = await serverGetDocs(serverCollection(serverDb, "products"));
+    const productsSnap = await adminDb.collection("products").get();
     const productsList: any[] = [];
     productsSnap.forEach(doc => {
       productsList.push({ id: doc.id, ...doc.data() });
     });
 
-    const ordersSnap = await serverGetDocs(serverCollection(serverDb, "orders"));
+    const ordersSnap = await adminDb.collection("orders").get();
     const ordersList: any[] = [];
     ordersSnap.forEach(doc => {
       ordersList.push({ id: doc.id, ...doc.data() });
@@ -1056,7 +1039,7 @@ async function triggerDataBackup(adminUid: string, adminEmail: string) {
 
     // 3. Write structured backup ledger entry to Firestore with failure recovery safeguards
     try {
-      await serverSetDoc(serverDoc(serverDb, "backups", backupId), backupFirestoreData);
+      await adminDb.collection("backups").doc(backupId).set(backupFirestoreData);
     } catch (firestoreErr: any) {
       console.warn("[Backup Daemon warning] Native write failure for detailed backup to Firestore. Executing cloud metadata summary fallback...", firestoreErr.message || firestoreErr);
       const safeMetadata = {
@@ -1069,12 +1052,12 @@ async function triggerDataBackup(adminUid: string, adminEmail: string) {
         isSavedLocally,
         sizeInBytes: payloadBytes
       };
-      await serverSetDoc(serverDoc(serverDb, "backups", backupId), safeMetadata);
+      await adminDb.collection("backups").doc(backupId).set(safeMetadata);
     }
 
     // 4. Document into system activity / audit logs
-    const auditRef = serverCollection(serverDb, "audit_logs");
-    await serverAddDoc(auditRef, {
+    const auditRef = adminDb.collection("audit_logs");
+    await auditRef.add({
       action: "bulk_backup",
       details: `Daily JSON backup completed: Switched to size-aware smart backup archiving for ${productsList.length} products and ${ordersList.length} global orders/transactions. Data size: ${(payloadBytes / 1024 / 1024).toFixed(2)} MB.`.slice(0, 1000),
       adminEmail: adminEmail,
@@ -1099,13 +1082,10 @@ app.post("/api/admin/backup/run", async (req, res) => {
   }
 
   try {
-    // Authenticate server client first to gain admin privileges and read/verify admin_accounts
-    await authenticateServerAsAdmin();
+    const adminRef = adminDb.collection("admin_accounts").doc(adminUsername.trim().toLowerCase());
+    const adminSnap = await adminRef.get();
 
-    const adminRef = serverDoc(serverDb, "admin_accounts", adminUsername.trim().toLowerCase());
-    const adminSnap = await serverGetDoc(adminRef);
-
-    if (!adminSnap.exists() || adminSnap.data()?.password !== adminPassword) {
+    if (!adminSnap.exists || adminSnap.data()?.password !== adminPassword) {
       return res.status(401).json({ error: "Access Denied: Invalid administrator signature credentials." });
     }
 
@@ -1406,8 +1386,8 @@ Return a strictly valid JSON array of objects, with no markdown styling asterisk
 // Create Global Error Utility for logging module loading, server exceptions, and routes failures
 async function logToFirestoreErrorStore(errorType: string, message: string, stack: string | null, details: any = {}) {
   try {
-    const errorLogsRef = serverCollection(serverDb, "error-log");
-    await serverAddDoc(errorLogsRef, {
+    const errorLogsRef = adminDb.collection("error-log");
+    await errorLogsRef.add({
       errorType,
       message,
       stack,
