@@ -988,7 +988,9 @@ export default function AdminDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           adminUsername: adminUsername || "techgadgetsk@gmail.com",
-          adminPassword: adminSecurityPassword || "admin123"
+          adminPassword: adminSecurityPassword || "admin123",
+          products: products || [],
+          orders: orders || []
         })
       });
 
