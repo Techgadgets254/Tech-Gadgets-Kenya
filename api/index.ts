@@ -987,6 +987,9 @@ app.post("/api/paystack/webhook", async (req, res) => {
 
 async function triggerDataBackup(adminUid: string, adminEmail: string) {
   try {
+    // Authenticate server client first to gain admin privileges and prevent session/token expiration
+    await authenticateServerAsAdmin();
+
     const productsSnap = await serverGetDocs(serverCollection(serverDb, "products"));
     const productsList: any[] = [];
     productsSnap.forEach(doc => {
@@ -1073,7 +1076,7 @@ async function triggerDataBackup(adminUid: string, adminEmail: string) {
     const auditRef = serverCollection(serverDb, "audit_logs");
     await serverAddDoc(auditRef, {
       action: "bulk_backup",
-      details: `Daily JSON backup completed: Switched to size-aware smart backup archiving for ${productsList.length} products and ${ordersList.length} global orders/transactions. Data size: ${(payloadBytes / 1024 / 1024).toFixed(2)} MB.`,
+      details: `Daily JSON backup completed: Switched to size-aware smart backup archiving for ${productsList.length} products and ${ordersList.length} global orders/transactions. Data size: ${(payloadBytes / 1024 / 1024).toFixed(2)} MB.`.slice(0, 1000),
       adminEmail: adminEmail,
       adminUid: adminUid,
       createdAt: new Date().toISOString()
@@ -1096,6 +1099,9 @@ app.post("/api/admin/backup/run", async (req, res) => {
   }
 
   try {
+    // Authenticate server client first to gain admin privileges and read/verify admin_accounts
+    await authenticateServerAsAdmin();
+
     const adminRef = serverDoc(serverDb, "admin_accounts", adminUsername.trim().toLowerCase());
     const adminSnap = await serverGetDoc(adminRef);
 

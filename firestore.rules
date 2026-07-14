@@ -341,5 +341,14 @@ service cloud.firestore {
     match /backups/{backupId} {
       allow read, write, get, list: if isAdmin();
     }
+
+    // Error Log collection:
+    // - Anyone can create error logs to support client/server runtime logging.
+    // - Only administrators can read, list, delete, or update.
+    match /error-log/{logId} {
+      allow create: if true;
+      allow read, list, delete: if isAdmin();
+      allow update: if false;
+    }
   }
 }
