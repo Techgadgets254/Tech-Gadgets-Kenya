@@ -54,6 +54,51 @@ function highlightText(text: string, highlight: string) {
   }
 }
 
+function ProductImageMagnifier({ src, alt }: { src: string; alt: string }) {
+  const [coords, setCoords] = useState({ x: 50, y: 50 });
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setCoords({ x, y });
+  };
+
+  return (
+    <div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onMouseMove={handleMouseMove}
+      className="relative w-full h-full overflow-hidden"
+    >
+      <motion.div
+        animate={{
+          scale: isHovered ? 1.4 : 1,
+          transformOrigin: `${coords.x}% ${coords.y}%`
+        }}
+        transition={{ type: "tween", ease: "easeOut", duration: 0.2 }}
+        className="w-full h-full"
+      >
+        <LazyImage
+          src={src}
+          alt={alt}
+          className="w-full h-full object-cover"
+        />
+      </motion.div>
+
+      {/* Glass indicator overlay on hover */}
+      {isHovered && (
+        <div className="absolute inset-0 bg-black/15 pointer-events-none flex items-center justify-center animate-fadeIn">
+          <div className="bg-black/60 text-white rounded-full p-2 border border-white/20 backdrop-blur-md shadow-lg scale-95 flex items-center justify-center">
+            <Search className="w-3.5 h-3.5 text-[#C5A059]" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Custom Levenshtein Distance helper for spell-checking and spelling tolerance
 function getLevenshteinDistance(a: string, b: string): number {
   const tmp = [];
@@ -160,6 +205,7 @@ export default function ShopView() {
     toggleWishlist,
     compareList,
     toggleCompare,
+    clearCompareList,
     productsLoading,
     hasMoreProducts,
     loadMoreProducts
@@ -193,6 +239,8 @@ export default function ShopView() {
   const [selectedBrand, setSelectedBrand] = useState<string>("All");
   const [sortBy, setSortBy] = useState<string>("default");
   const [onlyShowWishlist, setOnlyShowWishlist] = useState<boolean>(false);
+  const [gridDensity, setGridDensity] = useState<"comfortable" | "compact">("comfortable");
+  const [isCompareModalOpen, setIsCompareModalOpen] = useState<boolean>(false);
 
   const [currentPage, setCurrentPage] = useState<number>(1);
 
@@ -352,9 +400,9 @@ export default function ShopView() {
   const getProductMainCategory = (category: string) => {
     const catLower = category.toLowerCase();
     if (catLower.includes("laptop")) return "Laptops";
-    if (catLower.includes("phone")) return "Phones";
-    if (catLower.includes("desktop")) return "Desktops";
-    return category; // Printers, Accessories, All-in-One PCs, etc.
+    if (catLower.includes("desktop") || catLower.includes("pc") || catLower.includes("all-in-one")) return "Desktops";
+    if (catLower.includes("phone") || catLower.includes("mobile") || catLower.includes("tablet")) return "Phones";
+    return "Accessories"; // Printers, accessories, cables, chargers, etc.
   };
 
   const getProductCondition = (p: Product) => {
@@ -411,7 +459,7 @@ export default function ShopView() {
 
   // Unified list of categories for main sidebar selection
   const mainCategoriesList = useMemo(() => {
-    return ["All", "Laptops", "Phones", "Desktops", "Printers", "Accessories", "All-in-One PCs"];
+    return ["All", "Laptops", "Desktops", "Phones", "Accessories"];
   }, []);
 
   const brands = useMemo(() => {
@@ -483,6 +531,7 @@ export default function ShopView() {
 
   const ITEMS_PER_PAGE = 12;
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+
   const paginatedProducts = useMemo(() => {
     return filteredProducts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
   }, [filteredProducts, currentPage]);
@@ -498,6 +547,28 @@ export default function ShopView() {
         <p className="text-white/50 text-xs sm:text-sm mt-1">
           Explore and filter our premium live inventory pool with prompt M-Pesa clearing.
         </p>
+
+        {/* Persistent Search Input Field */}
+        <div className="mt-5 relative max-w-xl">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+            <Search className="h-4 w-4 text-white/40" />
+          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search specific products or brands (e.g., Apple, HP, Lenovo)..."
+            className="block w-full pl-10 pr-10 py-3 bg-[#0F0F0F] border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:outline-hidden focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] transition-all font-sans shadow-inner"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-white/40 hover:text-white cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
         
         {searchQuery && (
           <div className="mt-3 flex items-center gap-2 bg-[#C5A059]/15 text-[#C5A059] border border-[#C5A059]/30 rounded-lg px-3 py-1.5 w-fit text-xs">
@@ -719,6 +790,35 @@ export default function ShopView() {
             </div>
 
             <div className="flex flex-wrap gap-4 items-center w-full md:w-auto justify-end">
+              {/* Grid Density Toggle */}
+              <div className="flex flex-col gap-1 w-full sm:w-auto">
+                <label className="text-[10px] font-mono font-bold text-white/40 uppercase tracking-wider">Grid Density</label>
+                <div className="flex bg-white/[0.03] border border-white/10 rounded-lg p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setGridDensity("comfortable")}
+                    className={`text-xs px-3 py-1.5 rounded-md font-sans transition-all cursor-pointer ${
+                      gridDensity === "comfortable"
+                        ? "bg-[#C5A059] text-black font-semibold shadow-xs"
+                        : "text-white/60 hover:text-white"
+                    }`}
+                  >
+                    Comfortable
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGridDensity("compact")}
+                    className={`text-xs px-3 py-1.5 rounded-md font-sans transition-all cursor-pointer ${
+                      gridDensity === "compact"
+                        ? "bg-[#C5A059] text-black font-semibold shadow-xs"
+                        : "text-white/60 hover:text-white"
+                    }`}
+                  >
+                    Compact
+                  </button>
+                </div>
+              </div>
+
               <div className="flex flex-col gap-1 w-full sm:w-auto">
                 <label className="text-[10px] font-mono font-bold text-white/40 uppercase tracking-wider">Sorting Order</label>
                 <div className="relative">
@@ -748,7 +848,10 @@ export default function ShopView() {
                 <span>INDEX LIVE REVEALS: RETRIEVING COGNITIVE BATCH...</span>
                 <span>FETCHING SECURE STOCKS</span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className={gridDensity === "comfortable" 
+                ? "grid grid-cols-1 sm:grid-cols-2 gap-6"
+                : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
+              }>
                 {[1, 2, 3, 4, 5, 6].map((i) => (
                   <div key={i} className="bg-[#0F0F0F] border border-white/5 rounded-2xl p-4 animate-pulse space-y-4">
                     <div className="w-full h-44 bg-white/5 rounded-xl animate-pulse"></div>
@@ -791,7 +894,10 @@ export default function ShopView() {
                 variants={containerVariants}
                 initial="hidden"
                 animate="show"
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+                className={gridDensity === "comfortable"
+                  ? "grid grid-cols-1 sm:grid-cols-2 gap-6"
+                  : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
+                }
               >
                 {paginatedProducts.map((p) => {
                   const isLowStock = p.stock <= 5;
@@ -811,10 +917,9 @@ export default function ShopView() {
                         }}
                         className="relative h-44 sm:h-48 bg-[#1A1A1A] overflow-hidden cursor-pointer shrink-0"
                       >
-                        <LazyImage
+                        <ProductImageMagnifier
                           src={p.image}
                           alt={p.name}
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-102"
                         />
                         
                         {/* Interactive floating Wishlist and Compare Buttons */}
@@ -1195,6 +1300,280 @@ export default function ShopView() {
           </div>
         </div>
       )}
+
+      {/* Product Comparison Persistent Floating Bar */}
+      {compareList.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-2xl bg-[#0F0F0F]/95 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-fadeIn font-sans">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="bg-[#C5A059]/20 p-2 rounded-lg border border-[#C5A059]/30">
+              <Scale className="w-5 h-5 text-[#C5A059]" />
+            </div>
+            <div>
+              <h4 className="text-xs font-semibold text-white">Compare Hardware</h4>
+              <p className="text-[10px] text-white/50">{compareList.length} of 3 items selected</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 overflow-x-auto py-1 max-w-full">
+            {compareList.map((p) => (
+              <div key={p.id} className="relative flex items-center gap-2 bg-white/[0.03] border border-white/5 rounded-xl p-1.5 pr-3 shrink-0">
+                <div className="w-8 h-8 bg-[#1A1A1A] border border-white/10 rounded-lg overflow-hidden flex items-center justify-center">
+                  <img src={p.image} alt={p.name} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                </div>
+                <div className="max-w-[85px] sm:max-w-[100px]">
+                  <p className="text-[10px] text-white font-medium truncate">{p.name}</p>
+                  <p className="text-[8px] text-[#C5A059] font-mono">KES {p.price.toLocaleString()}</p>
+                </div>
+                <button
+                  onClick={() => toggleCompare(p)}
+                  className="text-white/40 hover:text-white/80 rounded-full p-0.5 hover:bg-white/5 transition-colors cursor-pointer border-0 bg-transparent outline-none"
+                  title="Remove from comparison"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+            <button
+              onClick={clearCompareList}
+              className="text-[11px] font-mono text-white/50 hover:text-white px-3 py-2 rounded-xl hover:bg-white/5 transition-all cursor-pointer border-0 bg-transparent outline-none"
+            >
+              Clear
+            </button>
+            <button
+              onClick={() => setIsCompareModalOpen(true)}
+              className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-black font-semibold text-xs px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer border-0 outline-none"
+            >
+              <Scale className="w-3.5 h-3.5" />
+              Compare Now
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Comparison Matrix Modal */}
+      <AnimatePresence>
+        {isCompareModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn font-sans">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              transition={{ type: "spring", duration: 0.4 }}
+              className="bg-[#0F0F0F] border border-white/10 rounded-3xl max-w-4xl w-full relative overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+            >
+              {/* Modal Header */}
+              <div className="p-6 border-b border-white/10 flex justify-between items-center bg-gradient-to-r from-[#0F0F0F] to-[#161616]">
+                <div className="flex items-center gap-3">
+                  <div className="bg-[#C5A059]/20 p-2.5 rounded-xl border border-[#C5A059]/30">
+                    <Scale className="w-6 h-6 text-[#C5A059]" />
+                  </div>
+                  <div>
+                    <h3 className="font-sans font-bold text-lg text-white">Hardware Comparison Matrix</h3>
+                    <p className="text-white/40 text-xs mt-0.5">Side-by-side technical specification assessment</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsCompareModalOpen(false)}
+                  className="text-white/40 hover:text-white hover:bg-white/5 p-2 rounded-full cursor-pointer transition-colors border-0 bg-transparent outline-none"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Table Container (Scrollable) */}
+              <div className="overflow-auto p-6 flex-1">
+                {compareList.length === 0 ? (
+                  <div className="text-center py-12 text-white/40 space-y-3">
+                    <AlertCircle className="w-8 h-8 text-white/30 mx-auto" />
+                    <p className="text-sm">No hardware commodities selected for comparison.</p>
+                    <button
+                      onClick={() => setIsCompareModalOpen(false)}
+                      className="bg-white/5 border border-white/10 text-white text-xs px-4 py-2 rounded-xl hover:bg-white/10 transition-all cursor-pointer"
+                    >
+                      Back to storefront
+                    </button>
+                  </div>
+                ) : (
+                  <div className="min-w-[650px]">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-white/10">
+                          {/* Top-left corner cell */}
+                          <th className="py-4 px-3 text-xs font-mono text-white/30 uppercase tracking-widest w-[25%] bg-white/[0.01]">
+                            Specifications
+                          </th>
+                          {/* Column for each compared product */}
+                          {compareList.map((p) => {
+                            const isOutOfStock = p.stock === 0;
+                            return (
+                              <th key={p.id} className="py-4 px-4 w-[25%] align-top relative group">
+                                <div className="space-y-4">
+                                  {/* Thumbnail & Remove button */}
+                                  <div className="relative">
+                                    <div className="w-full h-32 bg-[#1A1A1A] border border-white/5 rounded-2xl overflow-hidden p-2 flex items-center justify-center bg-linear-to-b from-[#111] to-[#1A1A1A]">
+                                      <img src={p.image} alt={p.name} className="max-h-full max-w-full object-contain" referrerPolicy="no-referrer" />
+                                    </div>
+                                    <button
+                                      onClick={() => toggleCompare(p)}
+                                      className="absolute -top-1.5 -right-1.5 bg-black/80 hover:bg-red-500 hover:text-white text-white/60 p-1.5 rounded-full border border-white/10 cursor-pointer transition-all shadow-md"
+                                      title="Remove from comparison"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+
+                                  {/* Name & price */}
+                                  <div className="space-y-1">
+                                    <span className="text-[9px] font-mono text-[#C5A059] uppercase tracking-wider block">{p.brand}</span>
+                                    <h4 className="text-xs text-white font-bold line-clamp-2 min-h-[32px] leading-tight">{p.name}</h4>
+                                    <p className="text-sm font-sans font-extrabold text-[#C5A059]">KSh {p.price.toLocaleString()}</p>
+                                  </div>
+
+                                  {/* Add to Cart button */}
+                                  <button
+                                    disabled={isOutOfStock}
+                                    onClick={() => {
+                                      const variants = getProductVariants(p);
+                                      if (variants && variants.options.length > 0) {
+                                        setQuickBuyProduct(p);
+                                        setIsCompareModalOpen(false); // open quickbuy directly
+                                      } else {
+                                        addToCart(p, 1);
+                                      }
+                                    }}
+                                    className={`w-full font-sans text-[11px] font-bold py-2 rounded-xl transition-all cursor-pointer ${
+                                      isOutOfStock 
+                                        ? "bg-white/5 text-white/30 cursor-not-allowed" 
+                                        : "bg-[#C5A059] hover:bg-[#C5A059]/90 text-black shadow-md hover:scale-102"
+                                    }`}
+                                  >
+                                    {isOutOfStock ? "Sold Out" : "Add to Bag"}
+                                  </button>
+                                </div>
+                              </th>
+                            );
+                          })}
+                          {/* Placeholders if comparing less than 3 */}
+                          {compareList.length < 3 && 
+                            Array.from({ length: 3 - compareList.length }).map((_, idx) => (
+                              <th key={`placeholder-${idx}`} className="py-4 px-4 w-[25%] align-middle text-center border-l border-white/[0.03]">
+                                <div className="border-2 border-dashed border-white/5 rounded-2xl p-6 min-h-[220px] flex flex-col items-center justify-center text-white/20 gap-2">
+                                  <Scale className="w-6 h-6 text-white/10" />
+                                  <p className="text-[10px] font-mono uppercase tracking-wider">Select Commodity</p>
+                                </div>
+                              </th>
+                            ))
+                          }
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5 text-xs text-white/80">
+                        {/* Row: Brand */}
+                        <tr className="hover:bg-white/[0.01]">
+                          <td className="py-3 px-3 font-mono text-[10px] text-white/40 uppercase bg-white/[0.01] font-bold">Brand</td>
+                          {compareList.map((p) => (
+                            <td key={p.id} className="py-3 px-4 font-sans font-medium text-white">{p.brand}</td>
+                          ))}
+                          {compareList.length < 3 && Array.from({ length: 3 - compareList.length }).map((_, idx) => <td key={idx} className="bg-transparent" />)}
+                        </tr>
+                        {/* Row: Category */}
+                        <tr className="hover:bg-white/[0.01]">
+                          <td className="py-3 px-3 font-mono text-[10px] text-white/40 uppercase bg-white/[0.01] font-bold">Category</td>
+                          {compareList.map((p) => (
+                            <td key={p.id} className="py-3 px-4 font-sans text-white/70">{p.category}</td>
+                          ))}
+                          {compareList.length < 3 && Array.from({ length: 3 - compareList.length }).map((_, idx) => <td key={idx} className="bg-transparent" />)}
+                        </tr>
+                        {/* Row: Rating */}
+                        <tr className="hover:bg-white/[0.01]">
+                          <td className="py-3 px-3 font-mono text-[10px] text-white/40 uppercase bg-white/[0.01] font-bold">Rating</td>
+                          {compareList.map((p) => {
+                            const rating = p.rating || 5;
+                            return (
+                              <td key={p.id} className="py-3 px-4 font-sans">
+                                <div className="flex items-center gap-1">
+                                  <div className="flex text-[#C5A059]">
+                                    {Array.from({ length: 5 }).map((_, idx) => (
+                                      <Star key={idx} className={`w-3 h-3 ${idx < Math.round(rating) ? "fill-current" : "opacity-30"}`} />
+                                    ))}
+                                  </div>
+                                  <span className="text-[10px] font-mono text-white/50">({rating})</span>
+                                </div>
+                              </td>
+                            );
+                          })}
+                          {compareList.length < 3 && Array.from({ length: 3 - compareList.length }).map((_, idx) => <td key={idx} className="bg-transparent" />)}
+                        </tr>
+                        {/* Row: Stock */}
+                        <tr className="hover:bg-white/[0.01]">
+                          <td className="py-3 px-3 font-mono text-[10px] text-white/40 uppercase bg-white/[0.01] font-bold">Availability</td>
+                          {compareList.map((p) => {
+                            const isOutOfStock = p.stock === 0;
+                            const isLowStock = p.stock > 0 && p.stock <= 5;
+                            return (
+                              <td key={p.id} className="py-3 px-4 font-sans font-semibold">
+                                {isOutOfStock ? (
+                                  <span className="text-red-500">Out of Stock</span>
+                                ) : isLowStock ? (
+                                  <span className="text-[#C5A059]">Low Stock ({p.stock})</span>
+                                ) : (
+                                  <span className="text-green-500">In Stock ({p.stock} units)</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                          {compareList.length < 3 && Array.from({ length: 3 - compareList.length }).map((_, idx) => <td key={idx} className="bg-transparent" />)}
+                        </tr>
+
+                        {/* Specification Rows */}
+                        {Array.from(new Set(compareList.flatMap(p => Object.keys(p.specifications || {})))).map((specKey) => (
+                          <tr key={specKey} className="hover:bg-white/[0.01]">
+                            <td className="py-3 px-3 font-mono text-[10px] text-white/40 uppercase bg-white/[0.01] font-bold truncate max-w-[150px]" title={specKey}>
+                              {specKey}
+                            </td>
+                            {compareList.map((p) => {
+                              const val = p.specifications?.[specKey] || "-";
+                              return (
+                                <td key={p.id} className="py-3 px-4 font-sans text-white/95 text-xs">
+                                  {val}
+                                </td>
+                              );
+                            })}
+                            {compareList.length < 3 && Array.from({ length: 3 - compareList.length }).map((_, idx) => <td key={idx} className="bg-transparent" />)}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-6 border-t border-white/10 bg-white/[0.01] flex items-center justify-between">
+                <p className="text-[10px] text-white/30 font-mono">
+                  COMPARE POOL ACCESS CODE: KE-HW-CMP-3
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={clearCompareList}
+                    className="bg-transparent border border-white/10 hover:border-white/20 hover:text-white text-white/60 text-xs px-4 py-2 rounded-xl transition-all cursor-pointer border-0"
+                  >
+                    Clear Comparison List
+                  </button>
+                  <button
+                    onClick={() => setIsCompareModalOpen(false)}
+                    className="bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs px-5 py-2 rounded-xl font-semibold transition-all cursor-pointer"
+                  >
+                    Close assessment
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

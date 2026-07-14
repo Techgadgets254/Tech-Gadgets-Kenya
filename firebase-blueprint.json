@@ -179,6 +179,17 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["page", "referralSource", "createdAt"]
+    },
+    "saved_item": {
+      "title": "Saved Item",
+      "description": "A favorite product saved by a customer",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The Firebase Auth UID of the customer" },
+        "productId": { "type": "string", "description": "The unique product ID of the saved hardware" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "productId", "createdAt"]
     }
   },
   "firestore": {
@@ -233,6 +244,10 @@
     "/whatsapp_clicks/{clickId}": {
       "schema": "whatsapp_click",
       "description": "Engagement metrics logs for users clicking the WhatsApp support button"
+    },
+    "/saved_items/{savedItemId}": {
+      "schema": "saved_item",
+      "description": "User saved favorite items for persistent wishlist access"
     }
   }
 }

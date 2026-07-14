@@ -356,11 +356,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const prevStatusesRef = React.useRef<Record<string, { shipping: string; payment: string }>>({});
   const isFirstLoadRef = React.useRef(true);
 
-  // Sync Wishlist to localStorage and User Profile
+  // Sync Wishlist to localStorage and persistent 'saved_items' collection in Firestore
   useEffect(() => {
-    if (userProfile && userProfile.wishlist) {
-      setWishlist(userProfile.wishlist);
-    } else {
+    if (!user) {
       const cachedWish = localStorage.getItem("tech_gadgets_ke_wishlist");
       if (cachedWish) {
         try {
@@ -368,12 +366,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         } catch (e) {
           console.error(e);
         }
+      } else {
+        setWishlist([]);
       }
+      return;
     }
-  }, [userProfile]);
+
+    const savedItemsRef = collection(db, "saved_items");
+    const q = query(savedItemsRef, where("userId", "==", user.uid));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const productIds: string[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.productId) {
+          productIds.push(data.productId);
+        }
+      });
+      setWishlist(productIds);
+      localStorage.setItem("tech_gadgets_ke_wishlist", JSON.stringify(productIds));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, "saved_items");
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   const toggleWishlist = async (productId: string) => {
-    const updated = wishlist.includes(productId)
+    const isSaved = wishlist.includes(productId);
+    const updated = isSaved
       ? wishlist.filter((id) => id !== productId)
       : [...wishlist, productId];
     
@@ -382,10 +403,29 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     if (user) {
       try {
-        const userDocRef = doc(db, "users", user.uid);
-        await updateDoc(userDocRef, { wishlist: updated });
+        const savedItemsRef = collection(db, "saved_items");
+        if (isSaved) {
+          const q = query(savedItemsRef, where("userId", "==", user.uid), where("productId", "==", productId));
+          const snapshot = await getDocs(q);
+          const deletePromises = snapshot.docs.map((doc) => deleteDoc(doc.ref));
+          await Promise.all(deletePromises);
+        } else {
+          const newDocPayload = {
+            userId: user.uid,
+            productId: productId,
+            createdAt: new Date().toISOString()
+          };
+          await addDoc(savedItemsRef, newDocPayload);
+        }
+
+        try {
+          const userDocRef = doc(db, "users", user.uid);
+          await updateDoc(userDocRef, { wishlist: updated });
+        } catch (err) {
+          // Soft non-blocking legacy update fallback
+        }
       } catch (err) {
-        console.warn("Soft non-blocking error syncing wishlist to Firestore:", err);
+        handleFirestoreError(err, OperationType.WRITE, "saved_items");
       }
     }
   };
@@ -425,6 +465,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       timestamp: Date.now()
     };
     setNotifications((prev) => [newNotif, ...prev]);
+  };
+
+  const handleSetActiveView = (view: StoreContextType["activeView"]) => {
+    if (view === "checkout" && !user) {
+      setAuthModalMode("login");
+      setIsAuthModalOpen(true);
+      addCustomNotification("Please sign in or sign up to finalize your secure checkout!");
+      return;
+    }
+    setActiveView(view);
   };
 
   // Sync Cart to localStorage
@@ -1395,7 +1445,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         searchQuery,
         setSearchQuery,
         setInvoiceOrderId,
-        setActiveView,
+        setActiveView: handleSetActiveView,
         setSelectedProductId,
         setSelectedOrder,
         wishlist,
