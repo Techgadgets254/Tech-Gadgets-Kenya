@@ -54,6 +54,23 @@ function highlightText(text: string, highlight: string) {
   }
 }
 
+function normalizeBrandName(brand: string): string {
+  if (!brand) return "Unknown";
+  const b = brand.trim().toLowerCase();
+  if (b === "hp") return "HP";
+  if (b === "apple") return "Apple";
+  if (b === "lenovo") return "Lenovo";
+  if (b === "dell") return "Dell";
+  if (b === "samsung") return "Samsung";
+  if (b === "epson") return "Epson";
+  if (b === "anker") return "Anker";
+  if (b === "xiaomi") return "Xiaomi";
+  if (b === "huawei") return "Huawei";
+  if (b === "asus") return "Asus";
+  if (b === "acer") return "Acer";
+  return brand.trim().charAt(0).toUpperCase() + brand.trim().slice(1);
+}
+
 function ProductImageMagnifier({ src, alt }: { src: string; alt: string }) {
   const [coords, setCoords] = useState({ x: 50, y: 50 });
   const [isHovered, setIsHovered] = useState(false);
@@ -239,7 +256,7 @@ export default function ShopView() {
   const [selectedBrand, setSelectedBrand] = useState<string>("All");
   const [sortBy, setSortBy] = useState<string>("default");
   const [onlyShowWishlist, setOnlyShowWishlist] = useState<boolean>(false);
-  const [gridDensity, setGridDensity] = useState<"comfortable" | "compact">("comfortable");
+  const [gridDensity, setGridDensity] = useState<"comfortable" | "compact">("compact");
   const [isCompareModalOpen, setIsCompareModalOpen] = useState<boolean>(false);
 
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -402,7 +419,8 @@ export default function ShopView() {
     if (catLower.includes("laptop")) return "Laptops";
     if (catLower.includes("desktop") || catLower.includes("pc") || catLower.includes("all-in-one")) return "Desktops";
     if (catLower.includes("phone") || catLower.includes("mobile") || catLower.includes("tablet")) return "Phones";
-    return "Accessories"; // Printers, accessories, cables, chargers, etc.
+    if (catLower.includes("printer") || catLower.includes("scanner") || catLower.includes("ink")) return "Printers";
+    return "Accessories"; // Cables, chargers, adapters, bags, power, etc.
   };
 
   const getProductCondition = (p: Product) => {
@@ -459,14 +477,14 @@ export default function ShopView() {
 
   // Unified list of categories for main sidebar selection
   const mainCategoriesList = useMemo(() => {
-    return ["All", "Laptops", "Desktops", "Phones", "Accessories"];
+    return ["All", "Laptops", "Desktops", "Phones", "Printers", "Accessories"];
   }, []);
 
   const brands = useMemo(() => {
     const matchingProducts = products.filter(p => 
       selectedMainCategory === "All" || getProductMainCategory(p.category) === selectedMainCategory
     );
-    const list = new Set(matchingProducts.map(p => p.brand));
+    const list = new Set(matchingProducts.map(p => normalizeBrandName(p.brand)));
     return ["All", ...Array.from(list)];
   }, [products, selectedMainCategory]);
 
@@ -501,7 +519,7 @@ export default function ShopView() {
 
     // Brand Filter
     if (selectedBrand !== "All") {
-      result = result.filter(p => p.brand === selectedBrand);
+      result = result.filter(p => normalizeBrandName(p.brand) === selectedBrand);
     }
 
     // Wishlist Filter
@@ -906,6 +924,8 @@ export default function ShopView() {
                   return (
                     <motion.div
                       key={p.id}
+                      layout
+                      layoutId={`shop-product-${p.id}`}
                       variants={itemVariants}
                       className="bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden hover:border-[#C5A059]/40 transition-all flex flex-col group shadow-lg"
                     >
@@ -958,7 +978,7 @@ export default function ShopView() {
 
                         <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 z-10">
                           <span className="bg-black/70 backdrop-blur-xs text-[#C5A059] font-mono text-[9px] font-bold px-2 py-0.5 rounded-md">
-                            {highlightText(p.brand, searchQuery)}
+                            {highlightText(normalizeBrandName(p.brand), searchQuery)}
                           </span>
                           {isOutOfStock ? (
                             <span className="bg-white/10 text-white/50 font-mono text-[9px] font-bold px-2 py-0.5 rounded-sm">
@@ -1427,7 +1447,7 @@ export default function ShopView() {
 
                                   {/* Name & price */}
                                   <div className="space-y-1">
-                                    <span className="text-[9px] font-mono text-[#C5A059] uppercase tracking-wider block">{p.brand}</span>
+                                    <span className="text-[9px] font-mono text-[#C5A059] uppercase tracking-wider block">{normalizeBrandName(p.brand)}</span>
                                     <h4 className="text-xs text-white font-bold line-clamp-2 min-h-[32px] leading-tight">{p.name}</h4>
                                     <p className="text-sm font-sans font-extrabold text-[#C5A059]">KSh {p.price.toLocaleString()}</p>
                                   </div>
@@ -1474,7 +1494,7 @@ export default function ShopView() {
                         <tr className="hover:bg-white/[0.01]">
                           <td className="py-3 px-3 font-mono text-[10px] text-white/40 uppercase bg-white/[0.01] font-bold">Brand</td>
                           {compareList.map((p) => (
-                            <td key={p.id} className="py-3 px-4 font-sans font-medium text-white">{p.brand}</td>
+                            <td key={p.id} className="py-3 px-4 font-sans font-medium text-white">{normalizeBrandName(p.brand)}</td>
                           ))}
                           {compareList.length < 3 && Array.from({ length: 3 - compareList.length }).map((_, idx) => <td key={idx} className="bg-transparent" />)}
                         </tr>
