@@ -5,7 +5,7 @@
 
 import React, { useState } from "react";
 import { useStore } from "../StoreContext";
-import brandLogo from "../assets/images/tech_soko_logo_1783961449391.jpg";
+import brandLogo from "../assets/images/tech_soko_logo_1783960703453.jpg";
 import { 
   Monitor, 
   CreditCard, 

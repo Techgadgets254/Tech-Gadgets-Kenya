@@ -329,5 +329,17 @@ service cloud.firestore {
       allow create: if isValidWhatsAppClick(incoming());
       allow read, list, delete: if isAdmin();
     }
+
+    // Admin Accounts collection:
+    // - Only administrators can read, list, create, update, or delete.
+    match /admin_accounts/{adminId} {
+      allow read, write, get, list: if isAdmin();
+    }
+
+    // Backups collection:
+    // - Only administrators can read, list, create, update, or delete.
+    match /backups/{backupId} {
+      allow read, write, get, list: if isAdmin();
+    }
   }
 }

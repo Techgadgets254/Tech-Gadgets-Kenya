@@ -21,19 +21,81 @@ import AIAdvisor from "./components/AIAdvisor";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { Helmet } from "./components/Helmet";
 import AuthModal from "./components/AuthModal";
-import { Loader2, MessageSquare, HelpCircle, Share2, Package, PhoneCall, ShoppingBag } from "lucide-react";
+import { Loader2, MessageSquare, HelpCircle, Share2, Package, PhoneCall, ShoppingBag, XCircle, Copy } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 function StoreLayout() {
   const { activeView, authLoading, isAuthModalOpen, selectedProductId, products, setActiveView } = useStore();
   const [isWhatsAppVisible, setIsWhatsAppVisible] = React.useState(true);
-  const [isMicroMenuOpen, setIsMicroMenuOpen] = React.useState(false);
+  const [isMicroMenuOpen, setIsMicroMenuOpen] = React.useState(() => {
+    try {
+      return localStorage.getItem("tsk_micromenu_open") === "true";
+    } catch (e) {
+      return false;
+    }
+  });
+  const [copied, setCopied] = React.useState(false);
   const [hasBeenOnProductPageTenSecs, setHasBeenOnProductPageTenSecs] = React.useState(false);
   const lastScrollTopRef = React.useRef(0);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem("tsk_micromenu_open", isMicroMenuOpen ? "true" : "false");
+    } catch (e) {}
+  }, [isMicroMenuOpen]);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMicroMenuOpen(false);
+      }
+    };
+    if (isMicroMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isMicroMenuOpen]);
+
+  const menuVariants: any = {
+    hidden: { 
+      opacity: 0, 
+      y: 15, 
+      scale: 0.9,
+      transition: {
+        type: "spring",
+        stiffness: 300,
+        damping: 25
+      }
+    },
+    visible: { 
+      opacity: 1, 
+      y: 0, 
+      scale: 1,
+      transition: {
+        type: "spring",
+        stiffness: 260,
+        damping: 20,
+        staggerChildren: 0.05,
+        delayChildren: 0.02
+      }
+    }
+  };
+
+  const itemVariants: any = {
+    hidden: { opacity: 0, y: 10, scale: 0.95 },
+    visible: { 
+      opacity: 1, 
+      y: 0, 
+      scale: 1,
+      transition: { type: "spring", stiffness: 300, damping: 20 }
+    }
+  };
 
   React.useEffect(() => {
     setHasBeenOnProductPageTenSecs(false);
-    setIsMicroMenuOpen(false);
     if (activeView === "product-details") {
       const timer = setTimeout(() => {
         setHasBeenOnProductPageTenSecs(true);
@@ -378,6 +440,7 @@ function StoreLayout() {
       {/* Persistent Floating WhatsApp Chat Button & Actions */}
       {activeView !== "admin-dashboard" && activeView !== "client-dashboard" && (
         <div 
+          ref={menuRef}
           className="fixed bottom-6 left-6 z-50 flex items-center gap-3"
           style={{ pointerEvents: isWhatsAppVisible ? "auto" : "none" }}
         >
@@ -439,17 +502,18 @@ function StoreLayout() {
               </span>
             </motion.button>
 
-            {/* Micro-Menu */}
+            {/* Micro-Menu with Spring & Stagger animation variants */}
             <AnimatePresence>
               {isMicroMenuOpen && (
                 <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                  className="absolute bottom-16 left-0 mb-2 bg-[#0F0F0F] border border-white/10 rounded-2xl p-2.5 shadow-2xl min-w-[175px] flex flex-col gap-1.5 z-50 font-mono text-[10px] uppercase tracking-wider text-white select-none"
+                  variants={menuVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="hidden"
+                  className="absolute bottom-16 left-0 mb-2 bg-[#0F0F0F]/95 backdrop-blur-md border border-white/10 rounded-2xl p-2.5 shadow-2xl min-w-[180px] flex flex-col gap-1.5 z-50 font-mono text-[10px] uppercase tracking-wider text-white select-none"
                 >
-                  <button
+                  <motion.button
+                    variants={itemVariants}
                     onClick={() => {
                       setActiveView("checkout");
                       setIsMicroMenuOpen(false);
@@ -458,8 +522,10 @@ function StoreLayout() {
                   >
                     <ShoppingBag className="w-3.5 h-3.5 text-[#C5A059]" />
                     <span>View Cart</span>
-                  </button>
-                  <button
+                  </motion.button>
+                  
+                  <motion.button
+                    variants={itemVariants}
                     onClick={() => {
                       setActiveView("client-dashboard");
                       setIsMicroMenuOpen(false);
@@ -468,8 +534,10 @@ function StoreLayout() {
                   >
                     <Package className="w-3.5 h-3.5 text-[#C5A059]" />
                     <span>My Orders</span>
-                  </button>
-                  <a
+                  </motion.button>
+                  
+                  <motion.a
+                    variants={itemVariants}
                     href={whatsappUrl}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -481,7 +549,33 @@ function StoreLayout() {
                   >
                     <PhoneCall className="w-3.5 h-3.5 text-[#C5A059]" />
                     <span>Contact Support</span>
-                  </a>
+                  </motion.a>
+
+                  <motion.button
+                    variants={itemVariants}
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(window.location.href);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      } catch (err) {
+                        console.error("Failed to copy link:", err);
+                      }
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/5 text-white/80 hover:text-[#C5A059] transition-all cursor-pointer text-left w-full"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>{copied ? "Copied!" : "Copy Link"}</span>
+                  </motion.button>
+
+                  <motion.button
+                    variants={itemVariants}
+                    onClick={() => setIsMicroMenuOpen(false)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/5 text-red-400 hover:text-red-500 transition-all cursor-pointer text-left w-full border-t border-white/5 mt-1"
+                  >
+                    <XCircle className="w-3.5 h-3.5 text-red-400" />
+                    <span>Close Menu</span>
+                  </motion.button>
                 </motion.div>
               )}
             </AnimatePresence>

@@ -36,7 +36,7 @@ import { jsPDF } from "jspdf";
 import { User as UserIcon } from "lucide-react";
 import ProfileEditor from "./ProfileEditor";
 import { FIXED_ARTICLES, DAILY_ARTICLES, Article } from "./NewsView";
-import brandLogo from "../assets/images/tech_soko_logo_1783961449391.jpg";
+import brandLogo from "../assets/images/tech_soko_logo_1783960703453.jpg";
 
 export default function ClientDashboard() {
   const { 
@@ -162,7 +162,17 @@ export default function ClientDashboard() {
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailSuccess, setEmailSuccess] = useState(false);
 
-  const handleDownloadInvoicePDF = (order: Order | null) => {
+  const loadImage = (src: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = src;
+      img.onload = () => resolve(img);
+      img.onerror = (e) => reject(e);
+    });
+  };
+
+  const handleDownloadInvoicePDF = async (order: Order | null) => {
     if (!order) return;
     const doc = new jsPDF({
       orientation: "portrait",
@@ -176,20 +186,28 @@ export default function ClientDashboard() {
     doc.setFillColor(15, 15, 15);
     doc.rect(0, 0, 210, 54, "F");
 
-    // 2. Branding Typography
+    // 1.5 Draw Logo Image on top-left of the banner
+    try {
+      const logoImg = await loadImage(brandLogo);
+      doc.addImage(logoImg, "JPEG", 15, 12, 15, 15);
+    } catch (e) {
+      console.warn("Could not load brand logo for invoice PDF:", e);
+    }
+
+    // 2. Branding Typography (Shifted to the right to accommodate the logo)
     doc.setTextColor(255, 255, 255);
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(22);
-    doc.text("TECH SOKO KENYA", 15, 20);
+    doc.text("TECH SOKO KENYA", 34, 21);
 
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text("PREMIUM IMPORTS & ENTERPRISE COMPUTERS", 15, 26);
+    doc.text("PREMIUM IMPORTS & ENTERPRISE COMPUTERS", 34, 27);
 
     doc.setTextColor(160, 160, 160);
-    doc.text("Kenyatta Pioneer Building, along Kenyatta Avenue, Shop 514, Nairobi", 15, 32);
-    doc.text("Payment Clearance Channel: Secure Paystack Portal | Support: info@techgadgetskenya.co.ke", 15, 37);
+    doc.text("Kenyatta Pioneer Building, along Kenyatta Avenue, Shop 514, Nairobi", 34, 33);
+    doc.text("Payment Clearance Channel: Secure Paystack Portal | Support: info@techgadgetskenya.co.ke", 34, 38);
 
     // 3. Tax Invoice Badge
     doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -312,7 +330,7 @@ export default function ClientDashboard() {
     doc.save(`Tech_Soko_Kenya_Invoice_${order.id.substring(0, 8)}.pdf`);
   };
 
-  const handleDownloadStatementPDF = () => {
+  const handleDownloadStatementPDF = async () => {
     if (orders.length === 0) return;
     const doc = new jsPDF({
       orientation: "portrait",
@@ -326,20 +344,28 @@ export default function ClientDashboard() {
     doc.setFillColor(15, 15, 15);
     doc.rect(0, 0, 210, 54, "F");
 
-    // Title Block
+    // Draw Logo Image on top-left of the banner
+    try {
+      const logoImg = await loadImage(brandLogo);
+      doc.addImage(logoImg, "JPEG", 15, 12, 15, 15);
+    } catch (e) {
+      console.warn("Could not load brand logo for statement PDF:", e);
+    }
+
+    // Title Block (Shifted to the right to accommodate the logo)
     doc.setTextColor(255, 255, 255);
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(18);
-    doc.text("TECH SOKO KENYA", 15, 20);
+    doc.text("TECH SOKO KENYA", 34, 21);
 
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text("E-TIMS FISCAL STATEMENT & TRANSACTION RECORDS", 15, 26);
+    doc.text("E-TIMS FISCAL STATEMENT & TRANSACTION RECORDS", 34, 27);
 
     doc.setTextColor(160, 160, 160);
-    doc.text("Kenyatta Pioneer Building, Kenyatta Avenue, Shop 514, Nairobi | Kenya", 15, 32);
-    doc.text(`Official statement generated dynamically on: ${new Date().toLocaleString()}`, 15, 37);
+    doc.text("Kenyatta Pioneer Building, Kenyatta Avenue, Shop 514, Nairobi | Kenya", 34, 33);
+    doc.text(`Official statement generated dynamically on: ${new Date().toLocaleString()}`, 34, 38);
 
     // KRA Compliant Stamp
     doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);

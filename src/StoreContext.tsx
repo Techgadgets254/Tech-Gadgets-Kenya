@@ -578,16 +578,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         // Seed if zero products exist in the entire collection (snapshot is completely empty)
         if (snapshot.empty) {
           console.log("No products found in Firestore. Seeding premium selection...");
-          try {
-            for (const item of DEFAULT_PRODUCTS) {
-              await addDoc(productsColRef, {
-                ...item,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              });
+          // Fallback to local default products immediately so guests can see products without logging in
+          const fallbackProducts = DEFAULT_PRODUCTS.map((item, i) => ({
+            id: `default-${i}`,
+            ...item,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          })) as Product[];
+          setProducts(fallbackProducts);
+          setProductsLoading(false);
+
+          // Only attempt to seed if current user is admin
+          const isAdminUser = 
+            user?.email === "techgadgetsk@gmail.com" || 
+            userProfile?.role === "admin" ||
+            userProfile?.["admin-claims"] === true ||
+            userProfile?.["admin-claims"] === "admin";
+
+          if (isAdminUser) {
+            try {
+              for (const item of DEFAULT_PRODUCTS) {
+                await addDoc(productsColRef, {
+                  ...item,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                });
+              }
+            } catch (e) {
+              console.warn("Could not seed default products to empty Firestore:", e);
             }
-          } catch (e) {
-            handleFirestoreError(e, OperationType.WRITE, "products");
           }
         } else {
           // Since we ordered the query, active items are sorted, but let's ensure order

@@ -16,6 +16,11 @@ import {
   addDoc as serverAddDoc,
   getDocs as serverGetDocs 
 } from "firebase/firestore";
+import {
+  getAuth as serverGetAuth,
+  signInWithEmailAndPassword as serverSignIn,
+  createUserWithEmailAndPassword as serverCreateUser
+} from "firebase/auth";
 
 dotenv.config();
 
@@ -509,9 +514,45 @@ app.post("/api/email/send-restock-alert", async (req, res) => {
 // ADMINISTRATOR SYSTEM ACCOUNTS & PRIVILEGES ENDPOINTS
 // ----------------------------------------------------
 
+async function authenticateServerAsAdmin() {
+  const auth = serverGetAuth(serverApp);
+  const email = "techgadgetsk@gmail.com";
+  const password = "admin123";
+
+  try {
+    await serverSignIn(auth, email, password);
+    console.log("[Server Auth] Successfully authenticated server as admin:", email);
+  } catch (err: any) {
+    // If the user does not exist or credentials are invalid (e.g. newly provisioned Firebase auth)
+    if (err.code === "auth/user-not-found" || err.code === "auth/invalid-credential" || err.code === "auth/user-disabled") {
+      try {
+        await serverCreateUser(auth, email, password);
+        console.log("[Server Auth] Created and authenticated brand new admin user on Firebase Auth:", email);
+        
+        // Also seed user document role dynamically
+        const userRef = serverDoc(serverDb, "users", auth.currentUser?.uid || "admin-uid");
+        await serverSetDoc(userRef, {
+          role: "admin",
+          email: email,
+          name: "Administrator",
+          "admin-claims": true,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      } catch (createErr: any) {
+        console.error("[Server Auth] Failed to create admin user during fallback:", createErr.message || createErr);
+      }
+    } else {
+      console.error("[Server Auth] Error during server authentication:", err.message || err);
+    }
+  }
+}
+
 // Ensure default admin exists on server launch
 async function ensureDefaultAdmin() {
   try {
+    // Authenticate server client first to gain admin privileges
+    await authenticateServerAsAdmin();
+
     const adminRef = serverDoc(serverDb, "admin_accounts", "techgadgetsk@gmail.com");
     const adminSnap = await serverGetDoc(adminRef);
     if (!adminSnap.exists()) {
