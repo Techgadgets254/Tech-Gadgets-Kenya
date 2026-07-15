@@ -935,10 +935,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = () => setCart([]);
 
+  const isFlashActive = (p: any) => {
+    if (!p.flashPrice || !p.flashExpiry) return false;
+    const now = new Date();
+    const expiryDate = new Date(p.flashExpiry);
+    if (now > expiryDate) return false;
+    if (p.flashStart) {
+      const startDate = new Date(p.flashStart);
+      if (now < startDate) return false;
+    }
+    return true;
+  };
+
   const getCartTotal = () => {
     return cart.reduce((tot, item) => {
-      const isFlashActive = item.product.flashPrice && item.product.flashExpiry && new Date(item.product.flashExpiry) > new Date();
-      const price = isFlashActive ? item.product.flashPrice! : item.product.price;
+      const active = isFlashActive(item.product);
+      const price = active ? item.product.flashPrice! : item.product.price;
       return tot + price * item.quantity;
     }, 0);
   };
@@ -962,8 +974,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (cart.length === 0) return null;
 
     const items: OrderItem[] = cart.map((item) => {
-      const isFlashActive = item.product.flashPrice && item.product.flashExpiry && new Date(item.product.flashExpiry) > new Date();
-      const finalPrice = isFlashActive ? item.product.flashPrice! : item.product.price;
+      const active = isFlashActive(item.product);
+      const finalPrice = active ? item.product.flashPrice! : item.product.price;
       return {
         productId: item.product.id,
         name: item.product.name,

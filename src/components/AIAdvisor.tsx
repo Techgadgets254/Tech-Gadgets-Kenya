@@ -14,9 +14,18 @@ import {
   Trash2,
   ShoppingCart,
   Check,
-  Info
+  Info,
+  Search,
+  Plus
 } from "lucide-react";
 import Markdown from "react-markdown";
+
+interface SavedConversation {
+  id: string;
+  title: string;
+  timestamp: string;
+  messages: { role: "user" | "assistant"; content: string }[];
+}
 
 // Interactive Card for recommended items inside the AI Advisor chat
 function RecommendedProductCard({ 
@@ -163,12 +172,68 @@ export default function AIAdvisor() {
   const [compareModalOpen, setCompareModalOpen] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // Persistent Chat History States
+  const [conversations, setConversations] = useState<SavedConversation[]>(() => {
+    try {
+      const saved = localStorage.getItem("tech_soko_ai_conversations");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [showHistorySidebar, setShowHistorySidebar] = useState(false);
+  const [searchHistoryQuery, setSearchHistoryQuery] = useState("");
+
   // Auto scroll
   useEffect(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [chatHistory, loading]);
+
+  // Sync active chat history to localStorage automatically
+  useEffect(() => {
+    if (chatHistory.length <= 1 && !activeConversationId) return;
+
+    let targetId = activeConversationId;
+    let isNew = false;
+    if (!targetId) {
+      targetId = Date.now().toString();
+      isNew = true;
+    }
+
+    setConversations((prev) => {
+      let updated: SavedConversation[];
+      const firstUserMsg = chatHistory.find((m) => m.role === "user")?.content || "Comparison Inquiry";
+      const displayTitle = firstUserMsg.slice(0, 35) + (firstUserMsg.length > 35 ? "..." : "");
+      
+      const existingIdx = prev.findIndex((c) => c.id === targetId);
+      if (existingIdx >= 0) {
+        updated = [...prev];
+        updated[existingIdx] = {
+          ...updated[existingIdx],
+          messages: chatHistory,
+          timestamp: new Date().toISOString()
+        };
+      } else {
+        const newConv: SavedConversation = {
+          id: targetId!,
+          title: displayTitle,
+          timestamp: new Date().toISOString(),
+          messages: chatHistory
+        };
+        updated = [newConv, ...prev];
+      }
+
+      localStorage.setItem("tech_soko_ai_conversations", JSON.stringify(updated));
+      return updated;
+    });
+
+    if (isNew) {
+      setActiveConversationId(targetId);
+    }
+  }, [chatHistory, activeConversationId]);
 
   const handleSendMessage = async (userMsgString: string) => {
     const textToSend = userMsgString || message;
@@ -311,6 +376,45 @@ Where "id_1, id_2" are the raw matching IDs of the products from the live databa
     ]);
   };
 
+  // Chat History Sidebar Operations
+  const handleLoadConversation = (id: string) => {
+    const conv = conversations.find((c) => c.id === id);
+    if (conv) {
+      setActiveConversationId(id);
+      setChatHistory(conv.messages);
+      if (window.innerWidth < 640) {
+        setShowHistorySidebar(false);
+      }
+    }
+  };
+
+  const handleDeleteConversation = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Are you sure you want to delete this chat session?")) return;
+
+    const updated = conversations.filter((c) => c.id !== id);
+    setConversations(updated);
+    localStorage.setItem("tech_soko_ai_conversations", JSON.stringify(updated));
+
+    if (activeConversationId === id) {
+      setActiveConversationId(null);
+      resetChat();
+    }
+  };
+
+  const handleNewChat = () => {
+    setActiveConversationId(null);
+    resetChat();
+    if (window.innerWidth < 640) {
+      setShowHistorySidebar(false);
+    }
+  };
+
+  const filteredConversations = conversations.filter((c) => 
+    c.title.toLowerCase().includes(searchHistoryQuery.toLowerCase()) || 
+    c.messages.some((m) => m.content.toLowerCase().includes(searchHistoryQuery.toLowerCase()))
+  );
+
   // Extract all specs keys from compare items for comparison table
   const allSpecKeys = Array.from(
     new Set(compareList.flatMap(p => Object.keys(p.specifications || {})))
@@ -376,189 +480,302 @@ Where "id_1, id_2" are the raw matching IDs of the products from the live databa
       {isOpen && (
         <div 
           id="ai-advisor-panel"
-          className="fixed bottom-20 right-4 z-40 bg-[#0F0F0F] border border-white/10 rounded-2xl w-[92vw] sm:w-[400px] h-[550px] shadow-2xl flex flex-col overflow-hidden animate-fadeIn"
+          className={`fixed bottom-20 right-4 z-40 bg-[#0F0F0F] border border-white/10 rounded-2xl h-[550px] shadow-2xl flex overflow-hidden animate-fadeIn transition-all duration-300 ${
+            showHistorySidebar ? "w-[92vw] sm:w-[650px]" : "w-[92vw] sm:w-[400px]"
+          }`}
         >
-          {/* Header */}
-          <div className="bg-[#121212] border-b border-white/10 px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/20 p-1.5 rounded-lg">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-white font-sans font-bold text-xs">AI Hardware Specialist</h3>
-                <span className="text-[9px] font-mono text-[#C5A059] uppercase block tracking-wider font-semibold">Grounded Stock Intelligence</span>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-1">
-              {compareList.length > 0 && (
+          {/* Chat History Sidebar */}
+          {showHistorySidebar && (
+            <div className="w-[220px] sm:w-[240px] shrink-0 border-r border-white/10 bg-[#070707] flex flex-col h-full animate-slideIn">
+              {/* Sidebar Header */}
+              <div className="p-3 border-b border-white/10 flex items-center justify-between bg-black/35">
+                <span className="text-[10px] font-sans font-bold uppercase tracking-wider text-[#C5A059] flex items-center gap-1">
+                  <MessagesSquare className="w-3.5 h-3.5" />
+                  <span>Past Sessions</span>
+                </span>
                 <button
-                  onClick={() => setCompareModalOpen(true)}
-                  className="mr-1.5 flex items-center gap-1 bg-[#C5A059]/15 hover:bg-[#C5A059]/25 text-[#C5A059] border border-[#C5A059]/30 text-[9px] font-mono font-bold uppercase px-2 py-1 rounded-md transition-all cursor-pointer animate-pulse"
-                  title="Open side-by-side spec comparison matrix"
+                  onClick={handleNewChat}
+                  className="p-1 text-white/50 hover:text-[#C5A059] hover:bg-white/5 rounded-md transition-all cursor-pointer"
+                  title="Start New Chat"
                 >
-                  <Scale className="w-2.5 h-2.5" />
-                  <span>Compare ({compareList.length})</span>
+                  <Plus className="w-3.5 h-3.5" />
                 </button>
-              )}
-              <button 
-                onClick={resetChat} 
-                className="text-white/40 hover:text-[#C5A059] p-1 rounded-sm"
-                title="Restart chat history"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
-              <button 
-                onClick={() => setIsOpen(false)} 
-                className="text-white/40 hover:text-white p-1"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              </div>
+
+              {/* Sidebar Search Filter */}
+              <div className="p-2 border-b border-white/5">
+                <div className="relative">
+                  <Search className="w-3 h-3 absolute left-2.5 top-2.5 text-white/30" />
+                  <input
+                    type="text"
+                    placeholder="Search past chats..."
+                    value={searchHistoryQuery}
+                    onChange={(e) => setSearchHistoryQuery(e.target.value)}
+                    className="w-full bg-white/[0.03] border border-white/10 rounded-lg pl-7 pr-2.5 py-1.5 text-[10px] focus:outline-hidden focus:border-[#C5A059]/50 text-white placeholder-white/20 font-sans"
+                  />
+                </div>
+              </div>
+
+              {/* Sidebar Scroll List */}
+              <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-thin scrollbar-thumb-white/5 scrollbar-track-transparent">
+                {filteredConversations.length === 0 ? (
+                  <div className="text-center py-8 text-white/25 text-[10px] font-sans italic px-2">
+                    No past sessions found. Start a new topic!
+                  </div>
+                ) : (
+                  filteredConversations.map((conv) => {
+                    const isActive = conv.id === activeConversationId;
+                    return (
+                      <div
+                        key={conv.id}
+                        onClick={() => handleLoadConversation(conv.id)}
+                        className={`p-2 rounded-xl border text-left cursor-pointer transition-all group relative flex flex-col gap-1 ${
+                          isActive
+                            ? "bg-[#C5A059]/10 border-[#C5A059]/30 text-white"
+                            : "bg-transparent border-transparent hover:bg-white/[0.02] text-white/60 hover:text-white"
+                        }`}
+                      >
+                        <span className="text-[10px] font-sans font-medium line-clamp-2 pr-4 leading-tight">
+                          {conv.title}
+                        </span>
+                        <span className="text-[8px] font-mono text-white/30">
+                          {new Date(conv.timestamp).toLocaleDateString()} at {new Date(conv.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </span>
+                        
+                        <button
+                          onClick={(e) => handleDeleteConversation(conv.id, e)}
+                          className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 text-white/30 hover:text-red-400 p-0.5 rounded-sm transition-all"
+                          title="Delete Session"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Messages view */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {chatHistory.map((msg, i) => {
-              const isUser = msg.role === "user";
-              let displayContent = msg.content;
-              let recommendedProducts: any[] = [];
+          {/* Main Chat Area */}
+          <div className="flex-1 flex flex-col h-full overflow-hidden">
+            {/* Header */}
+            <div className="bg-[#121212] border-b border-white/10 px-4 py-3 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/20 p-1.5 rounded-lg">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-white font-sans font-bold text-xs">AI Hardware Specialist</h3>
+                  <span className="text-[9px] font-mono text-[#C5A059] uppercase block tracking-wider font-semibold">Grounded Stock Intelligence</span>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-1.5">
+                {/* Chat History Sidebar Toggle */}
+                <button 
+                  onClick={() => setShowHistorySidebar(!showHistorySidebar)} 
+                  className={`p-1.5 rounded-lg border transition-all cursor-pointer flex items-center justify-center ${
+                    showHistorySidebar 
+                      ? "bg-[#C5A059]/20 text-[#C5A059] border-[#C5A059]/30" 
+                      : "text-white/40 hover:text-[#C5A059] hover:bg-white/5 border-transparent"
+                  }`}
+                  title="Toggle Chat History Sessions"
+                >
+                  <MessagesSquare className="w-3.5 h-3.5" />
+                </button>
 
-              if (!isUser) {
-                const match = msg.content.match(/\[RECOMMENDED_IDS:\s*([^\]]+)\]/i);
-                if (match) {
-                  const idsStr = match[1];
-                  const ids = idsStr.split(",").map(id => id.trim()).filter(Boolean);
-                  recommendedProducts = ids
+                {compareList.length > 0 && (
+                  <button
+                    onClick={() => setCompareModalOpen(true)}
+                    className="flex items-center gap-1 bg-[#C5A059]/15 hover:bg-[#C5A059]/25 text-[#C5A059] border border-[#C5A059]/30 text-[9px] font-mono font-bold uppercase px-2 py-1 rounded-md transition-all cursor-pointer animate-pulse"
+                    title="Open side-by-side spec comparison matrix"
+                  >
+                    <Scale className="w-2.5 h-2.5" />
+                    <span>Compare ({compareList.length})</span>
+                  </button>
+                )}
+                <button 
+                  onClick={resetChat} 
+                  className="text-white/40 hover:text-[#C5A059] p-1 rounded-sm"
+                  title="Restart chat history"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+                <button 
+                  onClick={() => setIsOpen(false)} 
+                  className="text-white/40 hover:text-white p-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Messages view */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#0B0B0B]/40 scrollbar-thin scrollbar-thumb-white/5">
+              {chatHistory.map((msg, i) => {
+                const isUser = msg.role === "user";
+                let displayContent = msg.content;
+                let recommendedProducts: any[] = [];
+
+                if (!isUser) {
+                  const match = msg.content.match(/\[RECOMMENDED_IDS:\s*([^\]]+)\]/i);
+                  if (match) {
+                    const idsStr = match[1];
+                    const ids = idsStr.split(",").map(id => id.trim()).filter(Boolean);
+                    recommendedProducts = ids
                     .map(id => products.find(p => p.id === id || p.sku === id))
                     .filter((p): p is any => p !== undefined);
-                  
-                  displayContent = msg.content.replace(/\[RECOMMENDED_IDS:[^\]]+\]/i, "").trim();
-                }
-              }
-
-              return (
-                <div key={i} className="space-y-3">
-                  <div className={`flex gap-2.5 ${isUser ? "justify-end" : "justify-start"}`}>
-                    {!isUser && (
-                      <div className="w-7 h-7 rounded-sm bg-[#C5A059]/10 border border-[#C5A059]/20 flex items-center justify-center shrink-0 mt-0.5">
-                        <Bot className="w-4 h-4 text-[#C5A059]" />
-                      </div>
-                    )}
                     
-                    <div className={`max-w-[80%] rounded-xl px-3 py-2 text-xs leading-relaxed ${
-                      isUser 
-                        ? "bg-[#C5A059] text-black font-medium" 
-                        : "bg-white/[0.03] border border-white/5 text-white/90"
-                    }`}>
-                      <div className="markdown-body">
-                        <Markdown>{displayContent}</Markdown>
+                    displayContent = msg.content.replace(/\[RECOMMENDED_IDS:[^\]]+\]/i, "").trim();
+                  }
+                }
+
+                return (
+                  <div key={i} className="space-y-3">
+                    <div className={`flex gap-2.5 ${isUser ? "justify-end" : "justify-start"}`}>
+                      {!isUser && (
+                        <div className="w-7 h-7 rounded-sm bg-[#C5A059]/10 border border-[#C5A059]/20 flex items-center justify-center shrink-0 mt-0.5">
+                          <Bot className="w-4 h-4 text-[#C5A059]" />
+                        </div>
+                      )}
+                      
+                      <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed ${
+                        isUser 
+                          ? "bg-[#C5A059] text-black font-semibold shadow-md" 
+                          : "bg-white/[0.02] border border-white/5 text-white/90"
+                      }`}>
+                        <div className="markdown-body">
+                          <Markdown
+                            components={{
+                              table: ({ node, ...props }) => (
+                                <div className="my-3 overflow-x-auto w-full rounded-xl border border-white/10 bg-black/40 scrollbar-thin">
+                                  <table className="min-w-full divide-y divide-white/10 text-left text-xs font-sans" {...props} />
+                                </div>
+                              ),
+                              thead: ({ node, ...props }) => <thead className="bg-white/5 font-mono text-[9px] text-[#C5A059] uppercase tracking-wider" {...props} />,
+                              tbody: ({ node, ...props }) => <tbody className="divide-y divide-white/5 bg-transparent" {...props} />,
+                              tr: ({ node, ...props }) => <tr className="hover:bg-white/[0.02] transition-colors" {...props} />,
+                              th: ({ node, ...props }) => <th className="px-3 py-2 font-semibold text-white/90 border-r border-white/10 last:border-0" {...props} />,
+                              td: ({ node, ...props }) => <td className="px-3 py-2 text-white/80 border-r border-white/5 last:border-0 whitespace-normal break-words" {...props} />,
+                              p: ({ node, ...props }) => <p className="mb-2 last:mb-0 leading-relaxed text-white/85" {...props} />,
+                              ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-2 space-y-1 text-white/80" {...props} />,
+                              ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2 space-y-1 text-white/80" {...props} />,
+                              li: ({ node, ...props }) => <li className="text-xs" {...props} />,
+                              h1: ({ node, ...props }) => <h1 className="text-sm font-bold text-white mb-2 mt-3" {...props} />,
+                              h2: ({ node, ...props }) => <h2 className="text-xs font-bold text-white mb-1.5 mt-2.5" {...props} />,
+                              h3: ({ node, ...props }) => <h3 className="text-[11px] font-bold text-[#C5A059] mb-1 mt-2" {...props} />,
+                            }}
+                          >
+                            {displayContent}
+                          </Markdown>
+                        </div>
                       </div>
+
+                      {isUser && (
+                        <div className="w-7 h-7 rounded-sm bg-white/[0.05] border border-white/10 flex items-center justify-center shrink-0 mt-0.5">
+                          <User className="w-4 h-4 text-white/70" />
+                        </div>
+                      )}
                     </div>
 
-                    {isUser && (
-                      <div className="w-7 h-7 rounded-sm bg-white/[0.05] border border-white/10 flex items-center justify-center shrink-0 mt-0.5">
-                        <User className="w-4 h-4 text-white/70" />
+                    {/* Render the recommended product cards horizontally if present */}
+                    {recommendedProducts.length > 0 && (
+                      <div className="pl-9.5 pr-2 animate-fadeIn">
+                        <div className="text-[9px] font-mono text-[#C5A059] uppercase tracking-wider mb-2 flex items-center gap-1 font-semibold select-none">
+                          <Sparkles className="w-2.5 h-2.5 text-[#C5A059] animate-pulse" />
+                          <span>Interactive Stock Matches ({recommendedProducts.length})</span>
+                        </div>
+                        <div className="flex gap-3 overflow-x-auto pb-2.5 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                          {recommendedProducts.map((p) => {
+                            const isCompared = compareList.some((item) => item.id === p.id);
+                            return (
+                              <RecommendedProductCard
+                                key={p.id}
+                                product={p}
+                                onAddToCart={addToCart}
+                                onToggleCompare={toggleCompare}
+                                isCompared={isCompared}
+                              />
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                   </div>
+                );
+              })}
 
-                  {/* Render the recommended product cards horizontally if present */}
-                  {recommendedProducts.length > 0 && (
-                    <div className="pl-9.5 pr-2 animate-fadeIn">
-                      <div className="text-[9px] font-mono text-[#C5A059] uppercase tracking-wider mb-2 flex items-center gap-1 font-semibold select-none">
-                        <Sparkles className="w-2.5 h-2.5 text-[#C5A059] animate-pulse" />
-                        <span>Interactive Stock Matches ({recommendedProducts.length})</span>
-                      </div>
-                      <div className="flex gap-3 overflow-x-auto pb-2.5 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                        {recommendedProducts.map((p) => {
-                          const isCompared = compareList.some((item) => item.id === p.id);
-                          return (
-                            <RecommendedProductCard
-                              key={p.id}
-                              product={p}
-                              onAddToCart={addToCart}
-                              onToggleCompare={toggleCompare}
-                              isCompared={isCompared}
-                            />
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+              {loading && (
+                <div className="flex gap-2.5 justify-start">
+                  <div className="w-7 h-7 rounded-sm bg-[#C5A059]/10 border border-[#C5A059]/20 flex items-center justify-center shrink-0 mt-0.5 animate-pulse">
+                    <Bot className="w-4 h-4 text-[#C5A059]" />
+                  </div>
+                  <div className="bg-white/[0.03] border border-white/5 rounded-xl px-3 py-2.5 text-xs text-white/50 flex items-center gap-1.5 animate-pulse">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Synthesizing specifications...</span>
+                  </div>
                 </div>
-              );
-            })}
+              )}
+              <div ref={chatEndRef} />
+            </div>
 
-            {loading && (
-              <div className="flex gap-2.5 justify-start">
-                <div className="w-7 h-7 rounded-sm bg-[#C5A059]/10 border border-[#C5A059]/20 flex items-center justify-center shrink-0 mt-0.5 animate-pulse">
-                  <Bot className="w-4 h-4 text-[#C5A059]" />
-                </div>
-                <div className="bg-white/[0.03] border border-white/5 rounded-xl px-3 py-2.5 text-xs text-white/50 flex items-center gap-1.5 animate-pulse">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Synthesizing specifications...</span>
-                </div>
-              </div>
-            )}
-            <div ref={chatEndRef} />
-          </div>
-
-          {/* Prompt Recommendations */}
-          <div className="px-4 py-2 bg-black/40 border-t border-white/5 flex gap-2 overflow-x-auto whitespace-nowrap">
-            {compareList.length > 0 && (
+            {/* Prompt Recommendations */}
+            <div className="px-4 py-2 bg-black/40 border-t border-white/5 flex gap-2 overflow-x-auto whitespace-nowrap shrink-0">
+              {compareList.length > 0 && (
+                <button 
+                  onClick={() => setCompareModalOpen(true)}
+                  className="bg-[#C5A059]/10 border border-[#C5A059]/30 hover:border-[#C5A059]/50 text-[#C5A059] hover:text-white text-[10px] font-mono font-bold uppercase px-2.5 py-1.5 rounded-lg shrink-0 cursor-pointer flex items-center gap-1 transition-colors animate-pulse"
+                >
+                  <Scale className="w-3 h-3 text-[#C5A059]" />
+                  <span>📊 Compare specs ({compareList.length})</span>
+                </button>
+              )}
               <button 
-                onClick={() => setCompareModalOpen(true)}
-                className="bg-[#C5A059]/10 border border-[#C5A059]/30 hover:border-[#C5A059]/50 text-[#C5A059] hover:text-white text-[10px] font-mono font-bold uppercase px-2.5 py-1.5 rounded-lg shrink-0 cursor-pointer flex items-center gap-1 transition-colors animate-pulse"
+                onClick={() => handleSuggestQuery("Compare laptop specs and suggest best choice for programming.")}
+                className="bg-white/[0.02] border border-white/10 hover:border-[#C5A059]/50 text-white/60 hover:text-white text-[10px] px-2.5 py-1.5 rounded-lg shrink-0 cursor-pointer text-ellipsis text-left"
               >
-                <Scale className="w-3 h-3 text-[#C5A059]" />
-                <span>📊 Compare specs ({compareList.length})</span>
+                💻 Code Laptop Guide
               </button>
-            )}
-            <button 
-              onClick={() => handleSuggestQuery("Compare laptop specs and suggest best choice for programming.")}
-              className="bg-white/[0.02] border border-white/10 hover:border-[#C5A059]/50 text-white/60 hover:text-white text-[10px] px-2.5 py-1.5 rounded-lg shrink-0 cursor-pointer text-ellipsis text-left"
-            >
-              💻 Code Laptop Guide
-            </button>
-            <button 
-              onClick={() => handleSuggestQuery("Show me smart gadget options under KES 10,000")}
-              className="bg-white/[0.02] border border-white/10 hover:border-[#C5A059]/50 text-white/60 hover:text-white text-[10px] px-2.5 py-1.5 rounded-lg shrink-0 cursor-pointer"
-            >
-              💰 Under KES 10,000
-            </button>
-            <button 
-              onClick={() => handleSuggestQuery("Do you accept Paystack? How long is the delivery?")}
-              className="bg-white/[0.02] border border-white/10 hover:border-[#C5A059]/50 text-white/60 hover:text-white text-[10px] px-2.5 py-1.5 rounded-lg shrink-0 cursor-pointer"
-            >
-              🚀 Delivery & Paystack
-            </button>
-          </div>
+              <button 
+                onClick={() => handleSuggestQuery("Show me smart gadget options under KES 10,000")}
+                className="bg-white/[0.02] border border-white/10 hover:border-[#C5A059]/50 text-white/60 hover:text-white text-[10px] px-2.5 py-1.5 rounded-lg shrink-0 cursor-pointer"
+              >
+                💰 Under KES 10,000
+              </button>
+              <button 
+                onClick={() => handleSuggestQuery("Do you accept Paystack? How long is the delivery?")}
+                className="bg-white/[0.02] border border-white/10 hover:border-[#C5A059]/50 text-white/60 hover:text-white text-[10px] px-2.5 py-1.5 rounded-lg shrink-0 cursor-pointer"
+              >
+                🚀 Delivery & Paystack
+              </button>
+            </div>
 
-          {/* Input Box */}
-          <form 
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSendMessage("");
-            }}
-            className="p-3 bg-[#121212] border-t border-white/10 flex gap-2"
-          >
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Ask AI comparison / inquiries..."
-              disabled={loading}
-              className="flex-1 bg-white/[0.03] border border-white/10 rounded-xl px-3.5 py-2 text-xs focus:outline-hidden focus:border-[#C5A059] text-white font-sans placeholder-white/30"
-            />
-            <button
-              type="submit"
-              disabled={loading || !message.trim()}
-              className="bg-[#C5A059] hover:bg-[#C5A059]/90 disabled:bg-white/5 disabled:text-white/20 text-black px-3 py-2 rounded-xl flex items-center justify-center shadow-lg transition-colors cursor-pointer shrink-0"
+            {/* Input Box */}
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSendMessage("");
+              }}
+              className="p-3 bg-[#121212] border-t border-white/10 flex gap-2 shrink-0"
             >
-              <Send className="w-4 h-4" />
-            </button>
-          </form>
+              <input
+                type="text"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Ask AI comparison / inquiries..."
+                disabled={loading}
+                className="flex-1 bg-white/[0.03] border border-white/10 rounded-xl px-3.5 py-2 text-xs focus:outline-hidden focus:border-[#C5A059] text-white font-sans placeholder-white/30"
+              />
+              <button
+                type="submit"
+                disabled={loading || !message.trim()}
+                className="bg-[#C5A059] hover:bg-[#C5A059]/90 disabled:bg-white/5 disabled:text-white/20 text-black px-3 py-2 rounded-xl flex items-center justify-center shadow-lg transition-colors cursor-pointer shrink-0"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </form>
+          </div>
         </div>
       )}
 

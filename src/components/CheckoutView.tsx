@@ -73,6 +73,18 @@ export const getSafaricomValidation = (phone: string) => {
   };
 };
 
+export const isCampaignOfferActive = (p: any) => {
+  if (!p.flashPrice || !p.flashExpiry) return false;
+  const now = new Date();
+  const expiryDate = new Date(p.flashExpiry);
+  if (now > expiryDate) return false;
+  if (p.flashStart) {
+    const startDate = new Date(p.flashStart);
+    if (now < startDate) return false;
+  }
+  return true;
+};
+
 export default function CheckoutView() {
   const { 
     user, 
@@ -1026,9 +1038,9 @@ export default function CheckoutView() {
                       <span className="font-mono text-[9px] text-[#C5A059] block uppercase font-bold">{item.product.brand}</span>
                       <h4 className="font-sans font-semibold text-xs sm:text-sm text-white truncate">{item.product.name}</h4>
                       <p className="font-sans font-extrabold text-xs text-white mt-1 flex items-center gap-1.5">
-                        {item.product.flashPrice && item.product.flashExpiry && new Date(item.product.flashExpiry) > new Date() ? (
+                        {isCampaignOfferActive(item.product) ? (
                           <>
-                            <span className="text-red-400">KES {item.product.flashPrice.toLocaleString()}</span>
+                            <span className="text-red-400">KES {item.product.flashPrice!.toLocaleString()}</span>
                             <span className="text-[10px] text-white/30 line-through">KES {item.product.price.toLocaleString()}</span>
                           </>
                         ) : (

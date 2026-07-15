@@ -1069,6 +1069,7 @@ export default function AdminDashboard() {
   // States for Flash Offers tab
   const [selectedFlashProductId, setSelectedFlashProductId] = useState("");
   const [flashPrice, setFlashPrice] = useState("");
+  const [flashStart, setFlashStart] = useState("");
   const [flashExpiry, setFlashExpiry] = useState("");
   const [flashBanner, setFlashBanner] = useState("");
   const [isAddingFlashOffer, setIsAddingFlashOffer] = useState(false);
@@ -2384,7 +2385,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
           {[
             { id: "overview", label: "Overview Metrics" },
             { id: "inventory", label: "Manage Inventory" },
-            { id: "flash_offers", label: "Flash Offers" },
+            { id: "flash_offers", label: "Active Offers" },
             { id: "orders", label: "Fulfillment Queue" },
             { id: "newsletters", label: "Newsletter Analytics" },
             { id: "affiliates", label: "Affiliate Codes" },
@@ -5414,11 +5415,11 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
                 <h3 className="font-sans font-bold text-lg text-white flex items-center gap-2">
-                  <span className="bg-red-500/10 text-red-400 p-1.5 rounded-xl text-xs"><Flame className="w-4 h-4 animate-pulse" /></span>
-                  Flash Offers & Time-Limited Deals
+                  <span className="bg-[#C5A059]/10 text-[#C5A059] p-1.5 rounded-xl text-xs"><Flame className="w-4 h-4 animate-pulse" /></span>
+                  Active Offers & Campaign Scheduler
                 </h3>
                 <p className="text-white/40 text-[11px] mt-1 font-sans">
-                  Promote high-demand gadgets with temporary price drops, custom banners, and countdown timers.
+                  Schedule, configure, and manage temporary product price cuts with automated start dates, custom promotional tags, and countdown banners.
                 </p>
               </div>
               <button
@@ -5426,6 +5427,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                   setFlashEditingProductId(null);
                   setSelectedFlashProductId("");
                   setFlashPrice("");
+                  setFlashStart("");
                   setFlashExpiry("");
                   setFlashBanner("");
                   setIsAddingFlashOffer(true);
@@ -5433,17 +5435,17 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                 className="bg-[#C5A059] hover:bg-[#B38F4B] text-black font-semibold text-xs px-4 py-2.5 rounded-xl transition-all flex items-center gap-1.5 shadow-lg shadow-[#C5A059]/10 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                <span>Create Flash Offer</span>
+                <span>Schedule New Offer</span>
               </button>
             </div>
           </div>
 
-          {/* Flash Offer Creator Modal/Form */}
+          {/* Active Offer Creator Modal/Form */}
           {isAddingFlashOffer && (
             <div className="bg-[#121212] border border-white/10 rounded-3xl p-6 space-y-4 shadow-xl">
               <div className="flex justify-between items-center border-b border-white/10 pb-3">
                 <h4 className="text-white font-bold text-sm">
-                  {flashEditingProductId ? "Edit Flash Offer" : "New Flash Offer Details"}
+                  {flashEditingProductId ? "Modify Active Offer Settings" : "Configure Temporary Price Cut"}
                 </h4>
                 <button
                   onClick={() => setIsAddingFlashOffer(false)}
@@ -5464,7 +5466,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                       const prod = products.find(p => p.id === e.target.value);
                       if (prod) {
                         setFlashPrice(Math.round(prod.price * 0.85).toString()); // suggest 15% discount
-                        setFlashBanner("FLASH DEAL! SAVE BIG!");
+                        setFlashBanner("ACTIVE CAMPAIGN! 15% OFF!");
                       }
                     }}
                     className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white placeholder-white/25 focus:border-[#C5A059]/60 focus:outline-hidden"
@@ -5479,7 +5481,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                 </div>
 
                 <div>
-                  <label className="block text-white/50 text-[10px] font-mono uppercase tracking-wider mb-1.5">Flash Offer Price (KES) *</label>
+                  <label className="block text-white/50 text-[10px] font-mono uppercase tracking-wider mb-1.5">Promo Offer Price (KES) *</label>
                   <input
                     type="number"
                     value={flashPrice}
@@ -5487,6 +5489,17 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                     placeholder="Enter discounted promo price..."
                     className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#C5A059]/60 focus:outline-hidden"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-white/50 text-[10px] font-mono uppercase tracking-wider mb-1.5">Offer Start Date & Time (Optional Scheduling)</label>
+                  <input
+                    type="datetime-local"
+                    value={flashStart}
+                    onChange={(e) => setFlashStart(e.target.value)}
+                    className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#C5A059]/60 focus:outline-hidden"
+                  />
+                  <span className="text-[9px] text-white/30 font-sans mt-1 block">Leave empty to activate immediately upon saving.</span>
                 </div>
 
                 <div>
@@ -5499,13 +5512,13 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                   />
                 </div>
 
-                <div>
-                  <label className="block text-white/50 text-[10px] font-mono uppercase tracking-wider mb-1.5">Flash Promo Banner Text *</label>
+                <div className="md:col-span-2">
+                  <label className="block text-white/50 text-[10px] font-mono uppercase tracking-wider mb-1.5">Promo Tag / Banner Text *</label>
                   <input
                     type="text"
                     value={flashBanner}
                     onChange={(e) => setFlashBanner(e.target.value)}
-                    placeholder="e.g., MIDNIGHT MADNESS! 25% OFF!"
+                    placeholder="e.g., TECH DEALS! SAVINGS ACTIVE!"
                     className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#C5A059]/60 focus:outline-hidden"
                   />
                 </div>
@@ -5524,7 +5537,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                   onClick={async () => {
                     const pid = flashEditingProductId || selectedFlashProductId;
                     if (!pid || !flashPrice || !flashExpiry || !flashBanner) {
-                      alert("Please fill out all fields.");
+                      alert("Please fill out all required fields.");
                       return;
                     }
                     const targetProd = products.find(p => p.id === pid);
@@ -5533,20 +5546,21 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                     try {
                       await editProduct(pid, {
                         flashPrice: Number(flashPrice),
+                        flashStart: flashStart || null,
                         flashExpiry,
                         flashBanner
                       });
-                      await logAdminAction("flash_offer_created", `${flashEditingProductId ? "Updated" : "Created"} flash offer on "${targetProd.name}" (Flash Price: ${flashPrice} KES)`);
-                      setActionSuccessNotification(`✓ Flash offer updated successfully for "${targetProd.name}"!`);
+                      await logAdminAction("flash_offer_created", `${flashEditingProductId ? "Updated" : "Scheduled"} promotional price cut on "${targetProd.name}" (Promo: ${flashPrice} KES)`);
+                      setActionSuccessNotification(`✓ Promotional offer updated successfully for "${targetProd.name}"!`);
                       setTimeout(() => setActionSuccessNotification(""), 5000);
                       setIsAddingFlashOffer(false);
                     } catch (err) {
-                      console.error("Failed to create flash offer:", err);
+                      console.error("Failed to create promo offer:", err);
                     }
                   }}
                   className="bg-[#C5A059] hover:bg-[#B38F4B] text-black font-semibold text-xs px-5 py-2 rounded-xl transition-all shadow-md cursor-pointer"
                 >
-                  Save Flash Offer
+                  Save Active Offer
                 </button>
               </div>
             </div>
@@ -5555,7 +5569,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
           {/* Active Offers Grid/Table */}
           <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
             <div className="p-5 border-b border-white/10 bg-white/[0.01]">
-              <span className="font-mono text-[10px] text-[#C5A059] font-bold uppercase tracking-wider block">Live Promotional Campaign List</span>
+              <span className="font-mono text-[10px] text-[#C5A059] font-bold uppercase tracking-wider block">Scheduled Promotional Campaigns</span>
             </div>
 
             <div className="overflow-x-auto">
@@ -5563,22 +5577,28 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                 <thead>
                   <tr className="border-b border-white/10 bg-white/[0.02] text-[10px] font-mono text-white/50 uppercase tracking-wider">
                     <th className="py-3 px-5">Product Details</th>
-                    <th className="py-3 px-5">Standard Price</th>
-                    <th className="py-3 px-5">Flash Price</th>
-                    <th className="py-3 px-5">Campaign Expiry</th>
+                    <th className="py-3 px-5">Regular Price</th>
+                    <th className="py-3 px-5">Promo Price</th>
+                    <th className="py-3 px-5">Schedule Window</th>
+                    <th className="py-3 px-5">Campaign Status</th>
                     <th className="py-3 px-5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 text-xs text-white/80">
                   {products.filter(p => p.flashPrice).length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-white/30 font-sans italic">
-                        No active Flash Offers currently. Click "Create Flash Offer" to promote a product!
+                      <td colSpan={6} className="py-8 text-center text-white/30 font-sans italic">
+                        No scheduled or active campaigns found. Click "Schedule New Offer" to create a promotional price cut!
                       </td>
                     </tr>
                   ) : (
                     products.filter(p => p.flashPrice).map((prod) => {
-                      const isExpired = prod.flashExpiry ? new Date(prod.flashExpiry) < new Date() : false;
+                      const now = new Date();
+                      const hasStart = !!prod.flashStart;
+                      const isUpcoming = hasStart && new Date(prod.flashStart!) > now;
+                      const isExpired = prod.flashExpiry ? new Date(prod.flashExpiry) < now : false;
+                      const isActive = !isUpcoming && !isExpired;
+
                       return (
                         <tr key={prod.id} className="hover:bg-white/[0.01] transition-colors">
                           <td className="py-4 px-5">
@@ -5592,7 +5612,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                               <div>
                                 <span className="font-bold text-white block">{prod.name}</span>
                                 <span className="text-[10px] text-white/40 font-mono block">SKU: {prod.sku || "N/A"}</span>
-                                <span className="inline-block bg-red-500/10 text-red-400 font-bold px-1.5 py-0.5 rounded-md text-[9px] mt-1 font-mono">
+                                <span className="inline-block bg-[#C5A059]/10 text-[#C5A059] font-bold px-1.5 py-0.5 rounded-md text-[9px] mt-1 font-mono border border-[#C5A059]/20">
                                   {prod.flashBanner}
                                 </span>
                               </div>
@@ -5610,20 +5630,33 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                             </div>
                           </td>
                           <td className="py-4 px-5 font-mono">
-                            <div className="space-y-1">
-                              <span className="text-white/70 block text-[11px]">
-                                {prod.flashExpiry ? new Date(prod.flashExpiry).toLocaleString() : "N/A"}
-                              </span>
-                              {isExpired ? (
-                                <span className="inline-flex bg-white/5 border border-white/10 text-white/40 text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md">
-                                  Expired
-                                </span>
-                              ) : (
-                                <span className="inline-flex bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md animate-pulse">
-                                  Live & Active
-                                </span>
+                            <div className="space-y-1 text-[10px]">
+                              {prod.flashStart && (
+                                <div className="text-white/40">
+                                  <span className="text-[8px] uppercase font-bold tracking-wider block">Starts</span>
+                                  {new Date(prod.flashStart).toLocaleString()}
+                                </div>
                               )}
+                              <div className="text-white/70">
+                                <span className="text-[8px] uppercase font-bold tracking-wider block text-white/40">Expires</span>
+                                {prod.flashExpiry ? new Date(prod.flashExpiry).toLocaleString() : "N/A"}
+                              </div>
                             </div>
+                          </td>
+                          <td className="py-4 px-5 font-mono">
+                            {isExpired ? (
+                              <span className="inline-flex bg-white/5 border border-white/10 text-white/40 text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md">
+                                Expired
+                              </span>
+                            ) : isUpcoming ? (
+                              <span className="inline-flex bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md">
+                                Upcoming Scheduled
+                              </span>
+                            ) : (
+                              <span className="inline-flex bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md animate-pulse">
+                                Live & Active
+                              </span>
+                            )}
                           </td>
                           <td className="py-4 px-5 text-right">
                             <div className="flex gap-2 justify-end">
@@ -5632,33 +5665,35 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                                   setFlashEditingProductId(prod.id);
                                   setSelectedFlashProductId(prod.id);
                                   setFlashPrice(prod.flashPrice?.toString() || "");
+                                  setFlashStart(prod.flashStart || "");
                                   setFlashExpiry(prod.flashExpiry || "");
                                   setFlashBanner(prod.flashBanner || "");
                                   setIsAddingFlashOffer(true);
                                 }}
                                 className="bg-white/5 hover:bg-[#C5A059]/10 hover:text-[#C5A059] transition-all p-2 rounded-lg text-white/50 cursor-pointer"
-                                title="Edit Offer Settings"
+                                title="Edit Active Offer"
                               >
                                 <Edit className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={async () => {
-                                  if (!confirm(`Are you sure you want to cancel the Flash Offer on "${prod.name}"?`)) return;
+                                  if (!confirm(`Are you sure you want to delete the scheduled offer on "${prod.name}"?`)) return;
                                   try {
                                     await editProduct(prod.id, {
                                       flashPrice: null,
+                                      flashStart: null,
                                       flashExpiry: null,
                                       flashBanner: null
                                     });
-                                    await logAdminAction("flash_offer_removed", `Removed flash offer from "${prod.name}"`);
-                                    setActionSuccessNotification(`✓ Flash offer removed from "${prod.name}"`);
+                                    await logAdminAction("flash_offer_removed", `Removed promo campaign from "${prod.name}"`);
+                                    setActionSuccessNotification(`✓ Promo offer removed from "${prod.name}"`);
                                     setTimeout(() => setActionSuccessNotification(""), 5000);
                                   } catch (err) {
-                                    console.error("Failed to cancel flash offer:", err);
+                                    console.error("Failed to cancel promo offer:", err);
                                   }
                                 }}
                                 className="bg-white/5 hover:bg-red-500/10 hover:text-red-400 transition-all p-2 rounded-lg text-white/50 cursor-pointer"
-                                title="Cancel Flash Campaign"
+                                title="Delete/Cancel Offer"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>

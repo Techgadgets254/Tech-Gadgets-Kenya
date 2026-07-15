@@ -46,6 +46,7 @@ export interface Product {
     createdAt: string;
   }[];
   flashPrice?: number | null;
+  flashStart?: string | null;
   flashExpiry?: string | null;
   flashBanner?: string | null;
   createdAt?: any;

@@ -33,6 +33,25 @@ import {
 } from "lucide-react";
 import { Product } from "../types";
 
+const isCampaignOfferActive = (p: any) => {
+  if (!p.flashPrice || !p.flashExpiry) return false;
+  const now = new Date();
+  const expiryDate = new Date(p.flashExpiry);
+  if (now > expiryDate) return false;
+  if (p.flashStart) {
+    const startDate = new Date(p.flashStart);
+    if (now < startDate) return false;
+  }
+  return true;
+};
+
+const isCampaignOfferUpcoming = (p: any) => {
+  if (!p.flashPrice || !p.flashExpiry || !p.flashStart) return false;
+  const now = new Date();
+  const startDate = new Date(p.flashStart);
+  return now < startDate;
+};
+
 interface FlashCountdownProps {
   expiry: string;
 }
@@ -1265,13 +1284,23 @@ export default function ShopView() {
                           </h3>
 
                           {/* Flash Deal Promo Banner & Timer */}
-                          {p.flashPrice && p.flashExpiry && new Date(p.flashExpiry) > new Date() && (
+                          {isCampaignOfferActive(p) && (
                             <div className="mt-2.5 flex flex-wrap gap-2 items-center">
                               <span className="text-[9px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded-md font-sans font-bold flex items-center gap-1 border border-red-500/20 uppercase tracking-wider animate-pulse">
                                 <Flame className="w-3 h-3 text-red-500" />
                                 {p.flashBanner || "FLASH OFFER!"}
                               </span>
-                              <FlashCountdown expiry={p.flashExpiry} />
+                              <FlashCountdown expiry={p.flashExpiry!} />
+                            </div>
+                          )}
+                          {isCampaignOfferUpcoming(p) && (
+                            <div className="mt-2.5 flex flex-wrap gap-2 items-center">
+                              <span className="text-[9px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-md font-sans font-bold flex items-center gap-1 border border-amber-500/20 uppercase tracking-wider">
+                                ⏳ {p.flashBanner || "UPCOMING DEAL"}
+                              </span>
+                              <span className="text-[9.5px] text-amber-300/80 font-mono">
+                                Starts: {new Date(p.flashStart!).toLocaleDateString()} {new Date(p.flashStart!).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                              </span>
                             </div>
                           )}
 
@@ -1346,13 +1375,13 @@ export default function ShopView() {
                           <div className="flex items-center justify-between gap-2">
                             <div>
                               <span className="text-[10px] text-white/30 font-mono block leading-none">
-                                {p.flashPrice && p.flashExpiry && new Date(p.flashExpiry) > new Date() ? "FLASH DEAL" : "STORE PRICE"}
+                                {isCampaignOfferActive(p) ? "FLASH DEAL" : "STORE PRICE"}
                               </span>
                               <div className="flex items-baseline gap-1.5 mt-0.5">
-                                {p.flashPrice && p.flashExpiry && new Date(p.flashExpiry) > new Date() ? (
+                                {isCampaignOfferActive(p) ? (
                                   <>
                                     <span className="font-sans font-extrabold text-red-400 text-sm">
-                                      KES {p.flashPrice.toLocaleString()}
+                                      KES {p.flashPrice!.toLocaleString()}
                                     </span>
                                     <span className="font-mono text-[10px] text-white/40 line-through">
                                       KES {p.price.toLocaleString()}
