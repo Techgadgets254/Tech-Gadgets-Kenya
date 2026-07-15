@@ -25,7 +25,8 @@ import {
   Minus,
   Plus,
   ArrowUp,
-  X
+  X,
+  History
 } from "lucide-react";
 import { Product } from "../types";
 
@@ -259,6 +260,62 @@ export default function ShopView() {
   const [onlyShowWishlist, setOnlyShowWishlist] = useState<boolean>(false);
   const [gridDensity, setGridDensity] = useState<"comfortable" | "compact">("compact");
   const [isCompareModalOpen, setIsCompareModalOpen] = useState<boolean>(false);
+
+  // Recent search history dropdown states & handlers
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("tgk_recent_searches");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const searchContainerRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setIsSearchFocused(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const addToHistory = (query: string) => {
+    const q = query.trim();
+    if (!q || q.length < 2) return;
+    setRecentSearches(prev => {
+      const filtered = prev.filter(item => item.toLowerCase() !== q.toLowerCase());
+      const updated = [q, ...filtered].slice(0, 5);
+      localStorage.setItem("tgk_recent_searches", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const removeFromHistory = (e: React.MouseEvent, item: string) => {
+    e.stopPropagation();
+    setRecentSearches(prev => {
+      const updated = prev.filter(q => q !== item);
+      localStorage.setItem("tgk_recent_searches", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const clearAllHistory = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setRecentSearches([]);
+    localStorage.removeItem("tgk_recent_searches");
+  };
+
+  useEffect(() => {
+    if (!searchQuery || searchQuery.trim().length < 2) return;
+    const timer = setTimeout(() => {
+      addToHistory(searchQuery);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const [currentPage, setCurrentPage] = useState<number>(1);
 
@@ -602,13 +659,20 @@ export default function ShopView() {
         </p>
 
         {/* Persistent Search Input Field */}
-        <div className="mt-5 relative max-w-xl">
+        <div ref={searchContainerRef} className="mt-5 relative max-w-xl">
           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
             <Search className="h-4 w-4 text-white/40" />
           </div>
           <input
             type="text"
             value={searchQuery}
+            onFocus={() => setIsSearchFocused(true)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                addToHistory(searchQuery);
+                setIsSearchFocused(false);
+              }
+            }}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search specific products or brands (e.g., Apple, HP, Lenovo)..."
             className="block w-full pl-10 pr-10 py-3 bg-[#0F0F0F] border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:outline-hidden focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] transition-all font-sans shadow-inner"
@@ -621,6 +685,50 @@ export default function ShopView() {
               <X className="h-4 w-4" />
             </button>
           )}
+
+          {/* Recent search dropdown menu */}
+          <AnimatePresence>
+            {isSearchFocused && recentSearches.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                className="absolute left-0 right-0 mt-1.5 bg-[#0F0F0F] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 p-2 space-y-1 text-left"
+              >
+                <div className="flex items-center justify-between px-2 py-1 pb-1.5 border-b border-white/5">
+                  <span className="text-[10px] font-mono text-white/40 uppercase tracking-wider font-semibold">Recent Searches</span>
+                  <button
+                    onClick={clearAllHistory}
+                    className="text-[9px] font-mono text-[#C5A059] hover:text-white uppercase tracking-wider font-bold cursor-pointer hover:underline"
+                  >
+                    Clear All
+                  </button>
+                </div>
+                {recentSearches.map((item, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      setSearchQuery(item);
+                      setIsSearchFocused(false);
+                    }}
+                    className="flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-white/5 transition-all group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <History className="w-3.5 h-3.5 text-white/30 group-hover:text-[#C5A059] shrink-0" />
+                      <span className="text-xs text-white/70 group-hover:text-white truncate font-sans">{item}</span>
+                    </div>
+                    <button
+                      onClick={(e) => removeFromHistory(e, item)}
+                      className="p-1 rounded-md text-white/30 hover:text-red-400 hover:bg-white/5 transition-all cursor-pointer"
+                      title="Delete from history"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
         
         {searchQuery && (

@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useStore } from "../StoreContext";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { 
   Laptop, 
   Smartphone, 
@@ -21,7 +21,13 @@ import {
   HelpCircle,
   Cpu,
   Shield,
-  Info
+  Info,
+  Tag,
+  Percent,
+  Flame,
+  ChevronLeft,
+  ChevronRight,
+  Clock
 } from "lucide-react";
 
 export default function HomeView() {
@@ -38,6 +44,53 @@ export default function HomeView() {
   } = useStore();
 
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
+
+  // States & memoized logic for dynamic cycling promo banners
+  const [activePromoIndex, setActivePromoIndex] = useState(0);
+
+  const promoProducts = useMemo(() => {
+    if (!products || products.length === 0) return [];
+    const prioritized = products.filter(p => {
+      const brandLower = p.brand.toLowerCase();
+      return p.stock > 0 && (
+        brandLower.includes("apple") || 
+        brandLower.includes("epson") || 
+        brandLower.includes("anker") || 
+        brandLower.includes("hp")
+      );
+    });
+    const pool = prioritized.length > 0 ? prioritized : products.filter(p => p.stock > 0);
+    return pool.sort((a, b) => b.price - a.price).slice(0, 3);
+  }, [products]);
+
+  useEffect(() => {
+    if (promoProducts.length <= 1) return;
+    const interval = setInterval(() => {
+      setActivePromoIndex(prev => (prev + 1) % promoProducts.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [promoProducts]);
+
+  const getPromoText = (index: number, product: any) => {
+    const promos = [
+      {
+        badge: "🔥 WAREHOUSE FLASH DEAL",
+        title: `Elite ${product.brand} Performance Package`,
+        tagline: "Experience unmatched computing horsepower, custom configuration speed, and local Kenyan service center warranty."
+      },
+      {
+        badge: "⚡ ENTERPRISE CHOICE",
+        title: `Genuine ${product.name} Setup`,
+        tagline: "Supercharge your office workflow output or developer compiling speed with Kenya's absolute gold-standard hardware arrays."
+      },
+      {
+        badge: "🎁 SPECIAL RESTOCKED ARRIVAL",
+        title: "East Africa Official Distribution Deal",
+        tagline: "Unopened manufacturer sealed boxes ready for courier dispatch. Save big on immediate M-Pesa clearing."
+      }
+    ];
+    return promos[index % promos.length];
+  };
 
   const sectionVariants: any = {
     hidden: { opacity: 0, y: 25 },
@@ -190,6 +243,151 @@ export default function HomeView() {
         {/* Ambient backdrop gradient glow */}
         <div className="absolute right-0 bottom-0 top-0 w-1/2 bg-gradient-to-l from-[#C5A059]/10 to-transparent pointer-events-none hidden md:block z-0" />
       </motion.section>
+
+      {/* Dynamic Cycling Motion-Based Promotional Banner */}
+      {promoProducts.length > 0 && (
+        <section className="mb-12 relative overflow-hidden" id="motion-promotions-section">
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+              <h2 className="font-sans font-medium text-lg text-white">Live Warehouse Flash Offers</h2>
+            </div>
+            <div className="flex gap-1.5">
+              <button 
+                onClick={() => setActivePromoIndex(prev => (prev - 1 + promoProducts.length) % promoProducts.length)}
+                className="p-1.5 rounded-lg border border-white/10 hover:border-[#C5A059] bg-white/[0.02] hover:bg-white/[0.06] text-white/60 hover:text-[#C5A059] transition-all cursor-pointer"
+                title="Previous Offer"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={() => setActivePromoIndex(prev => (prev + 1) % promoProducts.length)}
+                className="p-1.5 rounded-lg border border-white/10 hover:border-[#C5A059] bg-white/[0.02] hover:bg-white/[0.06] text-white/60 hover:text-[#C5A059] transition-all cursor-pointer"
+                title="Next Offer"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-r from-red-950/20 via-[#0F0F0F] to-amber-950/20 border border-white/10 rounded-3xl p-6 sm:p-8 relative overflow-hidden min-h-[260px] flex flex-col justify-center">
+            {/* Ambient background blur circles */}
+            <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-12 w-32 h-32 bg-red-500/5 rounded-full blur-2xl pointer-events-none" />
+
+            <AnimatePresence mode="wait">
+              {promoProducts.map((product, idx) => {
+                if (idx !== activePromoIndex) return null;
+                const textInfo = getPromoText(idx, product);
+                const discountAmount = Math.round(product.price * 0.12);
+                const originalPrice = product.price + discountAmount;
+                
+                return (
+                  <motion.div
+                    key={product.id}
+                    initial={{ opacity: 0, x: 40 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -40 }}
+                    transition={{ type: "spring", stiffness: 100, damping: 15 }}
+                    className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center relative z-10"
+                  >
+                    {/* Text Details (7 Cols) */}
+                    <div className="md:col-span-7 text-left space-y-3">
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <span className="font-mono text-[9px] font-extrabold tracking-widest text-[#C5A059] bg-[#C5A059]/10 border border-[#C5A059]/20 px-2 py-0.5 rounded-full uppercase flex items-center gap-1">
+                          <Flame className="w-3 h-3 text-amber-500 fill-amber-500 animate-pulse" />
+                          {textInfo.badge}
+                        </span>
+                        <span className="font-mono text-[9px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <Percent className="w-2.5 h-2.5" />
+                          Save 12% Today
+                        </span>
+                      </div>
+
+                      <h3 className="font-sans font-bold text-lg sm:text-2xl text-white tracking-tight leading-snug">
+                        {textInfo.title}
+                      </h3>
+                      
+                      <p className="text-white/50 text-xs leading-relaxed max-w-xl">
+                        {textInfo.tagline}
+                      </p>
+
+                      <div className="flex flex-wrap items-end gap-3 pt-1.5">
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] text-white/35 font-mono uppercase tracking-wider block">PROMOTIONAL OFFER</span>
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-xl sm:text-2xl font-extrabold text-[#C5A059] font-mono">
+                              KES {product.price.toLocaleString()}
+                            </span>
+                            <span className="text-xs text-white/35 line-through font-mono">
+                              KES {originalPrice.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-md font-mono h-fit mb-0.5">
+                          <Clock className="w-3 h-3 animate-pulse" />
+                          <span>Expires soon: {product.stock} left</span>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2.5 pt-2">
+                        <button
+                          onClick={() => {
+                            setSelectedProductId(product.id);
+                            setActiveView("product-details");
+                            window.scrollTo(0, 0);
+                          }}
+                          className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-black font-sans font-bold text-xs px-4.5 py-2.5 rounded-xl shadow-md cursor-pointer transition-all flex items-center gap-1.5 group/btn"
+                        >
+                          <span>Secure Deal Specs</span>
+                          <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover/btn:translate-x-0.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addToCart(product);
+                          }}
+                          className="bg-white/5 hover:bg-white/10 text-white border border-white/10 font-sans text-xs px-4.5 py-2.5 rounded-xl transition-all cursor-pointer hover:border-[#C5A059]/40"
+                        >
+                          Add to Dispatch
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Interactive Image Display (5 Cols) */}
+                    <div className="md:col-span-5 flex justify-center md:justify-end relative">
+                      <div className="relative group/promoimg">
+                        <div className="absolute inset-0 bg-[#C5A059]/10 rounded-2xl blur-xl group-hover/promoimg:bg-[#C5A059]/20 transition-all duration-500" />
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="w-full max-w-[200px] h-36 sm:h-44 object-cover rounded-2xl border border-white/15 bg-black/60 shadow-xl relative z-10 transition-transform duration-500 group-hover/promoimg:scale-105"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+
+            {/* Navigation Dots */}
+            <div className="flex justify-center gap-2 mt-6 relative z-10">
+              {promoProducts.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActivePromoIndex(i)}
+                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                    i === activePromoIndex ? "bg-[#C5A059] w-5" : "bg-white/15 hover:bg-white/30"
+                  }`}
+                  title={`Slide ${i + 1}`}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* 2. Structured Category Selection Grid */}
       <motion.section

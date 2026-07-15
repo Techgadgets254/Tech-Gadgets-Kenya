@@ -24,13 +24,15 @@ export default function Footer() {
   const { setActiveView, subscribeNewsletter } = useStore();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [stockArrivals, setStockArrivals] = useState(true);
+  const [priceDrops, setPriceDrops] = useState(true);
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
     setStatus("loading");
     try {
-      const ok = await subscribeNewsletter(email);
+      const ok = await subscribeNewsletter(email, { stockArrivals, priceDrops });
       if (ok) {
         setStatus("success");
         setEmail("");
@@ -100,14 +102,36 @@ export default function Footer() {
                   </button>
                 </div>
 
+                {/* Subscription Topic Checkboxes */}
+                <div className="flex flex-wrap gap-x-5 gap-y-2 mt-3.5 pl-1 text-[11px] font-mono text-white/50">
+                  <label className="flex items-center gap-1.5 cursor-pointer select-none hover:text-white transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={stockArrivals}
+                      onChange={(e) => setStockArrivals(e.target.checked)}
+                      className="accent-[#C5A059] rounded border-white/10 bg-white/5 focus:ring-0 focus:ring-offset-0 cursor-pointer w-3.5 h-3.5"
+                    />
+                    <span>New Stock Arrivals</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer select-none hover:text-white transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={priceDrops}
+                      onChange={(e) => setPriceDrops(e.target.checked)}
+                      className="accent-[#C5A059] rounded border-white/10 bg-white/5 focus:ring-0 focus:ring-offset-0 cursor-pointer w-3.5 h-3.5"
+                    />
+                    <span>Exclusive Price Drops</span>
+                  </label>
+                </div>
+
                 {/* Validation feedbacks */}
                 {status === "success" && (
-                  <p className="absolute left-0 top-full mt-2 text-[11px] text-emerald-400 font-mono animate-fadeIn flex items-center gap-1.5">
-                    ✓ Subscription approved! We will notify you of daily warehouse updates.
+                  <p className="mt-2 text-[11px] text-emerald-400 font-mono animate-fadeIn flex items-center gap-1.5">
+                    ✓ Subscription approved! We will notify you of chosen alerts.
                   </p>
                 )}
                 {status === "error" && (
-                  <p className="absolute left-0 top-full mt-2 text-[11px] text-red-400 font-mono animate-fadeIn">
+                  <p className="mt-2 text-[11px] text-red-400 font-mono animate-fadeIn">
                     ⚠ Failed to register. Please check your connection or try again.
                   </p>
                 )}

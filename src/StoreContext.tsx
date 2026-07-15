@@ -103,7 +103,7 @@ interface StoreContextType {
 
   // Admin Order Actions
   updateOrderStatus: (id: string, paymentStatus: Order["paymentStatus"], shippingStatus: Order["shippingStatus"], receiptNo?: string) => Promise<void>;
-  subscribeNewsletter: (email: string) => Promise<boolean>;
+  subscribeNewsletter: (email: string, options?: { stockArrivals: boolean; priceDrops: boolean }) => Promise<boolean>;
 
   // Affiliate Management
   affiliates: Affiliate[];
@@ -1210,11 +1210,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Newsletter Sign Up Action
-  const subscribeNewsletter = async (email: string): Promise<boolean> => {
+  const subscribeNewsletter = async (email: string, options?: { stockArrivals: boolean; priceDrops: boolean }): Promise<boolean> => {
     try {
       await addDoc(collection(db, "newsletters"), {
         email,
-        subscribedAt: new Date().toISOString()
+        subscribedAt: new Date().toISOString(),
+        options: options || { stockArrivals: true, priceDrops: true }
       });
       return true;
     } catch (e) {
@@ -1222,7 +1223,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       try {
         const storedStr = localStorage.getItem("tgk_newsletters") || "[]";
         const stored = JSON.parse(storedStr);
-        stored.push({ email, subscribedAt: new Date().toISOString() });
+        stored.push({ 
+          email, 
+          subscribedAt: new Date().toISOString(),
+          options: options || { stockArrivals: true, priceDrops: true }
+        });
         localStorage.setItem("tgk_newsletters", JSON.stringify(stored));
       } catch (err) {
         console.error("Newsletter local storage fallback failed:", err);
