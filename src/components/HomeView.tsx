@@ -50,17 +50,15 @@ export default function HomeView() {
 
   const promoProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
-    const prioritized = products.filter(p => {
-      const brandLower = p.brand.toLowerCase();
-      return p.stock > 0 && (
-        brandLower.includes("apple") || 
-        brandLower.includes("epson") || 
-        brandLower.includes("anker") || 
-        brandLower.includes("hp")
-      );
+    return products.filter(p => {
+      if (!p.flashPrice || p.stock <= 0) return false;
+      const now = new Date();
+      if (p.flashExpiry) {
+        const expiryDate = new Date(p.flashExpiry);
+        if (now > expiryDate) return false;
+      }
+      return true;
     });
-    const pool = prioritized.length > 0 ? prioritized : products.filter(p => p.stock > 0);
-    return pool.sort((a, b) => b.price - a.price).slice(0, 3);
   }, [products]);
 
   useEffect(() => {
@@ -72,24 +70,11 @@ export default function HomeView() {
   }, [promoProducts]);
 
   const getPromoText = (index: number, product: any) => {
-    const promos = [
-      {
-        badge: "🔥 WAREHOUSE FLASH DEAL",
-        title: `Elite ${product.brand} Performance Package`,
-        tagline: "Experience unmatched computing horsepower, custom configuration speed, and local Kenyan service center warranty."
-      },
-      {
-        badge: "⚡ ENTERPRISE CHOICE",
-        title: `Genuine ${product.name} Setup`,
-        tagline: "Supercharge your office workflow output or developer compiling speed with Kenya's absolute gold-standard hardware arrays."
-      },
-      {
-        badge: "🎁 SPECIAL RESTOCKED ARRIVAL",
-        title: "East Africa Official Distribution Deal",
-        tagline: "Unopened manufacturer sealed boxes ready for courier dispatch. Save big on immediate M-Pesa clearing."
-      }
-    ];
-    return promos[index % promos.length];
+    return {
+      badge: product.flashBanner || "🔥 WAREHOUSE FLASH DEAL",
+      title: product.name,
+      tagline: product.description || "Experience unmatched performance, local Kenyan service center warranty, and immediate M-Pesa clearing."
+    };
   };
 
   const sectionVariants: any = {
@@ -279,8 +264,9 @@ export default function HomeView() {
               {promoProducts.map((product, idx) => {
                 if (idx !== activePromoIndex) return null;
                 const textInfo = getPromoText(idx, product);
-                const discountAmount = Math.round(product.price * 0.12);
-                const originalPrice = product.price + discountAmount;
+                const promoPrice = product.flashPrice || product.price;
+                const originalPrice = product.price;
+                const discountPercent = originalPrice > 0 ? Math.round((1 - promoPrice / originalPrice) * 100) : 0;
                 
                 return (
                   <motion.div
@@ -298,10 +284,12 @@ export default function HomeView() {
                           <Flame className="w-3 h-3 text-amber-500 fill-amber-500 animate-pulse" />
                           {textInfo.badge}
                         </span>
-                        <span className="font-mono text-[9px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <Percent className="w-2.5 h-2.5" />
-                          Save 12% Today
-                        </span>
+                        {discountPercent > 0 && (
+                          <span className="font-mono text-[9px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Percent className="w-2.5 h-2.5" />
+                            Save {discountPercent}% Today
+                          </span>
+                        )}
                       </div>
 
                       <h3 className="font-sans font-bold text-lg sm:text-2xl text-white tracking-tight leading-snug">
@@ -317,11 +305,13 @@ export default function HomeView() {
                           <span className="text-[10px] text-white/35 font-mono uppercase tracking-wider block">PROMOTIONAL OFFER</span>
                           <div className="flex items-baseline gap-2">
                             <span className="text-xl sm:text-2xl font-extrabold text-[#C5A059] font-mono">
-                              KES {product.price.toLocaleString()}
+                              KES {promoPrice.toLocaleString()}
                             </span>
-                            <span className="text-xs text-white/35 line-through font-mono">
-                              KES {originalPrice.toLocaleString()}
-                            </span>
+                            {discountPercent > 0 && (
+                              <span className="text-xs text-white/35 line-through font-mono">
+                                KES {originalPrice.toLocaleString()}
+                              </span>
+                            )}
                           </div>
                         </div>
 
