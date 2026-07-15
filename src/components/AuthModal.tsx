@@ -45,6 +45,8 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isResetMode, setIsResetMode] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -103,6 +105,8 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
     setToast(null);
     setIsResetMode(false);
     setShowPassword(false);
+    setNewPassword("");
+    setConfirmPassword("");
   }, [authModalMode, isAuthModalOpen]);
 
   // Auto focus the Display Name (fullName) input field on signup mode mounting/opening
@@ -161,20 +165,58 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
     }
 
     if (isResetMode) {
+      if (!newPassword) {
+        const msg = "Please enter your new password passcode.";
+        setErrorMsg(msg);
+        setToast({ type: "error", message: msg });
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        const msg = "Passwords do not match. Please verify your passwords match.";
+        setErrorMsg(msg);
+        setToast({ type: "error", message: msg });
+        return;
+      }
+      if (!isPasswordValid(newPassword)) {
+        const msg = "New password does not meet safety rules (8+ chars, uppercase, digit, special char).";
+        setErrorMsg(msg);
+        setToast({ type: "error", message: msg });
+        return;
+      }
+
       setLoading(true);
       try {
-        await sendPasswordResetEmail(auth, email);
-        await logAuthEvent("password_reset", "success", email);
-        setSuccessMsg("✔ A secure password-reset link has been dispatched to your inbox. Check your email!");
-        setErrorMsg("");
-        setToast({ type: "success", message: "Dispatched password recovery! Check your inbox." });
-      } catch (err: any) {
-        console.error("Password reset error:", err);
-        await logAuthEvent("password_reset", "failed", email, undefined, err.message);
-        let resetErr = err?.message || "Failed to issue password recovery link.";
-        if (err?.code === "auth/user-not-found") {
-          resetErr = "We could not find an account matching that email address.";
+        console.log("[AuthModal Password Reset] Direct reset flow for email:", email);
+        const { collection, query, where, getDocs, doc, updateDoc } = await import("firebase/firestore");
+        const q = query(collection(db, "users"), where("email", "==", email));
+        const querySnap = await getDocs(q);
+
+        if (!querySnap.empty) {
+          const userDoc = querySnap.docs[0];
+          await updateDoc(doc(db, "users", userDoc.id), {
+            password: newPassword,
+            updatedAt: new Date().toISOString()
+          });
+
+          await logAuthEvent("password_reset_direct", "success", email, userDoc.id);
+          setSuccessMsg("✔ Passcode updated successfully! You can now log into your profile.");
+          setToast({ type: "success", message: "Passcode updated successfully! Proceeding." });
+          setErrorMsg("");
+          setTimeout(() => {
+            setIsResetMode(false);
+            setNewPassword("");
+            setConfirmPassword("");
+          }, 1500);
+        } else {
+          const msg = "No registered profile found matching that email address. Please register first!";
+          setErrorMsg(msg);
+          setToast({ type: "error", message: msg });
+          await logAuthEvent("password_reset_direct", "failed", email, undefined, "Email not found");
         }
+      } catch (err: any) {
+        console.error("Direct password reset error:", err);
+        await logAuthEvent("password_reset_direct", "failed", email, undefined, err.message);
+        let resetErr = err?.message || "Failed to update passcode.";
         setErrorMsg(resetErr);
         setToast({ type: "error", message: resetErr });
       } finally {
@@ -268,6 +310,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
             email: email,
             name: fullName || "Valued Customer",
             role: (isAdminEmail ? "admin" : "customer") as "admin" | "customer",
+            password: password,
             createdAt: new Date().toISOString()
           };
 
@@ -312,6 +355,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
               email: email,
               name: fullName || "Valued Customer",
               role: (isAdminEmail ? "admin" : "customer") as "admin" | "customer",
+              password: password,
               createdAt: new Date().toISOString()
             };
             
@@ -362,6 +406,14 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
             const querySnap = await getDocs(q);
             if (!querySnap.empty) {
               const userData = querySnap.docs[0].data() as any;
+              
+              if (userData.password && userData.password !== password) {
+                const msg = "Invalid passcode. Please check your credentials.";
+                setErrorMsg(msg);
+                setToast({ type: "error", message: msg });
+                return;
+              }
+              
               await logAuthEvent("login_fallback", "success", email, userData.uid);
               
               localStorage.setItem("tgk_custom_user", JSON.stringify(userData));
@@ -513,14 +565,14 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
             </span>
             <h2 className={`text-xl font-sans font-black tracking-tight mt-1 ${isLight ? "text-zinc-900" : "text-white"}`}>
               {isResetMode 
-                ? "Recover Security Passcode" 
+                ? "Reset Security Passcode" 
                 : authModalMode === "signup"
                   ? "Create Premium Account" 
                   : "Authorize Portal Access"}
             </h2>
             <p className={`text-[11px] mt-1.5 leading-normal ${isLight ? "text-zinc-500" : "text-white/50"}`}>
               {isResetMode 
-                ? "Provide your registered email address, and we will send you a secure password recovery instruction instantly." 
+                ? "Provide your registered email address and define your new passcode. This will update your cloud credentials directly." 
                 : authModalMode === "signup"
                   ? "Join Kenya's elite electronics catalog. Track orders, request WhatsApp alerts, and download business tax invoices instantly." 
                   : "Unlock elite local stock reservation, print downloadable receipts, and sync customized setup preferences instantly."}
@@ -661,6 +713,68 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
               </div>
             </div>
 
+            {isResetMode && (
+              <>
+                <div className="space-y-1.5">
+                  <label className={`text-[10px] font-mono uppercase tracking-wider block font-bold ${
+                    isLight ? "text-zinc-850 font-extrabold" : "text-white/40"
+                  }`}>
+                    New Password Passcode
+                  </label>
+                  <div className="relative flex items-center">
+                    <Lock className={`w-3.5 h-3.5 absolute left-3.5 ${isLight ? "text-zinc-650" : "text-white/30"}`} />
+                    <input 
+                      type={showPassword ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="••••••••"
+                      disabled={loading}
+                      className={`w-full py-2.5 pl-10 pr-10 rounded-xl text-xs font-sans outline-none transition-all ${
+                        isLight 
+                          ? "bg-zinc-100/70 border-zinc-300 focus:border-[#C5A059] focus:bg-white text-zinc-950 placeholder-zinc-550 border" 
+                          : "bg-white/[0.02] border-white/10 focus:border-[#C5A059] focus:bg-[#151515] text-white placeholder-white/30 border"
+                      }`}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className={`absolute right-3 p-1.5 rounded-lg opacity-85 hover:opacity-100 transition-opacity ${
+                        isLight ? "text-stone-800 hover:text-black hover:bg-zinc-200" : "text-white/40 hover:text-white hover:bg-white/5"
+                      }`}
+                      style={{ background: 'none', border: 'none' }}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4 shrink-0" /> : <Eye className="w-4 h-4 shrink-0" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className={`text-[10px] font-mono uppercase tracking-wider block font-bold ${
+                    isLight ? "text-zinc-850 font-extrabold" : "text-white/40"
+                  }`}>
+                    Confirm Password Passcode
+                  </label>
+                  <div className="relative flex items-center">
+                    <Lock className={`w-3.5 h-3.5 absolute left-3.5 ${isLight ? "text-zinc-650" : "text-white/30"}`} />
+                    <input 
+                      type={showPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      disabled={loading}
+                      className={`w-full py-2.5 pl-10 pr-10 rounded-xl text-xs font-sans outline-none transition-all ${
+                        isLight 
+                          ? "bg-zinc-100/70 border-zinc-300 focus:border-[#C5A059] focus:bg-white text-zinc-950 placeholder-zinc-550 border" 
+                          : "bg-white/[0.02] border-white/10 focus:border-[#C5A059] focus:bg-[#151515] text-white placeholder-white/30 border"
+                      }`}
+                      required
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
             {!isResetMode && (
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
@@ -768,7 +882,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
             <div className="pt-2">
               <button
                 type="submit"
-                disabled={loading || (authModalMode === "signup" && !isResetMode && !isPasswordValid(password))}
+                disabled={loading || (authModalMode === "signup" && !isResetMode && !isPasswordValid(password)) || (isResetMode && (!newPassword || newPassword !== confirmPassword || !isPasswordValid(newPassword)))}
                 className={`w-full py-3 rounded-2xl flex items-center justify-center gap-1.5 font-bold text-xs uppercase tracking-wider cursor-pointer shadow-lg transform active:scale-95 transition-all ${
                   isLight 
                     ? "bg-[#835c17] hover:bg-[#704e12] text-white" 
@@ -778,7 +892,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                 {loading ? (
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                 ) : isResetMode ? (
-                  <HelpCircle className="w-3.5 h-3.5" />
+                  <RefreshCw className="w-3.5 h-3.5" />
                 ) : authModalMode === "signup" ? (
                   <UserPlus className="w-3.5 h-3.5" />
                 ) : (
@@ -788,7 +902,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                   {loading 
                     ? "Processing auth protocol..." 
                     : isResetMode 
-                      ? "Request password recovery link" 
+                      ? "Directly Reset Passcode" 
                       : authModalMode === "signup" 
                         ? "Register New profile" 
                         : "Sign into storefront portal"}

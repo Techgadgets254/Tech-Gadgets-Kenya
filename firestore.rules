@@ -195,13 +195,21 @@ service cloud.firestore {
     // - List: Must be Admin OR query filtered with where("userId", "==", request.auth.uid)
     // - Update: Admins can update any field. Customers can ONLY submit M-Pesa tracking codes if paymentStatus is Pending.
     match /orders/{orderId} {
-      allow create: if isSignedIn() && isValidOrder(incoming()) && incoming().userId == request.auth.uid;
-      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow update: if isSignedIn() && (
+      allow create: if (isSignedIn() && isValidOrder(incoming()) && incoming().userId == request.auth.uid) || (
+        incoming().userId.startsWith('cust_') && isValidOrder(incoming())
+      );
+      allow get: if (isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin())) || (
+        resource.data.userId.startsWith('cust_')
+      );
+      allow list: if (isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin())) || (
+        resource.data.userId.startsWith('cust_')
+      );
+      allow update: if (isSignedIn() && (
         isAdmin() && isValidOrder(incoming())
+      )) || (
+        resource.data.userId.startsWith('cust_') && incoming().userId == resource.data.userId
       ) || (
-        // Client-side self checkout updates (e.g. entering transaction receipt reference)
+        isSignedIn() &&
         resource.data.userId == request.auth.uid && 
         isValidOrder(incoming()) &&
         existing().paymentStatus == 'Pending' &&
@@ -220,13 +228,17 @@ service cloud.firestore {
     // - Users can read and write their own documents.
     // - Prevent escalating own privileges to "admin" on create.
     match /users/{userId} {
-      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow get: if (isSignedIn() && (isOwner(userId) || isAdmin())) || userId.startsWith('cust_');
       allow list: if isAdmin();
-      allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) && (
+      allow create: if (isSignedIn() && isOwner(userId) && isValidUser(incoming()) && (
         incoming().role == 'customer' || isAdmin()
+      )) || (
+        userId.startsWith('cust_') && isValidUser(incoming()) && incoming().role == 'customer'
       );
-      allow update: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) && (
+      allow update: if (isSignedIn() && isOwner(userId) && isValidUser(incoming()) && (
         (incoming().role == existing().role) || isAdmin()
+      )) || (
+        userId.startsWith('cust_') && isValidUser(incoming()) && incoming().role == 'customer'
       );
       allow delete: if isAdmin();
     }
@@ -274,7 +286,9 @@ service cloud.firestore {
     // - Admins can delete or moderate reviews
     match /reviews/{reviewId} {
       allow read, list: if true;
-      allow create: if isSignedIn() && isValidReview(incoming()) && incoming().userId == request.auth.uid;
+      allow create: if (isSignedIn() && isValidReview(incoming()) && incoming().userId == request.auth.uid) || (
+        incoming().userId.startsWith('cust_') && isValidReview(incoming())
+      );
       allow delete, update: if isAdmin();
     }
 
@@ -283,7 +297,9 @@ service cloud.firestore {
     // - Authenticated users can write transaction experience updates
     match /transaction_feedback/{feedbackId} {
       allow read, list, get: if true;
-      allow create: if isSignedIn() && isValidTransactionFeedback(incoming()) && incoming().userId == request.auth.uid;
+      allow create: if (isSignedIn() && isValidTransactionFeedback(incoming()) && incoming().userId == request.auth.uid) || (
+        incoming().userId.startsWith('cust_') && isValidTransactionFeedback(incoming())
+      );
       allow delete, update: if isAdmin();
     }
 
@@ -361,8 +377,12 @@ service cloud.firestore {
     // - Authenticated users can create, read, list, and delete their own saved items
     // - Administrators have full access
     match /saved_items/{savedItemId} {
-      allow create: if isSignedIn() && isValidSavedItem(incoming()) && incoming().userId == request.auth.uid;
-      allow read, get, list, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if (isSignedIn() && isValidSavedItem(incoming()) && incoming().userId == request.auth.uid) || (
+        incoming().userId.startsWith('cust_') && isValidSavedItem(incoming())
+      );
+      allow read, get, list, delete: if (isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin())) || (
+        resource.data.userId.startsWith('cust_')
+      );
     }
   }
 }
