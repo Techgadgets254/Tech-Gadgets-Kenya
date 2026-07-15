@@ -40,7 +40,10 @@ import {
   Share2,
   Copy,
   Search,
-  Keyboard
+  Keyboard,
+  Flame,
+  Mic,
+  MicOff
 } from "lucide-react";
 import { Product, Order } from "../types";
 import { PAYSTACK_GATEWAYS } from "../data";
@@ -457,8 +460,8 @@ export default function AdminDashboard() {
     });
   }, [orders, orderSortField, orderSortDirection, orderSearchQuery, orderStatusFilter]);
 
-  // Active sub-view ("overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings")
-  const [activeSubTab, setActiveSubTab] = useState<"overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings">("overview");
+  // Active sub-view ("overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "flash_offers")
+  const [activeSubTab, setActiveSubTab] = useState<"overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "flash_offers">("overview");
 
   // Secure Audit Logs tracking state
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
@@ -1061,6 +1064,49 @@ export default function AdminDashboard() {
       }
     }
     setProductForm(prev => ({ ...prev, category: finalCategory as any }));
+  };
+
+  // States for Flash Offers tab
+  const [selectedFlashProductId, setSelectedFlashProductId] = useState("");
+  const [flashPrice, setFlashPrice] = useState("");
+  const [flashExpiry, setFlashExpiry] = useState("");
+  const [flashBanner, setFlashBanner] = useState("");
+  const [isAddingFlashOffer, setIsAddingFlashOffer] = useState(false);
+  const [flashEditingProductId, setFlashEditingProductId] = useState<string | null>(null);
+
+  // States & Handler for Admin Voice Search
+  const [isListeningInventory, setIsListeningInventory] = useState(false);
+  const handleVoiceSearchInventory = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Voice search is not supported in this browser. Please try Chrome or Safari.");
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.onstart = () => {
+      setIsListeningInventory(true);
+    };
+    recognition.onerror = (err: any) => {
+      console.error("Speech recognition error:", err);
+      setIsListeningInventory(false);
+    };
+    recognition.onend = () => {
+      setIsListeningInventory(false);
+    };
+    recognition.onresult = (e: any) => {
+      const transcript = e.results[0][0].transcript;
+      if (transcript) {
+        setInventorySearchQuery(transcript);
+      }
+    };
+    if (isListeningInventory) {
+      recognition.stop();
+    } else {
+      recognition.start();
+    }
   };
 
   const [productForm, setProductForm] = useState({
@@ -2338,6 +2384,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
           {[
             { id: "overview", label: "Overview Metrics" },
             { id: "inventory", label: "Manage Inventory" },
+            { id: "flash_offers", label: "Flash Offers" },
             { id: "orders", label: "Fulfillment Queue" },
             { id: "newsletters", label: "Newsletter Analytics" },
             { id: "affiliates", label: "Affiliate Codes" },
@@ -3763,20 +3810,35 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
 
                 <div className="flex flex-wrap items-center gap-2.5">
                   {/* Inventory Search Bar */}
-                  <div className="relative flex items-center bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 transition-all focus-within:border-[#C5A059]/60 focus-within:bg-white/10 w-full sm:w-auto h-[34px]">
-                    <Search className="w-3.5 h-3.5 text-white/30 mr-1.5 shrink-0" />
+                  <div className="relative flex items-center bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 transition-all focus-within:border-[#C5A059]/60 focus-within:bg-white/10 w-full sm:w-auto h-[34px] gap-1">
+                    <Search className="w-3.5 h-3.5 text-white/30 shrink-0" />
                     <input
                       type="text"
                       value={inventorySearchQuery}
                       onChange={(e) => setInventorySearchQuery(e.target.value)}
                       placeholder="Search SKU or Name..."
-                      className="bg-transparent border-0 font-sans text-xs font-semibold text-white/80 focus:outline-hidden w-full sm:w-36 placeholder-white/30"
+                      className="bg-transparent border-0 font-sans text-xs font-semibold text-white/80 focus:outline-hidden w-full sm:w-32 placeholder-white/30"
                     />
+                    
+                    {/* Voice Search Button */}
+                    <button
+                      type="button"
+                      onClick={handleVoiceSearchInventory}
+                      className={`transition-colors cursor-pointer shrink-0 p-0.5 rounded ${
+                        isListeningInventory 
+                          ? "text-red-500 animate-pulse bg-red-500/10" 
+                          : "text-white/40 hover:text-[#C5A059]"
+                      }`}
+                      title={isListeningInventory ? "Listening... click to stop" : "Voice Search SKU or Name"}
+                    >
+                      {isListeningInventory ? <MicOff className="w-3.5 h-3.5 text-red-500" /> : <Mic className="w-3.5 h-3.5" />}
+                    </button>
+
                     {inventorySearchQuery && (
                       <button
                         type="button"
                         onClick={() => setInventorySearchQuery("")}
-                        className="text-white/40 hover:text-white mr-1.5 cursor-pointer"
+                        className="text-white/40 hover:text-white cursor-pointer shrink-0"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -5342,6 +5404,274 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
       {activeSubTab === "seo_settings" && (
         <div id="admin-seo-settings-tab" className="space-y-6 animate-fadeIn">
           <MetadataEditor />
+        </div>
+      )}
+
+      {activeSubTab === "flash_offers" && (
+        <div id="admin-flash-offers-tab" className="space-y-6 animate-fadeIn font-sans">
+          <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 relative overflow-hidden shadow-2xl">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#C5A059]/5 rounded-full blur-3xl -z-10" />
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h3 className="font-sans font-bold text-lg text-white flex items-center gap-2">
+                  <span className="bg-red-500/10 text-red-400 p-1.5 rounded-xl text-xs"><Flame className="w-4 h-4 animate-pulse" /></span>
+                  Flash Offers & Time-Limited Deals
+                </h3>
+                <p className="text-white/40 text-[11px] mt-1 font-sans">
+                  Promote high-demand gadgets with temporary price drops, custom banners, and countdown timers.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setFlashEditingProductId(null);
+                  setSelectedFlashProductId("");
+                  setFlashPrice("");
+                  setFlashExpiry("");
+                  setFlashBanner("");
+                  setIsAddingFlashOffer(true);
+                }}
+                className="bg-[#C5A059] hover:bg-[#B38F4B] text-black font-semibold text-xs px-4 py-2.5 rounded-xl transition-all flex items-center gap-1.5 shadow-lg shadow-[#C5A059]/10 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create Flash Offer</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Flash Offer Creator Modal/Form */}
+          {isAddingFlashOffer && (
+            <div className="bg-[#121212] border border-white/10 rounded-3xl p-6 space-y-4 shadow-xl">
+              <div className="flex justify-between items-center border-b border-white/10 pb-3">
+                <h4 className="text-white font-bold text-sm">
+                  {flashEditingProductId ? "Edit Flash Offer" : "New Flash Offer Details"}
+                </h4>
+                <button
+                  onClick={() => setIsAddingFlashOffer(false)}
+                  className="text-white/40 hover:text-white cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-white/50 text-[10px] font-mono uppercase tracking-wider mb-1.5">Select Product *</label>
+                  <select
+                    disabled={!!flashEditingProductId}
+                    value={selectedFlashProductId}
+                    onChange={(e) => {
+                      setSelectedFlashProductId(e.target.value);
+                      const prod = products.find(p => p.id === e.target.value);
+                      if (prod) {
+                        setFlashPrice(Math.round(prod.price * 0.85).toString()); // suggest 15% discount
+                        setFlashBanner("FLASH DEAL! SAVE BIG!");
+                      }
+                    }}
+                    className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white placeholder-white/25 focus:border-[#C5A059]/60 focus:outline-hidden"
+                  >
+                    <option value="">-- Choose Live Product --</option>
+                    {products.map(p => (
+                      <option key={p.id} value={p.id}>
+                        [{p.brand}] {p.name} (Reg: KES {p.price.toLocaleString()})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-white/50 text-[10px] font-mono uppercase tracking-wider mb-1.5">Flash Offer Price (KES) *</label>
+                  <input
+                    type="number"
+                    value={flashPrice}
+                    onChange={(e) => setFlashPrice(e.target.value)}
+                    placeholder="Enter discounted promo price..."
+                    className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#C5A059]/60 focus:outline-hidden"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-white/50 text-[10px] font-mono uppercase tracking-wider mb-1.5">Offer Expiry Date & Time *</label>
+                  <input
+                    type="datetime-local"
+                    value={flashExpiry}
+                    onChange={(e) => setFlashExpiry(e.target.value)}
+                    className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#C5A059]/60 focus:outline-hidden"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-white/50 text-[10px] font-mono uppercase tracking-wider mb-1.5">Flash Promo Banner Text *</label>
+                  <input
+                    type="text"
+                    value={flashBanner}
+                    onChange={(e) => setFlashBanner(e.target.value)}
+                    placeholder="e.g., MIDNIGHT MADNESS! 25% OFF!"
+                    className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#C5A059]/60 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 border-t border-white/10 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsAddingFlashOffer(false)}
+                  className="bg-white/5 hover:bg-white/10 text-white font-semibold text-xs px-4 py-2 rounded-xl transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const pid = flashEditingProductId || selectedFlashProductId;
+                    if (!pid || !flashPrice || !flashExpiry || !flashBanner) {
+                      alert("Please fill out all fields.");
+                      return;
+                    }
+                    const targetProd = products.find(p => p.id === pid);
+                    if (!targetProd) return;
+                    
+                    try {
+                      await editProduct(pid, {
+                        flashPrice: Number(flashPrice),
+                        flashExpiry,
+                        flashBanner
+                      });
+                      await logAdminAction("flash_offer_created", `${flashEditingProductId ? "Updated" : "Created"} flash offer on "${targetProd.name}" (Flash Price: ${flashPrice} KES)`);
+                      setActionSuccessNotification(`✓ Flash offer updated successfully for "${targetProd.name}"!`);
+                      setTimeout(() => setActionSuccessNotification(""), 5000);
+                      setIsAddingFlashOffer(false);
+                    } catch (err) {
+                      console.error("Failed to create flash offer:", err);
+                    }
+                  }}
+                  className="bg-[#C5A059] hover:bg-[#B38F4B] text-black font-semibold text-xs px-5 py-2 rounded-xl transition-all shadow-md cursor-pointer"
+                >
+                  Save Flash Offer
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Active Offers Grid/Table */}
+          <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
+            <div className="p-5 border-b border-white/10 bg-white/[0.01]">
+              <span className="font-mono text-[10px] text-[#C5A059] font-bold uppercase tracking-wider block">Live Promotional Campaign List</span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-white/10 bg-white/[0.02] text-[10px] font-mono text-white/50 uppercase tracking-wider">
+                    <th className="py-3 px-5">Product Details</th>
+                    <th className="py-3 px-5">Standard Price</th>
+                    <th className="py-3 px-5">Flash Price</th>
+                    <th className="py-3 px-5">Campaign Expiry</th>
+                    <th className="py-3 px-5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5 text-xs text-white/80">
+                  {products.filter(p => p.flashPrice).length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-white/30 font-sans italic">
+                        No active Flash Offers currently. Click "Create Flash Offer" to promote a product!
+                      </td>
+                    </tr>
+                  ) : (
+                    products.filter(p => p.flashPrice).map((prod) => {
+                      const isExpired = prod.flashExpiry ? new Date(prod.flashExpiry) < new Date() : false;
+                      return (
+                        <tr key={prod.id} className="hover:bg-white/[0.01] transition-colors">
+                          <td className="py-4 px-5">
+                            <div className="flex items-center gap-3">
+                              <img
+                                src={prod.image}
+                                alt={prod.name}
+                                className="w-10 h-10 object-cover rounded-lg border border-white/10 shrink-0"
+                                referrerPolicy="no-referrer"
+                              />
+                              <div>
+                                <span className="font-bold text-white block">{prod.name}</span>
+                                <span className="text-[10px] text-white/40 font-mono block">SKU: {prod.sku || "N/A"}</span>
+                                <span className="inline-block bg-red-500/10 text-red-400 font-bold px-1.5 py-0.5 rounded-md text-[9px] mt-1 font-mono">
+                                  {prod.flashBanner}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-4 px-5 font-mono text-white/60">
+                            KES {prod.price.toLocaleString()}
+                          </td>
+                          <td className="py-4 px-5">
+                            <div className="space-y-0.5">
+                              <span className="font-mono font-bold text-red-400 block">KES {prod.flashPrice?.toLocaleString()}</span>
+                              <span className="text-[9px] text-emerald-400 font-mono block">
+                                Save {Math.round((1 - (prod.flashPrice || 1) / prod.price) * 100)}%
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-4 px-5 font-mono">
+                            <div className="space-y-1">
+                              <span className="text-white/70 block text-[11px]">
+                                {prod.flashExpiry ? new Date(prod.flashExpiry).toLocaleString() : "N/A"}
+                              </span>
+                              {isExpired ? (
+                                <span className="inline-flex bg-white/5 border border-white/10 text-white/40 text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md">
+                                  Expired
+                                </span>
+                              ) : (
+                                <span className="inline-flex bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md animate-pulse">
+                                  Live & Active
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-4 px-5 text-right">
+                            <div className="flex gap-2 justify-end">
+                              <button
+                                onClick={() => {
+                                  setFlashEditingProductId(prod.id);
+                                  setSelectedFlashProductId(prod.id);
+                                  setFlashPrice(prod.flashPrice?.toString() || "");
+                                  setFlashExpiry(prod.flashExpiry || "");
+                                  setFlashBanner(prod.flashBanner || "");
+                                  setIsAddingFlashOffer(true);
+                                }}
+                                className="bg-white/5 hover:bg-[#C5A059]/10 hover:text-[#C5A059] transition-all p-2 rounded-lg text-white/50 cursor-pointer"
+                                title="Edit Offer Settings"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (!confirm(`Are you sure you want to cancel the Flash Offer on "${prod.name}"?`)) return;
+                                  try {
+                                    await editProduct(prod.id, {
+                                      flashPrice: null,
+                                      flashExpiry: null,
+                                      flashBanner: null
+                                    });
+                                    await logAdminAction("flash_offer_removed", `Removed flash offer from "${prod.name}"`);
+                                    setActionSuccessNotification(`✓ Flash offer removed from "${prod.name}"`);
+                                    setTimeout(() => setActionSuccessNotification(""), 5000);
+                                  } catch (err) {
+                                    console.error("Failed to cancel flash offer:", err);
+                                  }
+                                }}
+                                className="bg-white/5 hover:bg-red-500/10 hover:text-red-400 transition-all p-2 rounded-lg text-white/50 cursor-pointer"
+                                title="Cancel Flash Campaign"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 

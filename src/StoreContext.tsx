@@ -27,7 +27,7 @@ import {
   orderBy
 } from "firebase/firestore";
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from "./firebase";
-import { Product, Order, OrderItem, UserProfile, Affiliate, ProductReview, TransactionFeedback, CompanyProfile } from "./types";
+import { Product, Order, OrderItem, UserProfile, Affiliate, ProductReview, TransactionFeedback, CompanyProfile, CartToast } from "./types";
 import { DEFAULT_PRODUCTS } from "./data";
 
 interface ToastNotification {
@@ -70,6 +70,8 @@ interface StoreContextType {
   dismissNotification: (id: string) => void;
   dismissAllNotifications: () => void;
   addCustomNotification: (message: string, orderId?: string) => void;
+  cartToasts: CartToast[];
+  dismissCartToast: (id: string) => void;
   
   // Auth Functions
   loginWithGoogle: () => Promise<void>;
@@ -351,6 +353,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [compareList, setCompareList] = useState<Product[]>([]);
   const [notifications, setNotifications] = useState<ToastNotification[]>([]);
+  const [cartToasts, setCartToasts] = useState<CartToast[]>([]);
+
+  const dismissCartToast = (id: string) => {
+    setCartToasts(prev => prev.filter(t => t.id !== id));
+  };
+
+  const showCartToast = (product: Product) => {
+    const newToast = {
+      id: Math.random().toString(36).substring(2, 9),
+      productName: product.name,
+      productImage: product.image,
+      price: product.price
+    };
+    setCartToasts(prev => [...prev, newToast]);
+    setTimeout(() => {
+      setCartToasts(prev => prev.filter(t => t.id !== newToast.id));
+    }, 4000);
+  };
 
   // Keep a ref to track real-time status changes cleanly in firestore listener
   const prevStatusesRef = React.useRef<Record<string, { shipping: string; payment: string }>>({});
@@ -894,6 +914,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
       return [...prev, { product, quantity: qty }];
     });
+    showCartToast(product);
   };
 
   const removeFromCart = (productId: string) => {
@@ -915,7 +936,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const clearCart = () => setCart([]);
 
   const getCartTotal = () => {
-    return cart.reduce((tot, item) => tot + item.product.price * item.quantity, 0);
+    return cart.reduce((tot, item) => {
+      const isFlashActive = item.product.flashPrice && item.product.flashExpiry && new Date(item.product.flashExpiry) > new Date();
+      const price = isFlashActive ? item.product.flashPrice! : item.product.price;
+      return tot + price * item.quantity;
+    }, 0);
   };
 
   // Checkout and place order
@@ -936,14 +961,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     if (cart.length === 0) return null;
 
-    const items: OrderItem[] = cart.map((item) => ({
-      productId: item.product.id,
-      name: item.product.name,
-      brand: item.product.brand,
-      image: item.product.image,
-      price: item.product.price,
-      quantity: item.quantity,
-    }));
+    const items: OrderItem[] = cart.map((item) => {
+      const isFlashActive = item.product.flashPrice && item.product.flashExpiry && new Date(item.product.flashExpiry) > new Date();
+      const finalPrice = isFlashActive ? item.product.flashPrice! : item.product.price;
+      return {
+        productId: item.product.id,
+        name: item.product.name,
+        brand: item.product.brand,
+        image: item.product.image,
+        price: finalPrice,
+        quantity: item.quantity,
+      };
+    });
 
     const orderData: Omit<Order, "id"> = {
       userId: user.uid,
@@ -1479,6 +1508,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         subscribeNewsletter,
         theme,
         toggleTheme,
+        cartToasts,
+        dismissCartToast,
         submitProductReview,
         importProductsCSV,
         registerPriceAlert,

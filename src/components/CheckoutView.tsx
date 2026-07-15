@@ -1025,8 +1025,15 @@ export default function CheckoutView() {
                     <div className="flex-1 min-w-0">
                       <span className="font-mono text-[9px] text-[#C5A059] block uppercase font-bold">{item.product.brand}</span>
                       <h4 className="font-sans font-semibold text-xs sm:text-sm text-white truncate">{item.product.name}</h4>
-                      <p className="font-sans font-extrabold text-xs text-white mt-1">
-                        KES {item.product.price.toLocaleString()}
+                      <p className="font-sans font-extrabold text-xs text-white mt-1 flex items-center gap-1.5">
+                        {item.product.flashPrice && item.product.flashExpiry && new Date(item.product.flashExpiry) > new Date() ? (
+                          <>
+                            <span className="text-red-400">KES {item.product.flashPrice.toLocaleString()}</span>
+                            <span className="text-[10px] text-white/30 line-through">KES {item.product.price.toLocaleString()}</span>
+                          </>
+                        ) : (
+                          <span>KES {item.product.price.toLocaleString()}</span>
+                        )}
                       </p>
                     </div>
 

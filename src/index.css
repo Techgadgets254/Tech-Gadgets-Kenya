@@ -1304,6 +1304,71 @@ html.light-theme [id="customer-profile-hub"] span:not(.text-white) {
   color: #514B42 !important;
 }
 
+/* Styling for Markdown rendering and responsiveness inside chats and comparison blocks */
+.markdown-body {
+  width: 100%;
+  font-family: inherit;
+  color: inherit;
+}
+.markdown-body p {
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+}
+.markdown-body p:last-child {
+  margin-bottom: 0;
+}
+.markdown-body ul, .markdown-body ol {
+  margin-left: 1.25rem;
+  margin-bottom: 0.75rem;
+  list-style-type: disc;
+}
+.markdown-body ol {
+  list-style-type: decimal;
+}
+.markdown-body li {
+  margin-bottom: 0.25rem;
+}
+.markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
+  font-weight: 700;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: #ffffff;
+}
+html.light-theme .markdown-body h1, 
+html.light-theme .markdown-body h2, 
+html.light-theme .markdown-body h3, 
+html.light-theme .markdown-body h4 {
+  color: #1c1917;
+}
+.markdown-body table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+  font-size: 11px;
+}
+.markdown-body th, .markdown-body td {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 8px 12px;
+  text-align: left;
+  min-width: 120px;
+}
+.markdown-body th {
+  background-color: rgba(255, 255, 255, 0.05);
+  font-weight: 600;
+  color: #C5A059;
+}
+html.light-theme .markdown-body th, 
+html.light-theme .markdown-body td {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+html.light-theme .markdown-body th {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+
 
 
 

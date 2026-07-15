@@ -26,9 +26,49 @@ import {
   Plus,
   ArrowUp,
   X,
-  History
+  History,
+  Mic,
+  MicOff,
+  Flame
 } from "lucide-react";
 import { Product } from "../types";
+
+interface FlashCountdownProps {
+  expiry: string;
+}
+
+const FlashCountdown: React.FC<FlashCountdownProps> = ({ expiry }) => {
+  const [timeLeft, setTimeLeft] = useState("");
+
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      const difference = +new Date(expiry) - +new Date();
+      if (difference <= 0) {
+        return "Expired";
+      }
+
+      const hrs = Math.floor(difference / (1000 * 60 * 60));
+      const mins = Math.floor((difference / 1000 / 60) % 60);
+      const secs = Math.floor((difference / 1000) % 60);
+
+      return `${hrs}h ${mins}m ${secs}s`;
+    };
+
+    setTimeLeft(calculateTimeLeft());
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTimeLeft());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [expiry]);
+
+  return (
+    <span className="text-[10px] text-red-400 font-mono font-bold bg-red-500/10 px-2 py-0.5 rounded-md flex items-center gap-1 border border-red-500/15">
+      <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping shrink-0" />
+      {timeLeft}
+    </span>
+  );
+};
 
 function highlightText(text: string, highlight: string) {
   if (!highlight || !highlight.trim()) {
@@ -307,6 +347,48 @@ export default function ShopView() {
     e.stopPropagation();
     setRecentSearches([]);
     localStorage.removeItem("tgk_recent_searches");
+  };
+
+  // Voice Search Web Speech API state and handler
+  const [isListening, setIsListening] = useState(false);
+  const handleVoiceSearch = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Voice search is not supported in this browser. Please try Chrome or Safari.");
+      return;
+    }
+    
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+    
+    recognition.onerror = (err: any) => {
+      console.error("Speech recognition error:", err);
+      setIsListening(false);
+    };
+    
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+    
+    recognition.onresult = (e: any) => {
+      const transcript = e.results[0][0].transcript;
+      if (transcript) {
+        setSearchQuery(transcript);
+        addToHistory(transcript);
+      }
+    };
+    
+    if (isListening) {
+      recognition.stop();
+    } else {
+      recognition.start();
+    }
   };
 
   useEffect(() => {
@@ -675,16 +757,34 @@ export default function ShopView() {
             }}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search specific products or brands (e.g., Apple, HP, Lenovo)..."
-            className="block w-full pl-10 pr-10 py-3 bg-[#0F0F0F] border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:outline-hidden focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] transition-all font-sans shadow-inner"
+            className="block w-full pl-10 pr-20 py-3 bg-[#0F0F0F] border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:outline-hidden focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] transition-all font-sans shadow-inner"
           />
-          {searchQuery && (
+          <div className="absolute inset-y-0 right-0 pr-3 flex items-center gap-1.5 z-10">
+            {/* Voice Search Button */}
             <button
-              onClick={() => setSearchQuery("")}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center text-white/40 hover:text-white cursor-pointer"
+              onClick={handleVoiceSearch}
+              className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                isListening 
+                  ? "bg-red-500 text-white animate-pulse shadow-md shadow-red-500/20" 
+                  : "text-white/40 hover:text-[#C5A059] hover:bg-white/5"
+              }`}
+              title={isListening ? "Listening... click to stop" : "Search with Voice"}
+              type="button"
             >
-              <X className="h-4 w-4" />
+              {isListening ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
             </button>
-          )}
+
+            {/* Clear Button */}
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="p-1.5 rounded-lg text-white/30 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+                title="Clear Search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
 
           {/* Recent search dropdown menu */}
           <AnimatePresence>
@@ -1164,6 +1264,17 @@ export default function ShopView() {
                             {highlightText(p.name, searchQuery)}
                           </h3>
 
+                          {/* Flash Deal Promo Banner & Timer */}
+                          {p.flashPrice && p.flashExpiry && new Date(p.flashExpiry) > new Date() && (
+                            <div className="mt-2.5 flex flex-wrap gap-2 items-center">
+                              <span className="text-[9px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded-md font-sans font-bold flex items-center gap-1 border border-red-500/20 uppercase tracking-wider animate-pulse">
+                                <Flame className="w-3 h-3 text-red-500" />
+                                {p.flashBanner || "FLASH OFFER!"}
+                              </span>
+                              <FlashCountdown expiry={p.flashExpiry} />
+                            </div>
+                          )}
+
                           {/* Complimentary Product Tag Badges */}
                           <div className="flex flex-wrap gap-1 mt-2">
                             {(p.tags && p.tags.length > 0 ? p.tags : (
@@ -1234,10 +1345,25 @@ export default function ShopView() {
 
                           <div className="flex items-center justify-between gap-2">
                             <div>
-                              <span className="text-[10px] text-white/30 font-mono block leading-none">STORE PRICE</span>
-                              <span className="font-sans font-extrabold text-white text-sm">
-                                KES {p.price.toLocaleString()}
+                              <span className="text-[10px] text-white/30 font-mono block leading-none">
+                                {p.flashPrice && p.flashExpiry && new Date(p.flashExpiry) > new Date() ? "FLASH DEAL" : "STORE PRICE"}
                               </span>
+                              <div className="flex items-baseline gap-1.5 mt-0.5">
+                                {p.flashPrice && p.flashExpiry && new Date(p.flashExpiry) > new Date() ? (
+                                  <>
+                                    <span className="font-sans font-extrabold text-red-400 text-sm">
+                                      KES {p.flashPrice.toLocaleString()}
+                                    </span>
+                                    <span className="font-mono text-[10px] text-white/40 line-through">
+                                      KES {p.price.toLocaleString()}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span className="font-sans font-extrabold text-white text-sm">
+                                    KES {p.price.toLocaleString()}
+                                  </span>
+                                )}
+                              </div>
                             </div>
 
                             <button

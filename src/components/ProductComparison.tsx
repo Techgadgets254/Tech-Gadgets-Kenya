@@ -23,6 +23,7 @@ import {
   FileText
 } from "lucide-react";
 import { Product } from "../types";
+import Markdown from "react-markdown";
 
 export default function ProductComparison() {
   const { products, setActiveView, setSelectedProductId, theme } = useStore();
@@ -367,8 +368,8 @@ export default function ProductComparison() {
 
               {aiAnalysis && (
                 <div className="text-white/85 text-xs sm:text-sm leading-relaxed text-left space-y-4 max-w-4xl font-sans animate-fadeIn">
-                  <div className="bg-white/[0.01] border border-white/5 p-5 rounded-2xl space-y-3 whitespace-pre-wrap">
-                    {aiAnalysis}
+                  <div className="bg-white/[0.01] border border-white/5 p-5 rounded-2xl space-y-3 markdown-body">
+                    <Markdown>{aiAnalysis}</Markdown>
                   </div>
                   <div className="text-[10px] font-mono text-white/30 text-right uppercase tracking-[0.1em]">
                     *Grounded to catalog specifications and retail prices

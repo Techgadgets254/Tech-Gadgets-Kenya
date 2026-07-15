@@ -45,6 +45,9 @@ export interface Product {
     comment: string;
     createdAt: string;
   }[];
+  flashPrice?: number | null;
+  flashExpiry?: string | null;
+  flashBanner?: string | null;
   createdAt?: any;
   updatedAt?: any;
 }
@@ -137,5 +140,13 @@ export interface CompanyProfile {
   phone: string;
   updatedAt: string;
 }
+
+export interface CartToast {
+  id: string;
+  productName: string;
+  productImage: string;
+  price: number;
+}
+
 
 

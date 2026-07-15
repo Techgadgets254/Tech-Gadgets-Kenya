@@ -17,6 +17,7 @@ import AdminDashboard from "./components/AdminDashboard";
 import ClientDashboard from "./components/ClientDashboard";
 import NewsView from "./components/NewsView";
 import NotificationCenter from "./components/NotificationCenter";
+import CartToastContainer from "./components/CartToastContainer";
 import AIAdvisor from "./components/AIAdvisor";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { Helmet } from "./components/Helmet";
@@ -496,6 +497,9 @@ function StoreLayout() {
 
       {/* Real-time Order Status Notifications overlay */}
       <NotificationCenter />
+
+      {/* Animated item add-to-cart notifications */}
+      <CartToastContainer />
 
       {/* 1. Navigation Shell Header */}
       <Header />
