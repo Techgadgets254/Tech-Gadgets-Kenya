@@ -602,6 +602,31 @@ export default function Header() {
 
               {/* Portal specific routes for mobile */}
               <div className={`space-y-2 pt-2 border-t ${isLight ? "border-zinc-200" : "border-white/5"}`}>
+                {/* Mobile Theme Toggle Button */}
+                <button
+                  onClick={() => toggleTheme()}
+                  className={`w-full text-left py-2.5 px-3.5 rounded-xl border text-xs font-bold flex items-center justify-between cursor-pointer ${
+                    isLight 
+                      ? "bg-white border-zinc-200 text-zinc-800" 
+                      : "bg-white/[0.02] border-white/10 text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {theme === "dark" ? (
+                      <>
+                        <Sun className="w-4 h-4 text-[#C5A059]" />
+                        <span>Switch to Light Mode</span>
+                      </>
+                    ) : (
+                      <>
+                        <Moon className="w-4 h-4 text-[#C5A059]" />
+                        <span>Switch to Dark Mode</span>
+                      </>
+                    )}
+                  </div>
+                  <span className="text-[10px] font-mono opacity-50 capitalize">{theme} Mode</span>
+                </button>
+
                 {user ? (
                   <>
                     {userProfile?.role === "admin" && (
