@@ -94,6 +94,9 @@ ${productsInfo}
 3. If users ask to compare products, build a beautifully formatted Markdown table matching their specifications, prices, and suggest the absolute best choice based on their budget and requirements.
 4. Keep in mind: Customers pay securely with Paystack (which supports Cards and Mobile Money). Standard delivery is immediate to Nairobi and within 24 hours to the rest of Kenya.
 5. Do not share raw internal project configurations. Refer to the store pricing in Kenyan Shillings (KES).
+6. CRITICAL RECOMMENDATION RULE: When recommending or mentioning specific products from our live catalog above, you MUST append a line formatted exactly like this at the very end of your response, on a brand new line:
+[RECOMMENDED_IDS: id_1, id_2]
+Where "id_1, id_2" are the raw matching IDs of the products from the live database. Do not recommend more than 4 items. If you do not recommend any specific products from the live catalog, do NOT append this line.
 `;
 
     const contents = [];

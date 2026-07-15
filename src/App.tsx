@@ -24,6 +24,120 @@ import AuthModal from "./components/AuthModal";
 import { Loader2, MessageSquare, HelpCircle, Share2, Package, PhoneCall, ShoppingBag, XCircle, Copy } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
+// Smooth, skeleton-style loaders to replace generic loading spinners and improve perceived load speed
+function ClientDashboardSkeleton() {
+  return (
+    <div className="space-y-8 animate-pulse p-4 sm:p-8 bg-[#0F0F0F] rounded-3xl border border-white/10 shadow-2xl">
+      {/* Header Profile Row */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-white/10">
+        <div className="flex items-center gap-4 w-full sm:w-auto">
+          <div className="w-16 h-16 rounded-full bg-white/5 shrink-0" />
+          <div className="space-y-2 w-full sm:w-auto">
+            <div className="h-5 bg-white/10 rounded w-36 sm:w-48" />
+            <div className="h-3 bg-white/5 rounded w-48 sm:w-64" />
+          </div>
+        </div>
+        <div className="h-9 bg-white/10 rounded-xl w-32 shrink-0 self-start sm:self-auto" />
+      </div>
+
+      {/* Tabs Row */}
+      <div className="flex gap-2 pb-2 overflow-x-auto">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="h-8 bg-white/5 rounded-xl w-24 shrink-0" />
+        ))}
+      </div>
+
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Left Column: Orders */}
+        <div className="lg:col-span-8 space-y-4">
+          <div className="h-5 bg-white/10 rounded w-40 mb-2" />
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-white/[0.01] border border-white/5 rounded-2xl p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-12 h-12 rounded-lg bg-white/5 shrink-0" />
+                <div className="space-y-2 min-w-0">
+                  <div className="h-3.5 bg-white/10 rounded w-32 sm:w-48 truncate" />
+                  <div className="h-2.5 bg-white/5 rounded w-20" />
+                </div>
+              </div>
+              <div className="h-7 bg-white/10 rounded-lg w-20 shrink-0" />
+            </div>
+          ))}
+        </div>
+
+        {/* Right Column: Stats & Actions */}
+        <div className="lg:col-span-4 space-y-6">
+          <div className="bg-[#121212] border border-white/5 rounded-2xl p-5 space-y-4">
+            <div className="h-4 bg-white/10 rounded w-28" />
+            <div className="space-y-2.5">
+              <div className="h-3 bg-white/5 rounded w-full" />
+              <div className="h-3 bg-white/5 rounded w-5/6" />
+            </div>
+            <div className="h-9 bg-white/10 rounded-xl w-full" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminDashboardSkeleton() {
+  return (
+    <div className="space-y-8 animate-pulse p-4 sm:p-8 bg-[#0F0F0F] rounded-3xl border border-white/10 shadow-2xl">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-white/10">
+        <div className="space-y-2 w-full sm:w-auto">
+          <div className="h-6 bg-white/10 rounded w-48" />
+          <div className="h-3.5 bg-white/5 rounded w-64 sm:w-80" />
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <div className="h-9 bg-white/10 rounded-xl w-24" />
+          <div className="h-9 bg-white/10 rounded-xl w-28" />
+        </div>
+      </div>
+
+      {/* Stats Bento Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 space-y-3">
+            <div className="flex justify-between items-center">
+              <div className="h-3 bg-white/5 rounded w-16" />
+              <div className="w-8 h-8 rounded-lg bg-white/5 shrink-0" />
+            </div>
+            <div className="h-6 bg-white/10 rounded w-20" />
+            <div className="h-3 bg-white/5 rounded w-24" />
+          </div>
+        ))}
+      </div>
+
+      {/* Secondary split panel skeleton */}
+      <div className="bg-[#121212] border border-white/5 rounded-2xl p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+          <div className="h-5 bg-white/10 rounded w-36" />
+          <div className="h-8 bg-white/10 rounded-lg w-44" />
+        </div>
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 py-3 border-b border-white/5">
+              <div className="flex items-center gap-3 w-full sm:w-1/3 min-w-0">
+                <div className="w-10 h-10 rounded-lg bg-white/5 shrink-0" />
+                <div className="space-y-2 w-full min-w-0">
+                  <div className="h-3.5 bg-white/10 rounded w-4/5 truncate" />
+                  <div className="h-2.5 bg-white/5 rounded w-1/2" />
+                </div>
+              </div>
+              <div className="h-3.5 bg-white/10 rounded w-24 shrink-0 hidden sm:block" />
+              <div className="h-3.5 bg-white/5 rounded w-16 shrink-0 hidden sm:block" />
+              <div className="h-6 bg-white/10 rounded w-16 shrink-0" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StoreLayout() {
   const { activeView, authLoading, isAuthModalOpen, selectedProductId, products, setActiveView } = useStore();
   const [isWhatsAppVisible, setIsWhatsAppVisible] = React.useState(true);
@@ -404,20 +518,14 @@ function StoreLayout() {
             {activeView === "checkout" && <CheckoutView />}
             {activeView === "client-dashboard" && (
               authLoading ? (
-                <div className="flex flex-col items-center justify-center py-20">
-                  <Loader2 className="w-6 h-6 text-[#C5A059] animate-spin mb-3" />
-                  <p className="text-[11px] font-mono text-white/40">Securing your workspace profile...</p>
-                </div>
+                <ClientDashboardSkeleton />
               ) : (
                 <ClientDashboard />
               )
             )}
             {activeView === "admin-dashboard" && (
               authLoading ? (
-                <div className="flex flex-col items-center justify-center py-20">
-                  <Loader2 className="w-6 h-6 text-[#C5A059] animate-spin mb-3" />
-                  <p className="text-[11px] font-mono text-white/40">Verifying secure administrator registry state...</p>
-                </div>
+                <AdminDashboardSkeleton />
               ) : (
                 <ErrorBoundary fallbackName="Operations Management Portal">
                   <AdminDashboard />

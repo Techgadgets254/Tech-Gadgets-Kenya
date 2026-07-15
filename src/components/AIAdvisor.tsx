@@ -11,12 +11,145 @@ import {
   Loader2,
   HelpCircle,
   Scale,
-  Trash2
+  Trash2,
+  ShoppingCart,
+  Check,
+  Info
 } from "lucide-react";
 import Markdown from "react-markdown";
 
+// Interactive Card for recommended items inside the AI Advisor chat
+function RecommendedProductCard({ 
+  product, 
+  onAddToCart, 
+  onToggleCompare, 
+  isCompared 
+}: { 
+  product: any; 
+  onAddToCart: (p: any) => void; 
+  onToggleCompare: (p: any) => void; 
+  isCompared: boolean; 
+}) {
+  const [showSpecs, setShowSpecs] = useState(false);
+  const [added, setAdded] = useState(false);
+
+  const handleAdd = () => {
+    onAddToCart(product);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 2000);
+  };
+
+  return (
+    <div className="bg-white/[0.03] border border-white/10 hover:border-[#C5A059]/40 rounded-xl p-3 w-[250px] shrink-0 flex flex-col justify-between transition-all shadow-md group select-none">
+      <div>
+        {/* Top Header */}
+        <div className="flex gap-2.5 items-start">
+          <img 
+            src={product.image} 
+            alt={product.name} 
+            className="w-11 h-11 object-cover rounded-lg border border-white/5 bg-black/40 shrink-0" 
+            referrerPolicy="no-referrer"
+          />
+          <div className="min-w-0 flex-1">
+            <span className="text-[8px] font-mono text-[#C5A059] uppercase tracking-wider font-semibold block">
+              {product.brand}
+            </span>
+            <h4 className="font-sans font-bold text-[11px] text-white truncate leading-tight mt-0.5 group-hover:text-[#C5A059] transition-colors" title={product.name}>
+              {product.name}
+            </h4>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-[10px] font-mono font-bold text-[#E0E0E0]">
+                KES {product.price.toLocaleString()}
+              </span>
+              {product.stock <= 0 ? (
+                <span className="text-[7px] px-1 bg-red-500/10 text-red-400 border border-red-500/10 rounded-sm">Out of Stock</span>
+              ) : product.stock <= 2 ? (
+                <span className="text-[7px] px-1 bg-amber-500/10 text-amber-400 border border-amber-500/10 rounded-sm">Low Stock</span>
+              ) : (
+                <span className="text-[7px] px-1 bg-green-500/10 text-green-400 border border-green-500/10 rounded-sm">In Stock</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Short Specs Summary (inline) */}
+        {product.specifications && Object.keys(product.specifications).length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {Object.entries(product.specifications).slice(0, 2).map(([key, value]: [string, any]) => (
+              <span key={key} className="text-[7.5px] bg-white/[0.04] px-1.5 py-0.5 rounded-sm text-white/50 font-mono truncate max-w-[105px]" title={`${key}: ${value}`}>
+                {value}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Detailed Specs Accordion */}
+        {showSpecs && product.specifications && (
+          <div className="mt-2 pt-2 border-t border-white/5 text-[8.5px] text-white/70 space-y-1 font-sans">
+            {Object.entries(product.specifications).map(([key, val]: [string, any]) => (
+              <div key={key} className="flex justify-between gap-1 py-0.5 border-b border-white/[0.02]">
+                <span className="text-white/40 capitalize shrink-0">{key}:</span>
+                <span className="text-white/80 text-right font-medium truncate max-w-[140px]">{val}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Action Buttons */}
+      <div className="mt-2.5 pt-2 border-t border-white/5 flex gap-1.5">
+        <button
+          onClick={handleAdd}
+          disabled={product.stock <= 0}
+          className={`flex-1 font-sans font-bold text-[9px] py-1 px-2 rounded-md flex items-center justify-center gap-1 cursor-pointer transition-all ${
+            added 
+              ? "bg-green-600 text-white" 
+              : "bg-[#C5A059] hover:bg-[#b08e4d] text-black disabled:bg-white/5 disabled:text-white/20"
+          }`}
+        >
+          {added ? (
+            <>
+              <Check className="w-2.5 h-2.5 stroke-[2.5]" />
+              <span>Added!</span>
+            </>
+          ) : (
+            <>
+              <ShoppingCart className="w-2.5 h-2.5" />
+              <span>Buy/Add</span>
+            </>
+          )}
+        </button>
+
+        <button
+          onClick={() => onToggleCompare(product)}
+          className={`p-1 rounded-md border transition-all cursor-pointer flex items-center justify-center shrink-0 ${
+            isCompared 
+              ? "bg-[#C5A059]/20 text-[#C5A059] border-[#C5A059]/30" 
+              : "bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border-white/5"
+          }`}
+          title={isCompared ? "Remove from comparison" : "Add to comparison"}
+        >
+          <Scale className="w-2.5 h-2.5" />
+        </button>
+
+        <button
+          onClick={() => setShowSpecs(!showSpecs)}
+          className={`p-1 rounded-md border transition-all cursor-pointer flex items-center justify-center shrink-0 ${
+            showSpecs
+              ? "bg-white/15 text-white border-white/25"
+              : "bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border-white/5"
+          }`}
+          title="Toggle Technical Specs"
+        >
+          <Info className="w-2.5 h-2.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function AIAdvisor() {
-  const { products, compareList, toggleCompare, clearCompareList } = useStore();
+  const { products, compareList, toggleCompare, clearCompareList, addToCart } = useStore();
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -107,6 +240,9 @@ ${productsInfo}
 3. If users ask to compare products, build a beautifully formatted Markdown table matching their specifications, prices, and suggest the absolute best choice based on their budget and requirements.
 4. Keep in mind: Customers pay securely with Safaricom M-Pesa. Standard delivery is immediate to Nairobi and within 24 hours to the rest of Kenya.
 5. Do not share raw internal project configurations. Refer to the store pricing in Kenyan Shillings (KES).
+6. CRITICAL RECOMMENDATION RULE: When recommending or mentioning specific products from our live catalog above, you MUST append a line formatted exactly like this at the very end of your response, on a brand new line:
+[RECOMMENDED_IDS: id_1, id_2]
+Where "id_1, id_2" are the raw matching IDs of the products from the live database. Do not recommend more than 4 items. If you do not recommend any specific products from the live catalog, do NOT append this line.
 `;
 
           // Format chat history properly standard
@@ -255,6 +391,16 @@ ${productsInfo}
             </div>
             
             <div className="flex items-center gap-1">
+              {compareList.length > 0 && (
+                <button
+                  onClick={() => setCompareModalOpen(true)}
+                  className="mr-1.5 flex items-center gap-1 bg-[#C5A059]/15 hover:bg-[#C5A059]/25 text-[#C5A059] border border-[#C5A059]/30 text-[9px] font-mono font-bold uppercase px-2 py-1 rounded-md transition-all cursor-pointer animate-pulse"
+                  title="Open side-by-side spec comparison matrix"
+                >
+                  <Scale className="w-2.5 h-2.5" />
+                  <span>Compare ({compareList.length})</span>
+                </button>
+              )}
               <button 
                 onClick={resetChat} 
                 className="text-white/40 hover:text-[#C5A059] p-1 rounded-sm"
@@ -273,34 +419,76 @@ ${productsInfo}
 
           {/* Messages view */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {chatHistory.map((msg, i) => (
-              <div 
-                key={i} 
-                className={`flex gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                {msg.role !== "user" && (
-                  <div className="w-7 h-7 rounded-sm bg-[#C5A059]/10 border border-[#C5A059]/20 flex items-center justify-center shrink-0 mt-0.5">
-                    <Bot className="w-4 h-4 text-[#C5A059]" />
-                  </div>
-                )}
-                
-                <div className={`max-w-[80%] rounded-xl px-3 py-2 text-xs leading-relaxed ${
-                  msg.role === "user" 
-                    ? "bg-[#C5A059] text-black font-medium" 
-                    : "bg-white/[0.03] border border-white/5 text-white/90"
-                }`}>
-                  <div className="markdown-body">
-                    <Markdown>{msg.content}</Markdown>
-                  </div>
-                </div>
+            {chatHistory.map((msg, i) => {
+              const isUser = msg.role === "user";
+              let displayContent = msg.content;
+              let recommendedProducts: any[] = [];
 
-                {msg.role === "user" && (
-                  <div className="w-7 h-7 rounded-sm bg-white/[0.05] border border-white/10 flex items-center justify-center shrink-0 mt-0.5">
-                    <User className="w-4 h-4 text-white/70" />
+              if (!isUser) {
+                const match = msg.content.match(/\[RECOMMENDED_IDS:\s*([^\]]+)\]/i);
+                if (match) {
+                  const idsStr = match[1];
+                  const ids = idsStr.split(",").map(id => id.trim()).filter(Boolean);
+                  recommendedProducts = ids
+                    .map(id => products.find(p => p.id === id || p.sku === id))
+                    .filter((p): p is any => p !== undefined);
+                  
+                  displayContent = msg.content.replace(/\[RECOMMENDED_IDS:[^\]]+\]/i, "").trim();
+                }
+              }
+
+              return (
+                <div key={i} className="space-y-3">
+                  <div className={`flex gap-2.5 ${isUser ? "justify-end" : "justify-start"}`}>
+                    {!isUser && (
+                      <div className="w-7 h-7 rounded-sm bg-[#C5A059]/10 border border-[#C5A059]/20 flex items-center justify-center shrink-0 mt-0.5">
+                        <Bot className="w-4 h-4 text-[#C5A059]" />
+                      </div>
+                    )}
+                    
+                    <div className={`max-w-[80%] rounded-xl px-3 py-2 text-xs leading-relaxed ${
+                      isUser 
+                        ? "bg-[#C5A059] text-black font-medium" 
+                        : "bg-white/[0.03] border border-white/5 text-white/90"
+                    }`}>
+                      <div className="markdown-body">
+                        <Markdown>{displayContent}</Markdown>
+                      </div>
+                    </div>
+
+                    {isUser && (
+                      <div className="w-7 h-7 rounded-sm bg-white/[0.05] border border-white/10 flex items-center justify-center shrink-0 mt-0.5">
+                        <User className="w-4 h-4 text-white/70" />
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            ))}
+
+                  {/* Render the recommended product cards horizontally if present */}
+                  {recommendedProducts.length > 0 && (
+                    <div className="pl-9.5 pr-2 animate-fadeIn">
+                      <div className="text-[9px] font-mono text-[#C5A059] uppercase tracking-wider mb-2 flex items-center gap-1 font-semibold select-none">
+                        <Sparkles className="w-2.5 h-2.5 text-[#C5A059] animate-pulse" />
+                        <span>Interactive Stock Matches ({recommendedProducts.length})</span>
+                      </div>
+                      <div className="flex gap-3 overflow-x-auto pb-2.5 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                        {recommendedProducts.map((p) => {
+                          const isCompared = compareList.some((item) => item.id === p.id);
+                          return (
+                            <RecommendedProductCard
+                              key={p.id}
+                              product={p}
+                              onAddToCart={addToCart}
+                              onToggleCompare={toggleCompare}
+                              isCompared={isCompared}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
             {loading && (
               <div className="flex gap-2.5 justify-start">
@@ -318,6 +506,15 @@ ${productsInfo}
 
           {/* Prompt Recommendations */}
           <div className="px-4 py-2 bg-black/40 border-t border-white/5 flex gap-2 overflow-x-auto whitespace-nowrap">
+            {compareList.length > 0 && (
+              <button 
+                onClick={() => setCompareModalOpen(true)}
+                className="bg-[#C5A059]/10 border border-[#C5A059]/30 hover:border-[#C5A059]/50 text-[#C5A059] hover:text-white text-[10px] font-mono font-bold uppercase px-2.5 py-1.5 rounded-lg shrink-0 cursor-pointer flex items-center gap-1 transition-colors animate-pulse"
+              >
+                <Scale className="w-3 h-3 text-[#C5A059]" />
+                <span>📊 Compare specs ({compareList.length})</span>
+              </button>
+            )}
             <button 
               onClick={() => handleSuggestQuery("Compare laptop specs and suggest best choice for programming.")}
               className="bg-white/[0.02] border border-white/10 hover:border-[#C5A059]/50 text-white/60 hover:text-white text-[10px] px-2.5 py-1.5 rounded-lg shrink-0 cursor-pointer text-ellipsis text-left"

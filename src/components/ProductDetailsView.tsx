@@ -21,7 +21,8 @@ import {
   MessageCircle,
   ChevronDown,
   ChevronUp,
-  TrendingUp
+  TrendingUp,
+  X
 } from "lucide-react";
 
 export default function ProductDetailsView() {
@@ -71,6 +72,7 @@ export default function ProductDetailsView() {
   const [revRating, setRevRating] = useState(5);
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reviewSuccess, setReviewSuccess] = useState(false);
+  const [selectedRatingFilter, setSelectedRatingFilter] = useState<number | null>(null);
 
   // Form states for Price alerts
   const [priceAlertEmail, setPriceAlertEmail] = useState("whatsapp-only@techgadgetskenya.co.ke");
@@ -81,12 +83,15 @@ export default function ProductDetailsView() {
   // Expanded FAQ trace
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
 
-  // Sync current user email to input if available
+  // Sync current user email and display name if available
   React.useEffect(() => {
     if (user?.email) {
       setPriceAlertEmail(user.email);
     } else {
       setPriceAlertEmail("whatsapp-only@techgadgetskenya.co.ke");
+    }
+    if (user?.displayName) {
+      setRevName(user.displayName);
     }
   }, [user]);
 
@@ -155,6 +160,29 @@ export default function ProductDetailsView() {
     const total = dbReviews.reduce((sum, r) => sum + r.rating, 0);
     return Number((total / dbReviews.length).toFixed(1));
   }, [product, dbReviews]);
+
+  const ratingDistribution = useMemo(() => {
+    const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 } as Record<5 | 4 | 3 | 2 | 1, number>;
+    displayedReviews.forEach(r => {
+      const rate = Math.round(r.rating) as 5 | 4 | 3 | 2 | 1;
+      if (counts[rate] !== undefined) {
+        counts[rate]++;
+      }
+    });
+    const total = displayedReviews.length || 1;
+    return {
+      5: { count: counts[5], percentage: Math.round((counts[5] / total) * 100) },
+      4: { count: counts[4], percentage: Math.round((counts[4] / total) * 100) },
+      3: { count: counts[3], percentage: Math.round((counts[3] / total) * 100) },
+      2: { count: counts[2], percentage: Math.round((counts[2] / total) * 100) },
+      1: { count: counts[1], percentage: Math.round((counts[1] / total) * 100) },
+    };
+  }, [displayedReviews]);
+
+  const finalReviews = useMemo(() => {
+    if (selectedRatingFilter === null) return displayedReviews;
+    return displayedReviews.filter(r => Math.round(r.rating) === selectedRatingFilter);
+  }, [displayedReviews, selectedRatingFilter]);
 
   // Loading or invalid fallback
   if (!product) {
@@ -977,30 +1005,107 @@ export default function ProductDetailsView() {
               <span className="text-xs text-white/40 font-mono font-medium uppercase tracking-wider">{displayedReviews.length} Verified Logs</span>
             </h3>
 
-            <div className="space-y-6 max-h-[500px] overflow-y-auto pr-2" id="reviews-list-hull">
-              {displayedReviews.map((rev, i) => (
-                <div key={i} className="border-b border-white/5 pb-6 last:border-b-0 last:pb-0">
-                  <div className="flex justify-between items-start gap-4">
-                    <div>
-                      <h4 className="font-sans font-semibold text-sm text-white leading-none">{rev.name}</h4>
-                      <span className="font-mono text-[9px] text-[#C5A059] bg-[#C5A059]/10 px-2.5 py-0.5 rounded-md border border-[#C5A059]/20 mt-1.5 inline-block uppercase tracking-wider">
-                        {rev.location} • Secure Purchaser
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <div className="flex items-center gap-0.5 text-amber-400">
-                        {[...Array(5)].map((_, idx) => (
-                          <Star key={idx} className={`w-3 h-3 ${idx < rev.rating ? "fill-amber-400 text-amber-400" : "text-white/10"}`} />
-                        ))}
-                      </div>
-                      <span className="font-mono text-[9px] text-white/30 mt-1 block">{rev.date}</span>
-                    </div>
-                  </div>
-                  <p className="text-white/70 text-xs mt-3 leading-relaxed">
-                    {rev.text}
-                  </p>
+            {/* Interactive Rating Summary & Breakdown Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 bg-white/[0.02] border border-white/5 rounded-2xl p-5">
+              {/* Average Rating Block */}
+              <div className="md:col-span-4 flex flex-col items-center justify-center text-center border-b md:border-b-0 md:border-r border-white/10 pb-4 md:pb-0 md:pr-4">
+                <span className="text-4xl font-extrabold text-white font-sans tracking-tight">{ratingAverage}</span>
+                <div className="flex items-center gap-0.5 text-amber-400 my-1.5">
+                  {[...Array(5)].map((_, idx) => (
+                    <Star key={idx} className={`w-3.5 h-3.5 ${idx < Math.round(ratingAverage) ? "fill-amber-400 text-amber-400" : "text-white/10"}`} />
+                  ))}
                 </div>
-              ))}
+                <span className="text-[10px] font-mono text-white/40 uppercase tracking-wider">Product Rating Average</span>
+              </div>
+
+              {/* Distribution bars */}
+              <div className="md:col-span-8 space-y-2">
+                {([5, 4, 3, 2, 1] as const).map((ratingNum) => {
+                  const dist = ratingDistribution[ratingNum];
+                  const isSelected = selectedRatingFilter === ratingNum;
+                  return (
+                    <button
+                      key={ratingNum}
+                      onClick={() => setSelectedRatingFilter(selectedRatingFilter === ratingNum ? null : ratingNum)}
+                      className={`w-full flex items-center gap-3 text-left text-xs font-mono py-1 px-2 rounded-lg hover:bg-white/5 transition-all group border ${
+                        isSelected ? "bg-white/5 border-[#C5A059]/40" : "border-transparent"
+                      }`}
+                    >
+                      <span className="text-white/60 text-[11px] w-6 shrink-0 group-hover:text-white flex items-center gap-0.5">
+                        {ratingNum} <Star className="w-3 h-3 fill-amber-400 text-amber-400 inline-block" />
+                      </span>
+                      <div className="flex-1 bg-white/5 h-2 rounded-full overflow-hidden relative">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            isSelected ? "bg-gradient-to-r from-[#C5A059] to-amber-500" : "bg-[#C5A059]/50 group-hover:bg-[#C5A059]/80"
+                          }`}
+                          style={{ width: `${dist.percentage}%` }}
+                        />
+                      </div>
+                      <span className="text-white/30 text-[10px] w-12 text-right shrink-0 group-hover:text-white/60">
+                        {dist.count} ({dist.percentage}%)
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Filter Indicator */}
+            {selectedRatingFilter !== null && (
+              <div className="flex items-center justify-between bg-[#C5A059]/10 border border-[#C5A059]/20 rounded-xl p-3 text-xs animate-fadeIn">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#C5A059] animate-ping" />
+                  <span className="text-white/70">
+                    Showing <strong className="text-white">{selectedRatingFilter} Star</strong> feedback logs only
+                  </span>
+                </div>
+                <button 
+                  onClick={() => setSelectedRatingFilter(null)}
+                  className="text-[#C5A059] hover:text-white font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 bg-[#C5A059]/10 hover:bg-[#C5A059]/20 px-2 py-1 rounded-md transition-all cursor-pointer"
+                >
+                  Clear Filter
+                </button>
+              </div>
+            )}
+
+            {/* Reviews list */}
+            <div className="space-y-6 max-h-[500px] overflow-y-auto pr-2" id="reviews-list-hull">
+              {finalReviews.length === 0 ? (
+                <div className="text-center py-12 bg-white/[0.01] border border-white/5 rounded-2xl">
+                  <p className="text-xs text-white/40 font-mono">No verified {selectedRatingFilter}-star logs compiled yet.</p>
+                  <button 
+                    onClick={() => setSelectedRatingFilter(null)}
+                    className="mt-3 text-[#C5A059] hover:underline text-xs font-semibold cursor-pointer"
+                  >
+                    Display all logs
+                  </button>
+                </div>
+              ) : (
+                finalReviews.map((rev, i) => (
+                  <div key={i} className="border-b border-white/5 pb-6 last:border-b-0 last:pb-0">
+                    <div className="flex justify-between items-start gap-4">
+                      <div>
+                        <h4 className="font-sans font-semibold text-sm text-white leading-none">{rev.name}</h4>
+                        <span className="font-mono text-[9px] text-[#C5A059] bg-[#C5A059]/10 px-2.5 py-0.5 rounded-md border border-[#C5A059]/20 mt-1.5 inline-block uppercase tracking-wider">
+                          {rev.location} • Verified Purchaser
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <div className="flex items-center gap-0.5 text-amber-400">
+                          {[...Array(5)].map((_, idx) => (
+                            <Star key={idx} className={`w-3 h-3 ${idx < rev.rating ? "fill-amber-400 text-amber-400" : "text-white/10"}`} />
+                          ))}
+                        </div>
+                        <span className="font-mono text-[9px] text-white/30 mt-1 block">{rev.date}</span>
+                      </div>
+                    </div>
+                    <p className="text-white/70 text-xs mt-3 leading-relaxed">
+                      {rev.text}
+                    </p>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
