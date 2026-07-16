@@ -127,17 +127,17 @@ export default function LiveOrderTracker({ initialOrderId = "", onNavigateToShop
       // 2. Branding Typography
       doc.setTextColor(255, 255, 255);
       doc.setFont("Helvetica", "bold");
-      doc.setFontSize(22);
+      doc.setFontSize(20);
       doc.text("TECH SOKONI KENYA", 15, 21);
 
       doc.setFont("Helvetica", "normal");
-      doc.setFontSize(8);
+      doc.setFontSize(7.5);
       doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
       doc.text("PREMIUM IMPORTS & ENTERPRISE COMPUTERS", 15, 27);
 
       doc.setTextColor(160, 160, 160);
-      doc.text("Kenyatta Pioneer Building, along Kenyatta Avenue, Shop 514, Nairobi", 15, 33);
-      doc.text("Payment Clearance Channel: Lipa Na M-Pesa Till 9309020 | Support: info@techsokoni.co.ke", 15, 38);
+      doc.text("Kenyatta Pioneer Bldg, Kenyatta Ave, Shop 514, Nairobi", 15, 33);
+      doc.text("Clearance: Lipa Na M-Pesa | Support: support@techsokoni.co.ke", 15, 38);
 
       // 3. Tax Invoice Badge
       doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -145,11 +145,10 @@ export default function LiveOrderTracker({ initialOrderId = "", onNavigateToShop
       doc.setTextColor(0, 0, 0);
       doc.setFont("Helvetica", "bold");
       doc.setFontSize(10);
-      doc.text("TAX INVOICE", 155, 185);
-      doc.text("TAX INVOICE", 155, 18);
+      doc.text("TAX INVOICE", 170, 18.5, { align: "center" });
 
       doc.setTextColor(255, 255, 255);
-      doc.setFontSize(8.5);
+      doc.setFontSize(8);
       doc.text(`ID: #${trackedOrder.id.substring(0, 8).toUpperCase()}`, 145, 28);
       doc.setFont("Helvetica", "normal");
       doc.text(`Date: ${trackedOrder.createdAt ? new Date(trackedOrder.createdAt).toLocaleDateString() : "Pending"}`, 145, 33);
@@ -250,25 +249,27 @@ export default function LiveOrderTracker({ initialOrderId = "", onNavigateToShop
       doc.setFontSize(10);
       doc.text(`KES ${Number(trackedOrder.totalAmount).toLocaleString()}`, 165, currentY + 18);
 
-      // 7.5. Warranty & Terms Block
+      // 7.5. Warranty, Return & Terms Block
       let warrantyY = currentY + 32;
       doc.setFillColor(248, 250, 252);
       doc.setDrawColor(218, 222, 229);
-      doc.rect(15, warrantyY, 180, 24, "F");
-      doc.rect(15, warrantyY, 180, 24, "S");
+      doc.rect(15, warrantyY, 180, 36, "F");
+      doc.rect(15, warrantyY, 180, 36, "S");
 
       doc.setFont("Helvetica", "bold");
       doc.setFontSize(7.5);
       doc.setTextColor(197, 160, 89); // Gold
-      doc.text("OFFICIAL WARRANTY COVERAGE TERMS & POLICIES", 20, warrantyY + 5);
+      doc.text("OFFICIAL SERVICE POLICIES: WARRANTY, RETURN & REFUNDS", 20, warrantyY + 5);
 
       doc.setFont("Helvetica", "normal");
-      doc.setFontSize(6.5);
+      doc.setFontSize(6);
       doc.setTextColor(100, 100, 100);
-      doc.text("• WARRANTY DURATIONS: 1 Year (12 Months) warranty for all brand-new devices; 6 Months warranty for all certified refurbished items.", 20, warrantyY + 10);
-      doc.text("• LAPTOP LIMITATIONS: Screen and keyboard components are strictly NOT covered under warranty on all laptop devices.", 20, warrantyY + 14);
-      doc.text("• SMARTPHONE LIMITS: Screen components and liquid ingress are strictly NOT covered under warranty on all smartphone models.", 20, warrantyY + 18);
-      doc.text("• VOID POLICY: Physically damaged, cracked, burnt, altered, or liquid-damaged elements are strictly NOT covered under any circumstances.", 20, warrantyY + 22);
+      doc.text("• WARRANTY DURATIONS: 1 Year (12 Months) warranty for brand-new items; 6 Months warranty for certified refurbished devices.", 20, warrantyY + 10);
+      doc.text("• KEYBOARD TESTING WINDOW: Laptop screens/keyboards are not covered under warranty, but keyboards receive a 7-day testing window to verify full function.", 20, warrantyY + 14);
+      doc.text("• PHONE LIMITATIONS: Screen assemblies, display panels, and liquid/moisture ingress are strictly NOT covered under any warranty.", 20, warrantyY + 18);
+      doc.text("• RETURN & TESTING: Clients are granted a strict 3-day testing window from date of receipt/delivery. No returns are accepted after 3 days.", 20, warrantyY + 22);
+      doc.text("• VOID CLAUSE: Physically damaged, cracked, burnt, altered, or liquid-damaged elements are strictly NOT covered under any circumstances.", 20, warrantyY + 26);
+      doc.text("• DIGITAL CLEARANCE: Certified transaction verified under digital audit index registries.", 20, warrantyY + 30);
 
       // 8. Signature Bottom row
       doc.setFont("Helvetica", "normal");

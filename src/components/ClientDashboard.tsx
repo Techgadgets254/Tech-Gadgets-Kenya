@@ -30,9 +30,12 @@ import {
   Download,
   XCircle,
   Sliders,
-  FileText
+  FileText,
+  Star
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { db } from "../firebase";
+import { collection, addDoc } from "firebase/firestore";
 import LiveOrderTracker from "./LiveOrderTracker";
 import { Order } from "../types";
 import { jsPDF } from "jspdf";
@@ -60,6 +63,53 @@ export default function ClientDashboard() {
   // Invoice Preview Modal States
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [previewOrder, setPreviewOrder] = useState<Order | null>(null);
+
+  // Order Feedback States
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [feedbackOrderId, setFeedbackOrderId] = useState<string | null>(null);
+  const [feedbackRating, setFeedbackRating] = useState(5);
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [submittedFeedbackOrderIds, setSubmittedFeedbackOrderIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("tgk_submitted_feedbacks");
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const handleSubmitOrderFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!feedbackOrderId || !user) return;
+    setSubmittingFeedback(true);
+    try {
+      const feedbackCol = collection(db, "order_feedback");
+      const newFeedback = {
+        orderId: feedbackOrderId,
+        userId: user.uid,
+        userName: user.displayName || user.email || "Anonymous Customer",
+        rating: feedbackRating,
+        comment: feedbackComment,
+        createdAt: new Date().toISOString()
+      };
+      await addDoc(feedbackCol, newFeedback);
+      
+      const nextSubmitted = [...submittedFeedbackOrderIds, feedbackOrderId];
+      setSubmittedFeedbackOrderIds(nextSubmitted);
+      localStorage.setItem("tgk_submitted_feedbacks", JSON.stringify(nextSubmitted));
+      
+      setFeedbackOrderId(null);
+      setFeedbackRating(5);
+      setFeedbackComment("");
+      setIsFeedbackModalOpen(false);
+    } catch (err) {
+      console.error("Failed to submit feedback to order_feedback collection:", err);
+      alert("Something went wrong while submitting your feedback. Please try again.");
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
 
   // Saved / bookmarked news articles
   const [savedNewsIds, setSavedNewsIds] = useState<string[]>(() => {
@@ -214,17 +264,17 @@ export default function ClientDashboard() {
     // 2. Branding Typography (Shifted to the right to accommodate the logo)
     doc.setTextColor(255, 255, 255);
     doc.setFont("Helvetica", "bold");
-    doc.setFontSize(22);
+    doc.setFontSize(20);
     doc.text("TECH SOKONI KENYA", 34, 21);
 
     doc.setFont("Helvetica", "normal");
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     doc.text("PREMIUM IMPORTS & ENTERPRISE COMPUTERS", 34, 27);
 
     doc.setTextColor(160, 160, 160);
-    doc.text("Kenyatta Pioneer Building, along Kenyatta Avenue, Shop 514, Nairobi", 34, 33);
-    doc.text("Payment Clearance Channel: Secure Paystack Portal | Support: info@techgadgetskenya.co.ke", 34, 38);
+    doc.text("Kenyatta Pioneer Bldg, Kenyatta Ave, Shop 514, Nairobi", 34, 33);
+    doc.text("Clearance: Paystack Portal | support@techsokoni.co.ke", 34, 38);
 
     // 3. Tax Invoice Badge
     doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -232,10 +282,10 @@ export default function ClientDashboard() {
     doc.setTextColor(0, 0, 0);
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(10);
-    doc.text("TAX INVOICE", 155, 18);
+    doc.text("TAX INVOICE", 170, 18.5, { align: "center" });
 
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8.5);
+    doc.setFontSize(8);
     doc.text(`ID: #${order.id.substring(0, 8).toUpperCase()}`, 145, 28);
     doc.setFont("Helvetica", "normal");
     doc.text(`Date: ${order.createdAt ? new Date(order.createdAt).toLocaleDateString() : "Pending"}`, 145, 33);
@@ -337,25 +387,27 @@ export default function ClientDashboard() {
     doc.setFontSize(10);
     doc.text(`KES ${Number(order.totalAmount).toLocaleString()}`, 165, currentY + 18);
 
-    // 7.5. Warranty & Terms Block
+    // 7.5. Warranty, Return & Terms Block
     let warrantyY = currentY + 32;
     doc.setFillColor(248, 250, 252);
     doc.setDrawColor(218, 222, 229);
-    doc.rect(15, warrantyY, 180, 24, "F");
-    doc.rect(15, warrantyY, 180, 24, "S");
+    doc.rect(15, warrantyY, 180, 36, "F");
+    doc.rect(15, warrantyY, 180, 36, "S");
 
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(7.5);
     doc.setTextColor(197, 160, 89); // Gold
-    doc.text("OFFICIAL WARRANTY COVERAGE TERMS & POLICIES", 20, warrantyY + 5);
+    doc.text("OFFICIAL SERVICE POLICIES: WARRANTY, RETURN & REFUNDS", 20, warrantyY + 5);
 
     doc.setFont("Helvetica", "normal");
-    doc.setFontSize(6.5);
+    doc.setFontSize(6);
     doc.setTextColor(100, 100, 100);
-    doc.text("• WARRANTY DURATIONS: 1 Year (12 Months) warranty for all brand-new devices; 6 Months warranty for all certified refurbished items.", 20, warrantyY + 10);
-    doc.text("• LAPTOP LIMITATIONS: Screen and keyboard components are strictly NOT covered under warranty on all laptop devices.", 20, warrantyY + 14);
-    doc.text("• SMARTPHONE LIMITS: Screen components and liquid ingress are strictly NOT covered under warranty on all smartphone models.", 20, warrantyY + 18);
-    doc.text("• VOID POLICY: Physically damaged, cracked, burnt, altered, or liquid-damaged elements are strictly NOT covered under any circumstances.", 20, warrantyY + 22);
+    doc.text("• WARRANTY DURATIONS: 1 Year (12 Months) warranty for brand-new items; 6 Months warranty for certified refurbished devices.", 20, warrantyY + 10);
+    doc.text("• KEYBOARD TESTING WINDOW: Laptop screens/keyboards are not covered under warranty, but keyboards receive a 7-day testing window to verify full function.", 20, warrantyY + 14);
+    doc.text("• PHONE LIMITATIONS: Screen assemblies, display panels, and liquid/moisture ingress are strictly NOT covered under any warranty.", 20, warrantyY + 18);
+    doc.text("• RETURN & TESTING: Clients are granted a strict 3-day testing window from date of receipt/delivery. No returns are accepted after 3 days.", 20, warrantyY + 22);
+    doc.text("• VOID CLAUSE: Physically damaged, cracked, burnt, altered, or liquid-damaged elements are strictly NOT covered under any circumstances.", 20, warrantyY + 26);
+    doc.text("• DIGITAL CLEARANCE: Certified transaction verified under digital audit index registries.", 20, warrantyY + 30);
 
     // 8. Signature Bottom row
     doc.setFont("Helvetica", "normal");
@@ -1263,6 +1315,28 @@ export default function ClientDashboard() {
                       <FileText className="w-3.5 h-3.5 text-black" />
                       <span>Preview Invoice</span>
                     </button>
+
+                    {/* Leave Feedback Button */}
+                    {activeOrder.shippingStatus?.toLowerCase() === "delivered" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFeedbackOrderId(activeOrder.id);
+                          setFeedbackRating(5);
+                          setFeedbackComment("");
+                          setIsFeedbackModalOpen(true);
+                        }}
+                        disabled={submittedFeedbackOrderIds.includes(activeOrder.id)}
+                        className={`font-sans text-xs font-semibold py-2 px-3.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer border ${
+                          submittedFeedbackOrderIds.includes(activeOrder.id)
+                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 font-bold cursor-default"
+                            : "bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/20"
+                        }`}
+                      >
+                        <Star className={`w-3.5 h-3.5 ${submittedFeedbackOrderIds.includes(activeOrder.id) ? "fill-emerald-400 text-emerald-400" : "text-amber-400"}`} />
+                        <span>{submittedFeedbackOrderIds.includes(activeOrder.id) ? "Feedback Submitted" : "Leave Feedback"}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -2058,17 +2132,20 @@ export default function ClientDashboard() {
                 {/* Official Warranty Coverage Terms & Policies Block */}
                 <div className="mt-8 bg-amber-50/50 border border-[#C5A059]/20 rounded-xl p-4 text-left">
                   <h4 className="font-sans font-extrabold text-[10px] text-[#C5A059] uppercase tracking-wider mb-2">
-                    OFFICIAL WARRANTY COVERAGE TERMS & POLICIES
+                    OFFICIAL SERVICE POLICIES: WARRANTY, RETURN & REFUNDS
                   </h4>
                   <ul className="text-[10px] text-zinc-600 space-y-1.5 list-disc pl-4 leading-relaxed">
                     <li>
                       <strong>WARRANTY DURATIONS:</strong> 1 Year (12 Months) coverage is provided for all brand-new devices; 6 Months coverage is provided for all certified refurbished items.
                     </li>
                     <li>
-                      <strong>LAPTOP LIMITATIONS:</strong> Screen panel assemblies and keyboard arrays are strictly NOT covered under warranty on all laptop models.
+                      <strong>KEYBOARD TESTING WINDOW:</strong> Laptop screens and keyboard components are strictly NOT covered under warranty, but keyboards are given a 7-day testing window from date of receipt to ensure everything is okay, after which keyboard coverage ceases.
                     </li>
                     <li>
-                      <strong>SMARTPHONE LIMITS:</strong> Screen assemblies and liquid ingress are strictly NOT covered under warranty on all smartphone models.
+                      <strong>SMARTPHONE LIMITS:</strong> Screen assemblies, display panels, and liquid/moisture ingress are strictly NOT covered under warranty on all smartphone models.
+                    </li>
+                    <li>
+                      <strong>RETURN & TESTING:</strong> Clients are given a strict 3-day window from the date of collection/delivery to verify all functions. After 3 days, items cannot be returned, exchanged, or refunded.
                     </li>
                     <li>
                       <strong>VOID POLICY:</strong> Physically damaged, cracked, burnt, altered, or liquid-damaged elements are strictly NOT covered under any circumstances.
@@ -2102,6 +2179,107 @@ export default function ClientDashboard() {
                   <span>Confirm & Download PDF Invoice</span>
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Leave Feedback Modal */}
+      <AnimatePresence>
+        {isFeedbackModalOpen && feedbackOrderId && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto no-print">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", stiffness: 100, damping: 20 }}
+              className="bg-zinc-950 border border-white/10 rounded-3xl max-w-md w-full overflow-hidden shadow-2xl p-6 text-left"
+            >
+              <div className="flex justify-between items-center mb-4 pb-3 border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
+                  <span className="font-sans font-extrabold text-sm text-white tracking-wider uppercase">
+                    Leave Order Feedback
+                  </span>
+                </div>
+                <button
+                  onClick={() => setIsFeedbackModalOpen(false)}
+                  className="text-white/40 hover:text-white hover:bg-white/5 p-1.5 rounded-lg transition-all cursor-pointer"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmitOrderFeedback} className="space-y-4">
+                <p className="text-xs text-white/60 leading-relaxed">
+                  How was your experience with Order <strong className="text-white">#{feedbackOrderId.substring(0, 8).toUpperCase()}</strong>? Rate and let us know!
+                </p>
+
+                {/* Rating Input */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-mono text-white/40 uppercase tracking-wider block">Rating Star Score</label>
+                  <div className="flex items-center gap-2.5">
+                    {[1, 2, 3, 4, 5].map((starVal) => {
+                      const isHighlighted = starVal <= feedbackRating;
+                      return (
+                        <button
+                          key={starVal}
+                          type="button"
+                          onClick={() => setFeedbackRating(starVal)}
+                          className="text-zinc-600 hover:scale-110 transition-transform cursor-pointer"
+                        >
+                          <Star
+                            className={`w-8 h-8 transition-colors ${
+                              isHighlighted ? "text-amber-400 fill-amber-400" : "text-white/10"
+                            }`}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Optional Comments */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-mono text-white/40 uppercase tracking-wider block">Optional Comments</label>
+                  <textarea
+                    value={feedbackComment}
+                    onChange={(e) => setFeedbackComment(e.target.value)}
+                    placeholder="Enter details about your delivery, product condition, or fulfillment speed..."
+                    rows={4}
+                    maxLength={1000}
+                    className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#C5A059] transition-colors resize-none placeholder-white/20"
+                  />
+                  <div className="flex justify-end text-[9px] font-mono text-white/25">
+                    {feedbackComment.length} / 1000 chars
+                  </div>
+                </div>
+
+                {/* Form Controls */}
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsFeedbackModalOpen(false)}
+                    className="bg-white/5 hover:bg-white/10 text-white font-sans text-xs font-semibold py-2 px-4 rounded-xl transition-all border border-white/10 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingFeedback}
+                    className="bg-amber-400 hover:bg-amber-500 text-black font-sans text-xs font-bold py-2 px-5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {submittingFeedback ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
+                        <span>Submitting...</span>
+                      </>
+                    ) : (
+                      <span>Submit Feedback</span>
+                    )}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}

@@ -123,6 +123,13 @@ export default function ProductDetailsView() {
     return products.find(p => p.id === selectedProductId) || null;
   }, [products, selectedProductId]);
 
+  const isRefurbished = useMemo(() => {
+    if (!product) return false;
+    return product.category.toLowerCase().includes("refurbished") || 
+           product.tags?.some(t => t.toLowerCase() === "refurbished") || 
+           product.name.toLowerCase().includes("refurbished");
+  }, [product]);
+
   // Construct a robust set of showcase images showing different angles and features
   const galleryImages = useMemo(() => {
     if (!product) return [];
@@ -634,7 +641,7 @@ export default function ProductDetailsView() {
             </span>
             <div>
               <p className="text-xs font-bold text-white leading-tight">Authentic East African Warranty Verified</p>
-              <p className="text-[11px] text-white/70 mt-0.5 font-sans">This {product.brand} packaging is factory sealed and covered by standard 12-month manufacturer backing.</p>
+              <p className="text-[11px] text-white/70 mt-0.5 font-sans">This {product.brand} device is certified authentic and covered by a comprehensive {isRefurbished ? "6-month refurbished service warranty" : "12-month manufacturer backing"}.</p>
             </div>
           </div>
         </div>
@@ -642,9 +649,18 @@ export default function ProductDetailsView() {
         {/* Right Side: Specific Details and Dynamic Buy panel */}
         <div className="lg:col-span-6 space-y-6">
           <div>
-            <span className="text-[#C5A059] font-mono text-[11px] uppercase font-bold tracking-widest block mb-1">
-              {product.brand} • {product.category}
-            </span>
+            <div className="flex flex-wrap items-center gap-2 mb-1.5">
+              <span className="text-[#C5A059] font-mono text-[11px] uppercase font-bold tracking-widest">
+                {product.brand} • {product.category}
+              </span>
+              <span className={`text-[10px] font-mono font-extrabold uppercase px-2.5 py-0.5 rounded-full border ${
+                isRefurbished 
+                  ? "bg-amber-500/10 border-amber-500/20 text-amber-400" 
+                  : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+              }`}>
+                {isRefurbished ? "Warranty: 6 Months" : "Warranty: 1 Year"}
+              </span>
+            </div>
             <h1 className="font-sans font-semibold text-2xl sm:text-3xl tracking-tight text-white leading-tight">
               {product.name}
             </h1>

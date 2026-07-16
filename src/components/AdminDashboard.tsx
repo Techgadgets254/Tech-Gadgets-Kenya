@@ -4305,6 +4305,10 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                             <span className="font-bold text-white block text-xs sm:text-[13px]">{ord.customerName}</span>
                             <span className="text-white/40 text-[10px] block font-mono">{ord.customerEmail}</span>
                             <span className="text-white/40 text-[10px] block font-mono">{ord.customerPhone}</span>
+                            <div className="mt-2 bg-white/5 border border-white/10 rounded-lg p-2 text-[10px] text-white/85 leading-normal max-w-xs break-words">
+                              <span className="text-[#C5A059] font-bold block uppercase text-[8px] tracking-wider mb-0.5">Shipping Location:</span>
+                              {ord.shippingAddress || "Nairobi CBD Delivery Counter"}
+                            </div>
                           </td>
                           <td className="p-2.5 sm:p-4 truncate max-w-xs font-medium text-white/80">
                             {(ord.items || []).map((i, idx) => (

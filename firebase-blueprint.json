@@ -203,6 +203,20 @@
         "flashBanner": { "type": "string", "description": "Promotional banner badge text" }
       },
       "required": ["productId", "flashPrice", "flashExpiry", "flashBanner"]
+    },
+    "order_feedback": {
+      "title": "Order Feedback",
+      "description": "Post-purchase customer ratings of their overall purchase experience",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string", "description": "ID of the associated order" },
+        "userId": { "type": "string", "description": "Auth UID of the buyer" },
+        "userName": { "type": "string", "description": "Buyer's display name" },
+        "rating": { "type": "number", "description": "Rating score out of 5 stars" },
+        "comment": { "type": "string", "description": "Feedback comments" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["orderId", "userId", "userName", "rating", "createdAt"]
     }
   },
   "firestore": {
@@ -265,6 +279,10 @@
     "/flash_offers/{offerId}": {
       "schema": "flash_offer",
       "description": "Active promotional campaign schedules for individual products"
+    },
+    "/order_feedback/{feedbackId}": {
+      "schema": "order_feedback",
+      "description": "Post-purchase customer ratings of their overall purchase experience"
     }
   }
 }

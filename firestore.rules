@@ -87,6 +87,15 @@ service cloud.firestore {
         && data.createdAt is string && data.createdAt.size() <= 100;
     }
 
+    function isValidOrderFeedback(data) {
+      return data.orderId is string && data.orderId.size() > 0
+        && data.userId is string && data.userId.size() <= 128
+        && data.userName is string && data.userName.size() > 0 && data.userName.size() <= 200
+        && data.rating is number && data.rating >= 1 && data.rating <= 5
+        && (!data.keys().hasAll(['comment']) || (data.comment is string && data.comment.size() <= 2000))
+        && data.createdAt is string && data.createdAt.size() <= 100;
+    }
+
     function isValidCompanyProfile(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() <= 200
         && data.taxPin is string && data.taxPin.size() > 0 && data.taxPin.size() <= 100
@@ -307,6 +316,17 @@ service cloud.firestore {
       allow read, list, get: if true;
       allow create: if (isSignedIn() && isValidTransactionFeedback(incoming()) && incoming().userId == request.auth.uid) || (
         incoming().userId.startsWith('cust_') && isValidTransactionFeedback(incoming())
+      );
+      allow delete, update: if isAdmin();
+    }
+
+    // Order Feedback collection:
+    // - Anyone can read/list order feedback
+    // - Signed in (or temporary) users can create order feedback for their orders
+    match /order_feedback/{feedbackId} {
+      allow read, list, get: if true;
+      allow create: if (isSignedIn() && isValidOrderFeedback(incoming()) && incoming().userId == request.auth.uid) || (
+        incoming().userId.startsWith('cust_') && isValidOrderFeedback(incoming())
       );
       allow delete, update: if isAdmin();
     }
