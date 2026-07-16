@@ -88,6 +88,7 @@ export const isCampaignOfferActive = (p: any) => {
 export default function CheckoutView() {
   const { 
     user, 
+    orders,
     cart, 
     getCartTotal, 
     updateCartItemQty, 
@@ -209,8 +210,49 @@ export default function CheckoutView() {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [generatedReceipt, setGeneratedReceipt] = useState("");
   const [generatedOrderId, setGeneratedOrderId] = useState("");
+  const [currentCreatedOrder, setCurrentCreatedOrder] = useState<any>(null);
 
   const [redirectCount, setRedirectCount] = useState(6);
+
+  const [sentEmailOrderIds, setSentEmailOrderIds] = useState<string[]>([]);
+
+  const sendAutomatedCheckoutEmail = async (orderId: string, orderDetails?: any) => {
+    try {
+      let order = orderDetails || currentCreatedOrder || orders.find(o => o.id === orderId);
+      if (!order) {
+        console.warn("[CheckoutView] Automated email: order object not found for ID", orderId);
+        return;
+      }
+      
+      const emailToUse = order.customerEmail || user?.email;
+      if (!emailToUse) {
+        console.warn("[CheckoutView] Automated email: customer email not found");
+        return;
+      }
+
+      console.log("[CheckoutView] Dispatching automated SMTP checkout confirmation to:", emailToUse);
+      const response = await fetch("/api/email/send-receipt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: orderId,
+          email: emailToUse,
+          order: order
+        })
+      });
+      const data = await response.json();
+      console.log("[CheckoutView] SMTP Automated Email receipt dispatch response:", data);
+    } catch (err) {
+      console.error("[CheckoutView] Automated receipt email dispatch crashed:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (paymentSuccess && generatedOrderId && !sentEmailOrderIds.includes(generatedOrderId)) {
+      setSentEmailOrderIds(prev => [...prev, generatedOrderId]);
+      sendAutomatedCheckoutEmail(generatedOrderId);
+    }
+  }, [paymentSuccess, generatedOrderId, sentEmailOrderIds, currentCreatedOrder, orders]);
 
   useEffect(() => {
     if (paymentSuccess) {
@@ -459,6 +501,8 @@ export default function CheckoutView() {
             return;
           }
 
+          setCurrentCreatedOrder(orderObj);
+
           setIsSTKProcessing(false);
           setMpesaQrOrderId(orderObj.id);
           setMpesaQrAmount(amount);
@@ -502,6 +546,8 @@ export default function CheckoutView() {
             return;
           }
 
+          setCurrentCreatedOrder(orderObj);
+
           // Clean older states
           setIsSTKProcessing(false);
 
@@ -537,6 +583,8 @@ export default function CheckoutView() {
           alert("Encountered database communication issue.");
           return;
         }
+
+        setCurrentCreatedOrder(orderObj);
 
         updateSTKLog("Compiling free warehouse dispatch ledger...", 900);
         updateSTKLog("Order queued as PENDING DELIVERY (Pay on Delivery Approved)", 1400);

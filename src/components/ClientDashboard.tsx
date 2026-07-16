@@ -49,6 +49,7 @@ export default function ClientDashboard() {
   } = useStore();
 
   const [orderSearchQuery, setOrderSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"All" | "Pending" | "Delivered" | "Cancelled">("All");
 
   // Tabs for ClientDashboard
   const [activeTab, setActiveTab] = useState<"transactions" | "settings" | "profile" | "bookmarks">("transactions");
@@ -170,6 +171,15 @@ export default function ClientDashboard() {
       img.onload = () => resolve(img);
       img.onerror = (e) => reject(e);
     });
+  };
+
+  const getStepNumber = (status: string) => {
+    const s = (status || "").toLowerCase();
+    if (s === "processing" || s === "pending") return 1;
+    if (s === "shipped") return 2;
+    if (s === "out for delivery" || s === "out_for_delivery") return 3;
+    if (s === "delivered") return 4;
+    return 1;
   };
 
   const handleDownloadInvoicePDF = async (order: Order | null) => {
@@ -506,9 +516,29 @@ export default function ClientDashboard() {
   };
 
   const filteredOrders = useMemo(() => {
-    if (!orderSearchQuery.trim()) return orders;
+    let list = orders;
+    
+    if (statusFilter !== "All") {
+      list = list.filter(ord => {
+        const payStatus = (ord.paymentStatus || "").toLowerCase();
+        const shipStatus = (ord.shippingStatus || "").toLowerCase();
+        
+        if (statusFilter === "Pending") {
+          return payStatus === "pending" || (shipStatus !== "delivered" && shipStatus !== "cancelled");
+        }
+        if (statusFilter === "Delivered") {
+          return shipStatus === "delivered";
+        }
+        if (statusFilter === "Cancelled") {
+          return shipStatus === "cancelled" || payStatus === "cancelled" || payStatus === "failed";
+        }
+        return true;
+      });
+    }
+
+    if (!orderSearchQuery.trim()) return list;
     const q = orderSearchQuery.toLowerCase();
-    return orders.filter(ord => 
+    return list.filter(ord => 
       ord.id.toLowerCase().includes(q) ||
       ord.customerName.toLowerCase().includes(q) ||
       ord.customerEmail.toLowerCase().includes(q) ||
@@ -517,7 +547,7 @@ export default function ClientDashboard() {
       ord.receiptNo?.toLowerCase().includes(q) ||
       (ord.items || []).some(item => item.name.toLowerCase().includes(q) || item.brand.toLowerCase().includes(q))
     );
-  }, [orders, orderSearchQuery]);
+  }, [orders, orderSearchQuery, statusFilter]);
 
   // Selected Order for detailing or default to first order
   const activeOrder = useMemo(() => {
@@ -800,6 +830,27 @@ export default function ClientDashboard() {
                 TRANSACTION ARCHIVES ({orders.length})
               </span>
 
+              {/* Tab-based Status Filters */}
+              <div className="flex gap-1.5 p-1 bg-[#0A0A0A] border border-white/5 rounded-xl mb-4 text-[10px] font-mono no-print">
+                {(["All", "Pending", "Delivered", "Cancelled"] as const).map((filter) => {
+                  const isActive = statusFilter === filter;
+                  return (
+                    <button
+                      key={filter}
+                      type="button"
+                      onClick={() => setStatusFilter(filter)}
+                      className={`flex-1 py-1.5 rounded-lg font-bold transition-all text-center cursor-pointer ${
+                        isActive
+                          ? "bg-[#C5A059] text-black shadow-md"
+                          : "text-white/40 hover:text-white hover:bg-white/[0.02]"
+                      }`}
+                    >
+                      {filter}
+                    </button>
+                  );
+                })}
+              </div>
+
               {/* Order Search Bar */}
               <div className="relative mb-4">
                 <Search className="w-3.5 h-3.5 text-white/30 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -842,17 +893,34 @@ export default function ClientDashboard() {
                           </p>
                         </div>
                         
-                        <div className="text-right shrink-0">
-                          <span className={`px-2 py-0.5 rounded-md font-mono text-[9px] uppercase font-bold tracking-wider block ${
-                            ord.paymentStatus === "Paid"
-                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                              : "bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/20"
-                          }`}>
-                            {ord.paymentStatus}
-                          </span>
-                          <span className="text-[10px] text-white/35 block mt-2 font-semibold">
-                            {ord.shippingStatus}
-                          </span>
+                        <div className="text-right shrink-0 flex items-center gap-3">
+                          <div className="flex flex-col items-end">
+                            <span className={`px-2 py-0.5 rounded-md font-mono text-[9px] uppercase font-bold tracking-wider block ${
+                              ord.paymentStatus === "Paid"
+                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                : "bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/20"
+                            }`}>
+                              {ord.paymentStatus}
+                            </span>
+                            <span className="text-[10px] text-white/35 block mt-1.5 font-semibold">
+                              {ord.shippingStatus}
+                            </span>
+                          </div>
+
+                          {/* Quick Download PDF Invoice for Completed / Paid Orders */}
+                          {(ord.paymentStatus === "Paid" || ord.shippingStatus === "Delivered") && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownloadInvoicePDF(ord);
+                              }}
+                              className="p-1.5 bg-white/5 hover:bg-[#C5A059]/15 border border-white/10 hover:border-[#C5A059]/30 rounded-lg text-white/60 hover:text-[#C5A059] transition-all cursor-pointer"
+                              title="Download PDF Invoice"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -1164,6 +1232,88 @@ export default function ClientDashboard() {
                     <p className="text-white/50">An official PDF and structured fiscal copy of Order <strong>#{activeOrder.id.substring(0,8).toUpperCase()}</strong> has been delivered to <strong>{activeOrder.customerEmail}</strong>.</p>
                   </div>
                 )}
+
+                {/* Visual Order Progress Tracking Bar */}
+                <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 no-print">
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="font-mono text-[10px] text-white/40 uppercase tracking-widest block">Live Status Tracking</span>
+                    <span className="font-mono text-[10px] bg-[#C5A059]/10 text-[#C5A059] px-2.5 py-1 rounded-md uppercase font-bold tracking-wider">
+                      Current Status: {activeOrder.shippingStatus || "Processing"}
+                    </span>
+                  </div>
+
+                  {/* Horizontal progress indicators */}
+                  <div className="relative mt-8 mb-4">
+                    {/* Background line */}
+                    <div className="absolute top-1/2 left-0 right-0 h-1 bg-white/5 -translate-y-1/2 rounded-full" />
+                    
+                    {/* Active filled line */}
+                    <div 
+                      className="absolute top-1/2 left-0 h-1 bg-gradient-to-r from-[#C5A059] to-emerald-500 -translate-y-1/2 rounded-full transition-all duration-500"
+                      style={{ 
+                        width: `${
+                          activeOrder.shippingStatus?.toLowerCase() === "cancelled" 
+                            ? 100 
+                            : ((getStepNumber(activeOrder.shippingStatus) - 1) / 3) * 100
+                        }%` 
+                      }}
+                    />
+
+                    {/* Step Dots */}
+                    <div className="relative flex justify-between">
+                      {["Processing", "Shipped", "Out for Delivery", "Delivered"].map((stepLabel, idx) => {
+                        const stepNum = idx + 1;
+                        const currentStep = getStepNumber(activeOrder.shippingStatus);
+                        const isCompleted = currentStep >= stepNum;
+                        const isActive = currentStep === stepNum;
+                        const isCancelled = activeOrder.shippingStatus?.toLowerCase() === "cancelled";
+
+                        return (
+                          <div key={stepLabel} className="flex flex-col items-center relative">
+                            {/* Dot container */}
+                            <div 
+                              className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all duration-300 z-10 ${
+                                isCancelled
+                                  ? "bg-red-950/80 border-red-500 text-red-400"
+                                  : isCompleted
+                                  ? "bg-black border-emerald-500 text-emerald-400"
+                                  : "bg-black border-white/10 text-white/20"
+                              } ${isActive && !isCancelled ? "ring-4 ring-[#C5A059]/20 scale-110" : ""}`}
+                            >
+                              {isCancelled ? (
+                                <XCircle className="w-3.5 h-3.5" />
+                              ) : isCompleted ? (
+                                <CheckCircle className="w-3.5 h-3.5" />
+                              ) : (
+                                <span className="text-[10px] font-mono font-bold">{stepNum}</span>
+                              )}
+                            </div>
+
+                            {/* Label */}
+                            <div className="absolute top-8 text-center w-24">
+                              <p className={`text-[10px] font-sans font-bold transition-colors ${
+                                isCancelled
+                                  ? "text-red-400"
+                                  : isActive
+                                  ? "text-[#C5A059]"
+                                  : isCompleted
+                                  ? "text-white"
+                                  : "text-white/30"
+                              }`}>
+                                {stepLabel}
+                              </p>
+                              {isActive && !isCancelled && (
+                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#C5A059] animate-pulse mt-0.5" />
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {/* Spacing for labels */}
+                  <div className="h-6" />
+                </div>
 
                 {/* VISIBLE INVOICE DOCK IN BOX (Targeted for standard PDF output scale) */}
                 <div 
