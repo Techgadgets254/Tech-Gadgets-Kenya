@@ -29,8 +29,11 @@ import {
   Share2,
   Download,
   XCircle,
-  Sliders
+  Sliders,
+  FileText
 } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import LiveOrderTracker from "./LiveOrderTracker";
 import { Order } from "../types";
 import { jsPDF } from "jspdf";
 import { User as UserIcon } from "lucide-react";
@@ -52,7 +55,11 @@ export default function ClientDashboard() {
   const [statusFilter, setStatusFilter] = useState<"All" | "Pending" | "Delivered" | "Cancelled">("All");
 
   // Tabs for ClientDashboard
-  const [activeTab, setActiveTab] = useState<"transactions" | "settings" | "profile" | "bookmarks">("transactions");
+  const [activeTab, setActiveTab] = useState<"transactions" | "tracking" | "settings" | "profile" | "bookmarks">("transactions");
+
+  // Invoice Preview Modal States
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [previewOrder, setPreviewOrder] = useState<Order | null>(null);
 
   // Saved / bookmarked news articles
   const [savedNewsIds, setSavedNewsIds] = useState<string[]>(() => {
@@ -329,6 +336,26 @@ export default function ClientDashboard() {
     doc.setTextColor(197, 160, 89);
     doc.setFontSize(10);
     doc.text(`KES ${Number(order.totalAmount).toLocaleString()}`, 165, currentY + 18);
+
+    // 7.5. Warranty & Terms Block
+    let warrantyY = currentY + 32;
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(218, 222, 229);
+    doc.rect(15, warrantyY, 180, 24, "F");
+    doc.rect(15, warrantyY, 180, 24, "S");
+
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(197, 160, 89); // Gold
+    doc.text("OFFICIAL WARRANTY COVERAGE TERMS & POLICIES", 20, warrantyY + 5);
+
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(100, 100, 100);
+    doc.text("• WARRANTY DURATIONS: 1 Year (12 Months) warranty for all brand-new devices; 6 Months warranty for all certified refurbished items.", 20, warrantyY + 10);
+    doc.text("• LAPTOP LIMITATIONS: Screen and keyboard components are strictly NOT covered under warranty on all laptop devices.", 20, warrantyY + 14);
+    doc.text("• SMARTPHONE LIMITS: Screen components and liquid ingress are strictly NOT covered under warranty on all smartphone models.", 20, warrantyY + 18);
+    doc.text("• VOID POLICY: Physically damaged, cracked, burnt, altered, or liquid-damaged elements are strictly NOT covered under any circumstances.", 20, warrantyY + 22);
 
     // 8. Signature Bottom row
     doc.setFont("Helvetica", "normal");
@@ -728,10 +755,10 @@ export default function ClientDashboard() {
       </div>
 
       {/* Tabs selector strip */}
-      <div className="flex gap-2 border-b border-white/10 pb-4 mb-6 no-print">
+      <div className="flex gap-2 border-b border-white/10 pb-4 mb-6 no-print overflow-x-auto scrollbar-none">
         <button
           onClick={() => setActiveTab("transactions")}
-          className={`px-4 py-2.5 font-sans font-bold text-xs rounded-xl tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
+          className={`px-4 py-2.5 font-sans font-bold text-xs rounded-xl tracking-wider transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
             activeTab === "transactions"
               ? "bg-[#C5A059] text-black shadow-md font-extrabold"
               : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white"
@@ -741,8 +768,19 @@ export default function ClientDashboard() {
           <span>TRANSACTION HISTORY</span>
         </button>
         <button
+          onClick={() => setActiveTab("tracking")}
+          className={`px-4 py-2.5 font-sans font-bold text-xs rounded-xl tracking-wider transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+            activeTab === "tracking"
+              ? "bg-[#C5A059] text-black shadow-md font-extrabold"
+              : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white"
+          }`}
+        >
+          <Package className="w-3.5 h-3.5" />
+          <span>LIVE TRACKING</span>
+        </button>
+        <button
           onClick={() => setActiveTab("settings")}
-          className={`px-4 py-2.5 font-sans font-bold text-xs rounded-xl tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
+          className={`px-4 py-2.5 font-sans font-bold text-xs rounded-xl tracking-wider transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
             activeTab === "settings"
               ? "bg-[#C5A059] text-black shadow-md font-extrabold"
               : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white"
@@ -753,7 +791,7 @@ export default function ClientDashboard() {
         </button>
         <button
           onClick={() => setActiveTab("profile")}
-          className={`px-4 py-2.5 font-sans font-bold text-xs rounded-xl tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
+          className={`px-4 py-2.5 font-sans font-bold text-xs rounded-xl tracking-wider transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
             activeTab === "profile"
               ? "bg-[#C5A059] text-black shadow-md font-extrabold"
               : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white"
@@ -764,7 +802,7 @@ export default function ClientDashboard() {
         </button>
         <button
           onClick={() => setActiveTab("bookmarks")}
-          className={`px-4 py-2.5 font-sans font-bold text-xs rounded-xl tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
+          className={`px-4 py-2.5 font-sans font-bold text-xs rounded-xl tracking-wider transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
             activeTab === "bookmarks"
               ? "bg-[#C5A059] text-black shadow-md font-extrabold"
               : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white"
@@ -1213,14 +1251,17 @@ export default function ClientDashboard() {
                       )}
                     </button>
 
-                    {/* Download Invoice PDF Button */}
+                    {/* Preview Invoice PDF Button */}
                     <button
                       type="button"
-                      onClick={() => handleDownloadInvoicePDF(activeOrder)}
+                      onClick={() => {
+                        setPreviewOrder(activeOrder);
+                        setIsPreviewModalOpen(true);
+                      }}
                       className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-black text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
                     >
-                      <Download className="w-3.5 h-3.5 text-black" />
-                      <span>Download Invoice</span>
+                      <FileText className="w-3.5 h-3.5 text-black" />
+                      <span>Preview Invoice</span>
                     </button>
                   </div>
                 </div>
@@ -1247,19 +1288,22 @@ export default function ClientDashboard() {
                     {/* Background line */}
                     <div className="absolute top-1/2 left-0 right-0 h-1 bg-white/5 -translate-y-1/2 rounded-full" />
                     
-                    {/* Active filled line */}
-                    <div 
-                      className="absolute top-1/2 left-0 h-1 bg-gradient-to-r from-[#C5A059] to-emerald-500 -translate-y-1/2 rounded-full transition-all duration-500"
-                      style={{ 
+                    {/* Active filled line with Framer Motion layout transition */}
+                    <motion.div 
+                      layout
+                      className="absolute top-1/2 left-0 h-1 bg-gradient-to-r from-[#C5A059] to-emerald-500 -translate-y-1/2 rounded-full"
+                      initial={false}
+                      animate={{ 
                         width: `${
                           activeOrder.shippingStatus?.toLowerCase() === "cancelled" 
                             ? 100 
                             : ((getStepNumber(activeOrder.shippingStatus) - 1) / 3) * 100
                         }%` 
                       }}
+                      transition={{ type: "spring", stiffness: 70, damping: 15 }}
                     />
 
-                    {/* Step Dots */}
+                    {/* Step Dots with Framer Motion layout transitions */}
                     <div className="relative flex justify-between">
                       {["Processing", "Shipped", "Out for Delivery", "Delivered"].map((stepLabel, idx) => {
                         const stepNum = idx + 1;
@@ -1271,14 +1315,22 @@ export default function ClientDashboard() {
                         return (
                           <div key={stepLabel} className="flex flex-col items-center relative">
                             {/* Dot container */}
-                            <div 
-                              className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all duration-300 z-10 ${
+                            <motion.div 
+                              layout
+                              initial={false}
+                              animate={{
+                                scale: isActive && !isCancelled ? 1.15 : 1,
+                                borderColor: isCancelled ? "#ef4444" : isCompleted ? "#10b981" : "rgba(255,255,255,0.1)",
+                                backgroundColor: isCancelled ? "rgba(127,29,29,0.8)" : isCompleted ? "#000000" : "#000000"
+                              }}
+                              transition={{ type: "spring", stiffness: 100, damping: 15 }}
+                              className={`w-7 h-7 rounded-full flex items-center justify-center border-2 z-10 ${
                                 isCancelled
-                                  ? "bg-red-950/80 border-red-500 text-red-400"
+                                  ? "text-red-400"
                                   : isCompleted
-                                  ? "bg-black border-emerald-500 text-emerald-400"
-                                  : "bg-black border-white/10 text-white/20"
-                              } ${isActive && !isCancelled ? "ring-4 ring-[#C5A059]/20 scale-110" : ""}`}
+                                  ? "text-emerald-400"
+                                  : "text-white/20"
+                              } ${isActive && !isCancelled ? "ring-4 ring-[#C5A059]/20" : ""}`}
                             >
                               {isCancelled ? (
                                 <XCircle className="w-3.5 h-3.5" />
@@ -1287,11 +1339,11 @@ export default function ClientDashboard() {
                               ) : (
                                 <span className="text-[10px] font-mono font-bold">{stepNum}</span>
                               )}
-                            </div>
+                            </motion.div>
 
                             {/* Label */}
                             <div className="absolute top-8 text-center w-24">
-                              <p className={`text-[10px] font-sans font-bold transition-colors ${
+                              <p className={`text-[10px] font-sans font-bold transition-colors duration-300 ${
                                 isCancelled
                                   ? "text-red-400"
                                   : isActive
@@ -1525,6 +1577,23 @@ export default function ClientDashboard() {
         </div>
       )}
         </>
+      )}
+
+      {/* Tab Contents: Live Tracking */}
+      {activeTab === "tracking" && (
+        <div className="max-w-3xl mx-auto no-print space-y-6 text-left animate-fadeIn">
+          <div className="bg-[#0F0F0F] border border-white/10 rounded-2xl p-6 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-[#C5A059]/5 rounded-full blur-2xl pointer-events-none" />
+            <h2 className="font-sans font-bold text-lg text-white mb-1 flex items-center gap-2">
+              <Package className="w-5 h-5 text-[#C5A059]" />
+              <span>Real-time Order Status & Verification</span>
+            </h2>
+            <p className="text-white/40 text-xs leading-relaxed">
+              Query any order using your official invoice or transaction Reference ID. Instantly review courier dispatch locations and payment settlement states.
+            </p>
+          </div>
+          <LiveOrderTracker />
+        </div>
       )}
 
       {/* Tab Contents: Settings */}
@@ -1828,6 +1897,215 @@ export default function ClientDashboard() {
       {activeTab === "profile" && (
         <ProfileEditor />
       )}
+
+      {/* Invoice Preview Modal */}
+      <AnimatePresence>
+        {isPreviewModalOpen && previewOrder && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto no-print">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", stiffness: 100, damping: 20 }}
+              className="bg-zinc-950 border border-white/10 rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl my-8 text-left"
+            >
+              {/* Modal Header */}
+              <div className="bg-[#0F0F0F] px-6 py-4 border-b border-white/5 flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-[#C5A059]" />
+                  <span className="font-sans font-extrabold text-sm text-white tracking-wider uppercase">
+                    Invoice eTIMS Document Preview
+                  </span>
+                </div>
+                <button
+                  onClick={() => setIsPreviewModalOpen(false)}
+                  className="text-white/40 hover:text-white hover:bg-white/5 p-1.5 rounded-lg transition-all cursor-pointer"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Printable Invoice Page (White Paper Aesthetic) */}
+              <div className="p-6 sm:p-10 bg-white text-zinc-900 overflow-y-auto max-h-[70vh] font-sans">
+                {/* Invoice Sheet Header */}
+                <div className="flex flex-col sm:flex-row justify-between items-start gap-6 border-b-2 border-zinc-200 pb-6">
+                  {/* Brand info */}
+                  <div>
+                    <h1 className="font-sans font-extrabold text-xl tracking-tight text-zinc-950">
+                      TECH SOKONI KENYA
+                    </h1>
+                    <p className="text-[10px] font-sans font-bold text-[#C5A059] tracking-widest uppercase mt-0.5">
+                      PREMIUM IMPORTS & ENTERPRISE COMPUTERS
+                    </p>
+                    <p className="text-xs text-zinc-500 mt-2 leading-relaxed">
+                      Kenyatta Pioneer Building, Kenyatta Avenue<br />
+                      Shop 514, Nairobi CBD, Kenya
+                    </p>
+                    <p className="text-xs text-zinc-500 font-semibold mt-1">
+                      Support: info@techgadgetskenya.co.ke
+                    </p>
+                  </div>
+
+                  {/* Document info */}
+                  <div className="text-right sm:items-end flex flex-col">
+                    <span className="bg-[#C5A059] text-black text-xs font-sans font-extrabold px-3 py-1.5 rounded-md tracking-wider">
+                      TAX INVOICE
+                    </span>
+                    <p className="text-xs font-mono font-bold text-zinc-950 mt-3">
+                      ID: #{previewOrder.id.substring(0, 8).toUpperCase()}
+                    </p>
+                    <p className="text-xs text-zinc-500 mt-1">
+                      Date: {previewOrder.createdAt ? new Date(previewOrder.createdAt).toLocaleDateString() : "Pending"}
+                    </p>
+                    <p className="text-xs text-zinc-500 mt-1">
+                      Clearance: {previewOrder.receiptNo || "STK PIN APPROVED"}
+                    </p>
+                    <div className="flex gap-2 mt-2">
+                      <span className="text-[10px] font-mono font-extrabold uppercase bg-zinc-100 border border-zinc-200 text-zinc-800 px-2 py-0.5 rounded">
+                        {previewOrder.paymentStatus || "PENDING"}
+                      </span>
+                      <span className="text-[10px] font-mono font-extrabold uppercase bg-amber-50 border border-amber-200 text-amber-800 px-2 py-0.5 rounded">
+                        {previewOrder.shippingStatus || "PROCESSING"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Billing and Shipping block */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 py-6 border-b border-zinc-100">
+                  <div>
+                    <h3 className="font-sans font-extrabold text-xs text-zinc-500 uppercase tracking-wider mb-2">
+                      BILLED TO
+                    </h3>
+                    <p className="text-sm font-bold text-zinc-900">{previewOrder.customerName}</p>
+                    <p className="text-xs text-zinc-500 mt-1">{previewOrder.customerEmail}</p>
+                    <p className="text-xs text-zinc-500 mt-0.5">{previewOrder.customerPhone}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-sans font-extrabold text-xs text-zinc-500 uppercase tracking-wider mb-2">
+                      COURIER DELIVER TO
+                    </h3>
+                    <p className="text-xs text-zinc-700 leading-relaxed bg-zinc-50 p-2.5 rounded-lg border border-zinc-200/50">
+                      {previewOrder.shippingAddress || "Nairobi CBD Delivery Counter"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Items Table */}
+                <div className="py-6">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-zinc-50 border-t border-b border-zinc-200 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">
+                        <th className="py-2 px-3">Item Details</th>
+                        <th className="py-2 px-3 text-center w-16">Qty</th>
+                        <th className="py-2 px-3 text-right w-32">Unit Price</th>
+                        <th className="py-2 px-3 text-right w-32">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-xs divide-y divide-zinc-100">
+                      {(previewOrder.items || []).map((item, idx) => (
+                        <tr key={idx} className="hover:bg-zinc-50/50 transition-colors">
+                          <td className="py-3 px-3">
+                            <span className="font-bold text-zinc-900 block">{item.brand} {item.name}</span>
+                          </td>
+                          <td className="py-3 px-3 text-center font-mono text-zinc-600">{item.quantity}</td>
+                          <td className="py-3 px-3 text-right font-mono text-zinc-600">KES {Number(item.price).toLocaleString()}</td>
+                          <td className="py-3 px-3 text-right font-mono font-bold text-zinc-900">KES {Number(item.price * item.quantity).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Totals & Clearances */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 pt-4 border-t-2 border-zinc-200">
+                  {/* Digital Stamp / Clearances */}
+                  <div className="md:col-span-7 bg-zinc-50 border border-zinc-200 rounded-xl p-4 flex flex-col justify-between">
+                    <div>
+                      <h4 className="font-sans font-extrabold text-[10px] text-emerald-600 uppercase tracking-wider mb-1">
+                        Secure Transaction Clearances
+                      </h4>
+                      <p className="text-[10px] text-zinc-500 leading-relaxed">
+                        Secure Paystack clearing and Safaricom M-Pesa STK systems have authorized this ledger settlement.
+                      </p>
+                    </div>
+                    <div className="mt-3 space-y-1 font-mono text-[9px] text-zinc-600">
+                      <p>• Settlement Route: Secure Mobile Ledger STK</p>
+                      <p>• Verification Line: +{previewOrder.mpesaPhone}</p>
+                      {previewOrder.receiptNo && (
+                        <p className="font-bold text-zinc-950">• Clear Code: {previewOrder.receiptNo}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Calculations */}
+                  <div className="md:col-span-5 flex flex-col justify-center space-y-2 text-right">
+                    <div className="flex justify-between text-xs text-zinc-500">
+                      <span>Ledger Subtotal:</span>
+                      <span className="font-mono text-zinc-950">KES {Number(previewOrder.totalAmount).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-zinc-500">
+                      <span>Delivery Fee:</span>
+                      <span className="font-mono text-emerald-600 font-bold">FREE</span>
+                    </div>
+                    <div className="flex justify-between items-baseline pt-2 border-t border-zinc-100 text-sm font-bold text-zinc-900">
+                      <span>Paid Total:</span>
+                      <span className="font-sans font-black text-lg text-[#C5A059]">KES {Number(previewOrder.totalAmount).toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Official Warranty Coverage Terms & Policies Block */}
+                <div className="mt-8 bg-amber-50/50 border border-[#C5A059]/20 rounded-xl p-4 text-left">
+                  <h4 className="font-sans font-extrabold text-[10px] text-[#C5A059] uppercase tracking-wider mb-2">
+                    OFFICIAL WARRANTY COVERAGE TERMS & POLICIES
+                  </h4>
+                  <ul className="text-[10px] text-zinc-600 space-y-1.5 list-disc pl-4 leading-relaxed">
+                    <li>
+                      <strong>WARRANTY DURATIONS:</strong> 1 Year (12 Months) coverage is provided for all brand-new devices; 6 Months coverage is provided for all certified refurbished items.
+                    </li>
+                    <li>
+                      <strong>LAPTOP LIMITATIONS:</strong> Screen panel assemblies and keyboard arrays are strictly NOT covered under warranty on all laptop models.
+                    </li>
+                    <li>
+                      <strong>SMARTPHONE LIMITS:</strong> Screen assemblies and liquid ingress are strictly NOT covered under warranty on all smartphone models.
+                    </li>
+                    <li>
+                      <strong>VOID POLICY:</strong> Physically damaged, cracked, burnt, altered, or liquid-damaged elements are strictly NOT covered under any circumstances.
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Sheet Footer */}
+                <div className="text-center text-[9px] text-zinc-400 font-mono mt-10 pt-4 border-t border-zinc-100 leading-normal">
+                  <p>Tech Sokoni Kenya • East Africa Premium Electronics Importers</p>
+                  <p>This document is verified and certified under digital audit index registries.</p>
+                </div>
+              </div>
+
+              {/* Modal Footer Controls */}
+              <div className="bg-[#0F0F0F] px-6 py-4 border-t border-white/5 flex flex-col sm:flex-row justify-between gap-4">
+                <button
+                  onClick={() => setIsPreviewModalOpen(false)}
+                  className="bg-white/5 hover:bg-white/10 text-white font-sans text-xs font-semibold py-2.5 px-4 rounded-xl transition-all border border-white/10 cursor-pointer"
+                >
+                  Close Preview
+                </button>
+                <button
+                  onClick={() => {
+                    handleDownloadInvoicePDF(previewOrder);
+                    setIsPreviewModalOpen(false);
+                  }}
+                  className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-black font-sans text-xs font-bold py-2.5 px-5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Download className="w-4 h-4 text-black" />
+                  <span>Confirm & Download PDF Invoice</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

@@ -250,6 +250,26 @@ export default function LiveOrderTracker({ initialOrderId = "", onNavigateToShop
       doc.setFontSize(10);
       doc.text(`KES ${Number(trackedOrder.totalAmount).toLocaleString()}`, 165, currentY + 18);
 
+      // 7.5. Warranty & Terms Block
+      let warrantyY = currentY + 32;
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(218, 222, 229);
+      doc.rect(15, warrantyY, 180, 24, "F");
+      doc.rect(15, warrantyY, 180, 24, "S");
+
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(197, 160, 89); // Gold
+      doc.text("OFFICIAL WARRANTY COVERAGE TERMS & POLICIES", 20, warrantyY + 5);
+
+      doc.setFont("Helvetica", "normal");
+      doc.setFontSize(6.5);
+      doc.setTextColor(100, 100, 100);
+      doc.text("• WARRANTY DURATIONS: 1 Year (12 Months) warranty for all brand-new devices; 6 Months warranty for all certified refurbished items.", 20, warrantyY + 10);
+      doc.text("• LAPTOP LIMITATIONS: Screen and keyboard components are strictly NOT covered under warranty on all laptop devices.", 20, warrantyY + 14);
+      doc.text("• SMARTPHONE LIMITS: Screen components and liquid ingress are strictly NOT covered under warranty on all smartphone models.", 20, warrantyY + 18);
+      doc.text("• VOID POLICY: Physically damaged, cracked, burnt, altered, or liquid-damaged elements are strictly NOT covered under any circumstances.", 20, warrantyY + 22);
+
       // 8. Signature Bottom row
       doc.setFont("Helvetica", "normal");
       doc.setTextColor(140, 140, 140);

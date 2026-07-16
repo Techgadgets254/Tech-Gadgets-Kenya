@@ -6,7 +6,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useStore } from "../StoreContext";
 import { motion, AnimatePresence } from "motion/react";
-import LiveOrderTracker from "./LiveOrderTracker";
 import { 
   Laptop, 
   Smartphone, 
@@ -75,10 +74,12 @@ export default function HomeView() {
   }, [promoProducts]);
 
   const getPromoText = (index: number, product: any) => {
+    const cleanCategory = (product.category || "Hardware").replace(/New |Refurbished /g, "");
+    const taglineText = `Certified authentic ${product.brand} ${cleanCategory} system, M-Pesa authorized with same-day Nairobi courier delivery.`;
     return {
       badge: product.flashBanner || "🔥 WAREHOUSE FLASH DEAL",
       title: product.name,
-      tagline: product.description || "Experience unmatched performance, local Kenyan service center warranty, and immediate M-Pesa clearing."
+      tagline: taglineText
     };
   };
 
@@ -237,11 +238,6 @@ export default function HomeView() {
         {/* Ambient backdrop gradient glow */}
         <div className="absolute right-0 bottom-0 top-0 w-1/2 bg-gradient-to-l from-[#C5A059]/10 to-transparent pointer-events-none hidden md:block z-0" />
       </motion.section>
-
-      {/* Live Order Tracking section */}
-      <section className="mb-12">
-        <LiveOrderTracker onNavigateToShop={() => setActiveView("shop")} />
-      </section>
 
       {/* Dynamic Cycling Motion-Based Promotional Banner */}
       {promoProducts.length > 0 && (
