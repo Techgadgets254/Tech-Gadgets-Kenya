@@ -179,6 +179,14 @@ service cloud.firestore {
         && data.createdAt is string && data.createdAt.size() <= 100;
     }
 
+    function isValidFlashOffer(data) {
+      return data.productId is string && data.productId.size() > 0 && data.productId.size() <= 128
+        && data.flashPrice is number && data.flashPrice >= 0
+        && (!data.keys().hasAll(['flashStart']) || data.flashStart == null || (data.flashStart is string && data.flashStart.size() <= 100))
+        && data.flashExpiry is string && data.flashExpiry.size() <= 100
+        && data.flashBanner is string && data.flashBanner.size() <= 200;
+    }
+
     // --- Collection Routes ---
 
     // Products collection: anybody can browse (read/list), only admins can edit products
@@ -383,6 +391,15 @@ service cloud.firestore {
       allow read, get, list, delete: if (isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin())) || (
         resource.data.userId.startsWith('cust_')
       );
+    }
+
+    // Flash Offers collection:
+    // - Anyone can view (read/list) the available offers
+    // - Only administrators can create, update, or delete
+    match /flash_offers/{offerId} {
+      allow read, list, get: if true;
+      allow create, update: if isAdmin() && isValidFlashOffer(incoming());
+      allow delete: if isAdmin();
     }
   }
 }

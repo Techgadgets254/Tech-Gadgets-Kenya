@@ -190,6 +190,19 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "productId", "createdAt"]
+    },
+    "flash_offer": {
+      "title": "Flash Offer",
+      "description": "Active promotional campaign schedules for individual products",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string", "description": "The unique product ID" },
+        "flashPrice": { "type": "number", "description": "The discounted promotion price in KES" },
+        "flashStart": { "type": "string", "description": "Scheduled start date and time (ISO format)" },
+        "flashExpiry": { "type": "string", "description": "Promotion expiration date and time (ISO format)" },
+        "flashBanner": { "type": "string", "description": "Promotional banner badge text" }
+      },
+      "required": ["productId", "flashPrice", "flashExpiry", "flashBanner"]
     }
   },
   "firestore": {
@@ -248,6 +261,10 @@
     "/saved_items/{savedItemId}": {
       "schema": "saved_item",
       "description": "User saved favorite items for persistent wishlist access"
+    },
+    "/flash_offers/{offerId}": {
+      "schema": "flash_offer",
+      "description": "Active promotional campaign schedules for individual products"
     }
   }
 }

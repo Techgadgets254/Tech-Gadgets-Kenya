@@ -231,6 +231,9 @@ export default function AdminDashboard() {
     addProduct, 
     editProduct, 
     removeProduct, 
+    addFlashOffer,
+    removeFlashOffer,
+    clearAllFlashOffers,
     updateOrderStatus,
     importProductsCSV,
     affiliates,
@@ -5408,307 +5411,353 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
         </div>
       )}
 
-      {activeSubTab === "flash_offers" && (
-        <div id="admin-flash-offers-tab" className="space-y-6 animate-fadeIn font-sans">
-          <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 relative overflow-hidden shadow-2xl">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[#C5A059]/5 rounded-full blur-3xl -z-10" />
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <h3 className="font-sans font-bold text-lg text-white flex items-center gap-2">
-                  <span className="bg-[#C5A059]/10 text-[#C5A059] p-1.5 rounded-xl text-xs"><Flame className="w-4 h-4 animate-pulse" /></span>
-                  Active Offers & Campaign Scheduler
-                </h3>
-                <p className="text-white/40 text-[11px] mt-1 font-sans">
-                  Schedule, configure, and manage temporary product price cuts with automated start dates, custom promotional tags, and countdown banners.
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setFlashEditingProductId(null);
-                  setSelectedFlashProductId("");
-                  setFlashPrice("");
-                  setFlashStart("");
-                  setFlashExpiry("");
-                  setFlashBanner("");
-                  setIsAddingFlashOffer(true);
-                }}
-                className="bg-[#C5A059] hover:bg-[#B38F4B] text-black font-semibold text-xs px-4 py-2.5 rounded-xl transition-all flex items-center gap-1.5 shadow-lg shadow-[#C5A059]/10 cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Schedule New Offer</span>
-              </button>
-            </div>
-          </div>
+      {activeSubTab === "flash_offers" && (() => {
+        const activeFlashOffers = products.filter(p => p.flashPrice);
+        const MAX_FLASH_OFFERS = 5;
+        const isExceedingThreshold = !flashEditingProductId && activeFlashOffers.length >= MAX_FLASH_OFFERS;
+        const isAlreadyPresent = !flashEditingProductId && !!selectedFlashProductId && products.some(p => p.id === selectedFlashProductId && p.flashPrice);
+        const cannotSubmit = isExceedingThreshold || isAlreadyPresent;
 
-          {/* Active Offer Creator Modal/Form */}
-          {isAddingFlashOffer && (
-            <div className="bg-[#121212] border border-white/10 rounded-3xl p-6 space-y-4 shadow-xl">
-              <div className="flex justify-between items-center border-b border-white/10 pb-3">
-                <h4 className="text-white font-bold text-sm">
-                  {flashEditingProductId ? "Modify Active Offer Settings" : "Configure Temporary Price Cut"}
-                </h4>
-                <button
-                  onClick={() => setIsAddingFlashOffer(false)}
-                  className="text-white/40 hover:text-white cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        return (
+          <div id="admin-flash-offers-tab" className="space-y-6 animate-fadeIn font-sans">
+            <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 relative overflow-hidden shadow-2xl">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-[#C5A059]/5 rounded-full blur-3xl -z-10" />
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                  <label className="block text-white/50 text-[10px] font-mono uppercase tracking-wider mb-1.5">Select Product *</label>
-                  <select
-                    disabled={!!flashEditingProductId}
-                    value={selectedFlashProductId}
-                    onChange={(e) => {
-                      setSelectedFlashProductId(e.target.value);
-                      const prod = products.find(p => p.id === e.target.value);
-                      if (prod) {
-                        setFlashPrice(Math.round(prod.price * 0.85).toString()); // suggest 15% discount
-                        setFlashBanner("ACTIVE CAMPAIGN! 15% OFF!");
+                  <h3 className="font-sans font-bold text-lg text-white flex items-center gap-2">
+                    <span className="bg-[#C5A059]/10 text-[#C5A059] p-1.5 rounded-xl text-xs"><Flame className="w-4 h-4 animate-pulse" /></span>
+                    Active Offers & Campaign Scheduler
+                  </h3>
+                  <p className="text-white/40 text-[11px] mt-1 font-sans">
+                    Schedule, configure, and manage temporary product price cuts with automated start dates, custom promotional tags, and countdown banners. Direct Firestore real-time synchronization.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {activeFlashOffers.length > 0 && (
+                    <button
+                      onClick={async () => {
+                        if (!confirm("Are you sure you want to clear ALL scheduled/active promotional flash offers? This action is irreversible.")) return;
+                        try {
+                          await clearAllFlashOffers();
+                          await logAdminAction("flash_offers_cleared_all", "Cleared all promotional campaign schedules from Firestore");
+                          setActionSuccessNotification("✓ All promo campaigns cleared successfully.");
+                          setTimeout(() => setActionSuccessNotification(""), 5000);
+                        } catch (err) {
+                          console.error("Failed to clear all flash offers:", err);
+                        }
+                      }}
+                      className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 font-semibold text-xs px-4 py-2.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>Clear All Offers</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setFlashEditingProductId(null);
+                      setSelectedFlashProductId("");
+                      setFlashPrice("");
+                      setFlashStart("");
+                      setFlashExpiry("");
+                      setFlashBanner("");
+                      setIsAddingFlashOffer(true);
+                    }}
+                    className="bg-[#C5A059] hover:bg-[#B38F4B] text-black font-semibold text-xs px-4 py-2.5 rounded-xl transition-all flex items-center gap-1.5 shadow-lg shadow-[#C5A059]/10 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Schedule New Offer</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Active Offer Creator Modal/Form */}
+            {isAddingFlashOffer && (
+              <div className="bg-[#121212] border border-white/10 rounded-3xl p-6 space-y-4 shadow-xl">
+                <div className="flex justify-between items-center border-b border-white/10 pb-3">
+                  <h4 className="text-white font-bold text-sm">
+                    {flashEditingProductId ? "Modify Active Offer Settings" : "Configure Temporary Price Cut"}
+                  </h4>
+                  <button
+                    onClick={() => setIsAddingFlashOffer(false)}
+                    className="text-white/40 hover:text-white cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {isExceedingThreshold && (
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-red-400 text-xs font-mono flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse animate-duration-500" />
+                    <span>WARNING: Active campaign limit reached ({activeFlashOffers.length}/{MAX_FLASH_OFFERS}). You cannot create a new offer until you remove an existing one.</span>
+                  </div>
+                )}
+                {isAlreadyPresent && (
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-amber-400 text-xs font-mono flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse animate-duration-500" />
+                    <span>WARNING: This product already has a scheduled or live flash offer. Edit the existing campaign below.</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-white/50 text-[10px] font-mono uppercase tracking-wider mb-1.5">Select Product *</label>
+                    <select
+                      disabled={!!flashEditingProductId}
+                      value={selectedFlashProductId}
+                      onChange={(e) => {
+                        setSelectedFlashProductId(e.target.value);
+                        const prod = products.find(p => p.id === e.target.value);
+                        if (prod) {
+                          setFlashPrice(Math.round(prod.price * 0.85).toString()); // suggest 15% discount
+                          setFlashBanner("ACTIVE CAMPAIGN! 15% OFF!");
+                        }
+                      }}
+                      className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white placeholder-white/25 focus:border-[#C5A059]/60 focus:outline-hidden"
+                    >
+                      <option value="">-- Choose Live Product --</option>
+                      {products.map(p => (
+                        <option key={p.id} value={p.id}>
+                          [{p.brand}] {p.name} (Reg: KES {p.price.toLocaleString()})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-white/50 text-[10px] font-mono uppercase tracking-wider mb-1.5">Promo Offer Price (KES) *</label>
+                    <input
+                      type="number"
+                      value={flashPrice}
+                      onChange={(e) => setFlashPrice(e.target.value)}
+                      placeholder="Enter discounted promo price..."
+                      className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#C5A059]/60 focus:outline-hidden"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-white/50 text-[10px] font-mono uppercase tracking-wider mb-1.5">Offer Start Date & Time (Optional Scheduling)</label>
+                    <input
+                      type="datetime-local"
+                      value={flashStart}
+                      onChange={(e) => setFlashStart(e.target.value)}
+                      className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#C5A059]/60 focus:outline-hidden"
+                    />
+                    <span className="text-[9px] text-white/30 font-sans mt-1 block">Leave empty to activate immediately upon saving.</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-white/50 text-[10px] font-mono uppercase tracking-wider mb-1.5">Offer Expiry Date & Time *</label>
+                    <input
+                      type="datetime-local"
+                      value={flashExpiry}
+                      onChange={(e) => setFlashExpiry(e.target.value)}
+                      className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#C5A059]/60 focus:outline-hidden"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-white/50 text-[10px] font-mono uppercase tracking-wider mb-1.5">Promo Tag / Banner Text *</label>
+                    <input
+                      type="text"
+                      value={flashBanner}
+                      onChange={(e) => setFlashBanner(e.target.value)}
+                      placeholder="e.g., TECH DEALS! SAVINGS ACTIVE!"
+                      className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#C5A059]/60 focus:outline-hidden"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 border-t border-white/10 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingFlashOffer(false)}
+                    className="bg-white/5 hover:bg-white/10 text-white font-semibold text-xs px-4 py-2 rounded-xl transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={cannotSubmit}
+                    onClick={async () => {
+                      const pid = flashEditingProductId || selectedFlashProductId;
+                      if (!pid || !flashPrice || !flashExpiry || !flashBanner) {
+                        alert("Please fill out all required fields.");
+                        return;
+                      }
+                      if (cannotSubmit) {
+                        alert(isExceedingThreshold ? `Cannot add offer: Max limit of ${MAX_FLASH_OFFERS} active offers reached.` : "This product already has an active flash offer.");
+                        return;
+                      }
+                      const targetProd = products.find(p => p.id === pid);
+                      if (!targetProd) return;
+                      
+                      try {
+                        await addFlashOffer(pid, {
+                          flashPrice: Number(flashPrice),
+                          flashStart: flashStart || null,
+                          flashExpiry,
+                          flashBanner
+                        });
+                        await logAdminAction("flash_offer_created", `${flashEditingProductId ? "Updated" : "Scheduled"} promotional price cut on "${targetProd.name}" (Promo: ${flashPrice} KES)`);
+                        setActionSuccessNotification(`✓ Promotional offer updated successfully for "${targetProd.name}"!`);
+                        setTimeout(() => setActionSuccessNotification(""), 5000);
+                        setIsAddingFlashOffer(false);
+                      } catch (err) {
+                        console.error("Failed to create promo offer:", err);
                       }
                     }}
-                    className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white placeholder-white/25 focus:border-[#C5A059]/60 focus:outline-hidden"
+                    className={`font-semibold text-xs px-5 py-2 rounded-xl transition-all shadow-md cursor-pointer ${
+                      cannotSubmit 
+                        ? "bg-red-500/10 text-red-400 border border-red-500/20 cursor-not-allowed opacity-55" 
+                        : "bg-[#C5A059] hover:bg-[#B38F4B] text-black"
+                    }`}
                   >
-                    <option value="">-- Choose Live Product --</option>
-                    {products.map(p => (
-                      <option key={p.id} value={p.id}>
-                        [{p.brand}] {p.name} (Reg: KES {p.price.toLocaleString()})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-white/50 text-[10px] font-mono uppercase tracking-wider mb-1.5">Promo Offer Price (KES) *</label>
-                  <input
-                    type="number"
-                    value={flashPrice}
-                    onChange={(e) => setFlashPrice(e.target.value)}
-                    placeholder="Enter discounted promo price..."
-                    className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#C5A059]/60 focus:outline-hidden"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-white/50 text-[10px] font-mono uppercase tracking-wider mb-1.5">Offer Start Date & Time (Optional Scheduling)</label>
-                  <input
-                    type="datetime-local"
-                    value={flashStart}
-                    onChange={(e) => setFlashStart(e.target.value)}
-                    className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#C5A059]/60 focus:outline-hidden"
-                  />
-                  <span className="text-[9px] text-white/30 font-sans mt-1 block">Leave empty to activate immediately upon saving.</span>
-                </div>
-
-                <div>
-                  <label className="block text-white/50 text-[10px] font-mono uppercase tracking-wider mb-1.5">Offer Expiry Date & Time *</label>
-                  <input
-                    type="datetime-local"
-                    value={flashExpiry}
-                    onChange={(e) => setFlashExpiry(e.target.value)}
-                    className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#C5A059]/60 focus:outline-hidden"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-white/50 text-[10px] font-mono uppercase tracking-wider mb-1.5">Promo Tag / Banner Text *</label>
-                  <input
-                    type="text"
-                    value={flashBanner}
-                    onChange={(e) => setFlashBanner(e.target.value)}
-                    placeholder="e.g., TECH DEALS! SAVINGS ACTIVE!"
-                    className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:border-[#C5A059]/60 focus:outline-hidden"
-                  />
+                    Save Active Offer
+                  </button>
                 </div>
               </div>
+            )}
 
-              <div className="flex justify-end gap-3 border-t border-white/10 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsAddingFlashOffer(false)}
-                  className="bg-white/5 hover:bg-white/10 text-white font-semibold text-xs px-4 py-2 rounded-xl transition-all cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const pid = flashEditingProductId || selectedFlashProductId;
-                    if (!pid || !flashPrice || !flashExpiry || !flashBanner) {
-                      alert("Please fill out all required fields.");
-                      return;
-                    }
-                    const targetProd = products.find(p => p.id === pid);
-                    if (!targetProd) return;
-                    
-                    try {
-                      await editProduct(pid, {
-                        flashPrice: Number(flashPrice),
-                        flashStart: flashStart || null,
-                        flashExpiry,
-                        flashBanner
-                      });
-                      await logAdminAction("flash_offer_created", `${flashEditingProductId ? "Updated" : "Scheduled"} promotional price cut on "${targetProd.name}" (Promo: ${flashPrice} KES)`);
-                      setActionSuccessNotification(`✓ Promotional offer updated successfully for "${targetProd.name}"!`);
-                      setTimeout(() => setActionSuccessNotification(""), 5000);
-                      setIsAddingFlashOffer(false);
-                    } catch (err) {
-                      console.error("Failed to create promo offer:", err);
-                    }
-                  }}
-                  className="bg-[#C5A059] hover:bg-[#B38F4B] text-black font-semibold text-xs px-5 py-2 rounded-xl transition-all shadow-md cursor-pointer"
-                >
-                  Save Active Offer
-                </button>
+            {/* Active Offers Grid/Table */}
+            <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
+              <div className="p-5 border-b border-white/10 bg-white/[0.01]">
+                <span className="font-mono text-[10px] text-[#C5A059] font-bold uppercase tracking-wider block">Scheduled Promotional Campaigns</span>
               </div>
-            </div>
-          )}
 
-          {/* Active Offers Grid/Table */}
-          <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
-            <div className="p-5 border-b border-white/10 bg-white/[0.01]">
-              <span className="font-mono text-[10px] text-[#C5A059] font-bold uppercase tracking-wider block">Scheduled Promotional Campaigns</span>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-white/10 bg-white/[0.02] text-[10px] font-mono text-white/50 uppercase tracking-wider">
-                    <th className="py-3 px-5">Product Details</th>
-                    <th className="py-3 px-5">Regular Price</th>
-                    <th className="py-3 px-5">Promo Price</th>
-                    <th className="py-3 px-5">Schedule Window</th>
-                    <th className="py-3 px-5">Campaign Status</th>
-                    <th className="py-3 px-5 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5 text-xs text-white/80">
-                  {products.filter(p => p.flashPrice).length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="py-8 text-center text-white/30 font-sans italic">
-                        No scheduled or active campaigns found. Click "Schedule New Offer" to create a promotional price cut!
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-white/10 bg-white/[0.02] text-[10px] font-mono text-white/50 uppercase tracking-wider">
+                      <th className="py-3 px-5">Product Details</th>
+                      <th className="py-3 px-5">Regular Price</th>
+                      <th className="py-3 px-5">Promo Price</th>
+                      <th className="py-3 px-5">Schedule Window</th>
+                      <th className="py-3 px-5">Campaign Status</th>
+                      <th className="py-3 px-5 text-right">Actions</th>
                     </tr>
-                  ) : (
-                    products.filter(p => p.flashPrice).map((prod) => {
-                      const now = new Date();
-                      const hasStart = !!prod.flashStart;
-                      const isUpcoming = hasStart && new Date(prod.flashStart!) > now;
-                      const isExpired = prod.flashExpiry ? new Date(prod.flashExpiry) < now : false;
-                      const isActive = !isUpcoming && !isExpired;
+                  </thead>
+                  <tbody className="divide-y divide-white/5 text-xs text-white/80">
+                    {products.filter(p => p.flashPrice).length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-white/30 font-sans italic">
+                          No scheduled or active campaigns found. Click "Schedule New Offer" to create a promotional price cut!
+                        </td>
+                      </tr>
+                    ) : (
+                      products.filter(p => p.flashPrice).map((prod) => {
+                        const now = new Date();
+                        const hasStart = !!prod.flashStart;
+                        const isUpcoming = hasStart && new Date(prod.flashStart!) > now;
+                        const isExpired = prod.flashExpiry ? new Date(prod.flashExpiry) < now : false;
+                        const isActive = !isUpcoming && !isExpired;
 
-                      return (
-                        <tr key={prod.id} className="hover:bg-white/[0.01] transition-colors">
-                          <td className="py-4 px-5">
-                            <div className="flex items-center gap-3">
-                              <img
-                                src={prod.image}
-                                alt={prod.name}
-                                className="w-10 h-10 object-cover rounded-lg border border-white/10 shrink-0"
-                                referrerPolicy="no-referrer"
-                              />
-                              <div>
-                                <span className="font-bold text-white block">{prod.name}</span>
-                                <span className="text-[10px] text-white/40 font-mono block">SKU: {prod.sku || "N/A"}</span>
-                                <span className="inline-block bg-[#C5A059]/10 text-[#C5A059] font-bold px-1.5 py-0.5 rounded-md text-[9px] mt-1 font-mono border border-[#C5A059]/20">
-                                  {prod.flashBanner}
+                        return (
+                          <tr key={prod.id} className="hover:bg-white/[0.01] transition-colors">
+                            <td className="py-4 px-5">
+                              <div className="flex items-center gap-3">
+                                <img
+                                  src={prod.image}
+                                  alt={prod.name}
+                                  className="w-10 h-10 object-cover rounded-lg border border-white/10 shrink-0"
+                                  referrerPolicy="no-referrer"
+                                />
+                                <div>
+                                  <span className="font-bold text-white block">{prod.name}</span>
+                                  <span className="text-[10px] text-white/40 font-mono block">SKU: {prod.sku || "N/A"}</span>
+                                  <span className="inline-block bg-[#C5A059]/10 text-[#C5A059] font-bold px-1.5 py-0.5 rounded-md text-[9px] mt-1 font-mono border border-[#C5A059]/20">
+                                    {prod.flashBanner}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-4 px-5 font-mono text-white/60">
+                              KES {prod.price.toLocaleString()}
+                            </td>
+                            <td className="py-4 px-5">
+                              <div className="space-y-0.5">
+                                <span className="font-mono font-bold text-red-400 block">KES {prod.flashPrice?.toLocaleString()}</span>
+                                <span className="text-[9px] text-emerald-400 font-mono block">
+                                  Save {Math.round((1 - (prod.flashPrice || 1) / prod.price) * 100)}%
                                 </span>
                               </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-5 font-mono text-white/60">
-                            KES {prod.price.toLocaleString()}
-                          </td>
-                          <td className="py-4 px-5">
-                            <div className="space-y-0.5">
-                              <span className="font-mono font-bold text-red-400 block">KES {prod.flashPrice?.toLocaleString()}</span>
-                              <span className="text-[9px] text-emerald-400 font-mono block">
-                                Save {Math.round((1 - (prod.flashPrice || 1) / prod.price) * 100)}%
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-5 font-mono">
-                            <div className="space-y-1 text-[10px]">
-                              {prod.flashStart && (
-                                <div className="text-white/40">
-                                  <span className="text-[8px] uppercase font-bold tracking-wider block">Starts</span>
-                                  {new Date(prod.flashStart).toLocaleString()}
+                            </td>
+                            <td className="py-4 px-5 font-mono">
+                              <div className="space-y-1 text-[10px]">
+                                {prod.flashStart && (
+                                  <div className="text-white/40">
+                                    <span className="text-[8px] uppercase font-bold tracking-wider block">Starts</span>
+                                    {new Date(prod.flashStart).toLocaleString()}
+                                  </div>
+                                )}
+                                <div className="text-white/70">
+                                  <span className="text-[8px] uppercase font-bold tracking-wider block text-white/40">Expires</span>
+                                  {prod.flashExpiry ? new Date(prod.flashExpiry).toLocaleString() : "N/A"}
                                 </div>
-                              )}
-                              <div className="text-white/70">
-                                <span className="text-[8px] uppercase font-bold tracking-wider block text-white/40">Expires</span>
-                                {prod.flashExpiry ? new Date(prod.flashExpiry).toLocaleString() : "N/A"}
                               </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-5 font-mono">
-                            {isExpired ? (
-                              <span className="inline-flex bg-white/5 border border-white/10 text-white/40 text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md">
-                                Expired
-                              </span>
-                            ) : isUpcoming ? (
-                              <span className="inline-flex bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md">
-                                Upcoming Scheduled
-                              </span>
-                            ) : (
-                              <span className="inline-flex bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md animate-pulse">
-                                Live & Active
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-4 px-5 text-right">
-                            <div className="flex gap-2 justify-end">
-                              <button
-                                onClick={() => {
-                                  setFlashEditingProductId(prod.id);
-                                  setSelectedFlashProductId(prod.id);
-                                  setFlashPrice(prod.flashPrice?.toString() || "");
-                                  setFlashStart(prod.flashStart || "");
-                                  setFlashExpiry(prod.flashExpiry || "");
-                                  setFlashBanner(prod.flashBanner || "");
-                                  setIsAddingFlashOffer(true);
-                                }}
-                                className="bg-white/5 hover:bg-[#C5A059]/10 hover:text-[#C5A059] transition-all p-2 rounded-lg text-white/50 cursor-pointer"
-                                title="Edit Active Offer"
-                              >
-                                <Edit className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  if (!confirm(`Are you sure you want to delete the scheduled offer on "${prod.name}"?`)) return;
-                                  try {
-                                    await editProduct(prod.id, {
-                                      flashPrice: null,
-                                      flashStart: null,
-                                      flashExpiry: null,
-                                      flashBanner: null
-                                    });
-                                    await logAdminAction("flash_offer_removed", `Removed promo campaign from "${prod.name}"`);
-                                    setActionSuccessNotification(`✓ Promo offer removed from "${prod.name}"`);
-                                    setTimeout(() => setActionSuccessNotification(""), 5000);
-                                  } catch (err) {
-                                    console.error("Failed to cancel promo offer:", err);
-                                  }
-                                }}
-                                className="bg-white/5 hover:bg-red-500/10 hover:text-red-400 transition-all p-2 rounded-lg text-white/50 cursor-pointer"
-                                title="Delete/Cancel Offer"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+                            </td>
+                            <td className="py-4 px-5 font-mono">
+                              {isExpired ? (
+                                <span className="inline-flex bg-white/5 border border-white/10 text-white/40 text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md">
+                                  Expired
+                                </span>
+                              ) : isUpcoming ? (
+                                <span className="inline-flex bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md">
+                                  Upcoming Scheduled
+                                </span>
+                              ) : (
+                                <span className="inline-flex bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md animate-pulse">
+                                  Live & Active
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-4 px-5 text-right">
+                              <div className="flex gap-2 justify-end">
+                                <button
+                                  onClick={() => {
+                                    setFlashEditingProductId(prod.id);
+                                    setSelectedFlashProductId(prod.id);
+                                    setFlashPrice(prod.flashPrice?.toString() || "");
+                                    setFlashStart(prod.flashStart || "");
+                                    setFlashExpiry(prod.flashExpiry || "");
+                                    setFlashBanner(prod.flashBanner || "");
+                                    setIsAddingFlashOffer(true);
+                                  }}
+                                  className="bg-white/5 hover:bg-[#C5A059]/10 hover:text-[#C5A059] transition-all p-2 rounded-lg text-white/50 cursor-pointer"
+                                  title="Edit Active Offer"
+                                >
+                                  <Edit className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (!confirm(`Are you sure you want to delete the scheduled offer on "${prod.name}"?`)) return;
+                                    try {
+                                      await removeFlashOffer(prod.id);
+                                      await logAdminAction("flash_offer_removed", `Removed promo campaign from "${prod.name}"`);
+                                      setActionSuccessNotification(`✓ Promo offer removed from "${prod.name}"`);
+                                      setTimeout(() => setActionSuccessNotification(""), 5000);
+                                    } catch (err) {
+                                      console.error("Failed to cancel promo offer:", err);
+                                    }
+                                  }}
+                                  className="bg-white/5 hover:bg-red-500/10 hover:text-red-400 transition-all p-2 rounded-lg text-white/50 cursor-pointer"
+                                  title="Delete/Cancel Offer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Keyboard Shortcuts Help Modal */}
       {shortcutHelpOpen && (

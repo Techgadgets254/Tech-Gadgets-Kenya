@@ -27,7 +27,8 @@ import {
   Flame,
   ChevronLeft,
   ChevronRight,
-  Clock
+  Clock,
+  Trash2
 } from "lucide-react";
 
 export default function HomeView() {
@@ -40,7 +41,10 @@ export default function HomeView() {
     toggleWishlist,
     compareList,
     toggleCompare,
-    setSearchQuery
+    setSearchQuery,
+    userProfile,
+    removeFlashOffer,
+    clearAllFlashOffers
   } = useStore();
 
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
@@ -232,33 +236,57 @@ export default function HomeView() {
       {/* Dynamic Cycling Motion-Based Promotional Banner */}
       {promoProducts.length > 0 && (
         <section className="mb-12 relative overflow-hidden" id="motion-promotions-section">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-              <h2 className="font-sans font-medium text-lg text-white">Live Warehouse Flash Offers</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+            <div className="flex items-center gap-3">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#C5A059] animate-pulse" />
+              <h2 className="font-sans font-extrabold text-xl tracking-tight text-white flex items-center gap-2">
+                Live Warehouse Flash Offers
+              </h2>
+              {userProfile?.role === "admin" && (
+                <button
+                  onClick={async () => {
+                    if (confirm("Are you sure you want to clear ALL live promotional campaigns directly from Firestore? This action is immediate and irreversible.")) {
+                      try {
+                        await clearAllFlashOffers();
+                      } catch (err) {
+                        console.error("Failed to clear all flash offers:", err);
+                      }
+                    }
+                  }}
+                  className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 hover:border-red-500/40 font-bold font-mono text-[9px] uppercase tracking-widest px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ml-2"
+                >
+                  <Trash2 className="w-3 h-3 text-red-400" />
+                  <span>Clear All Offers</span>
+                </button>
+              )}
             </div>
-            <div className="flex gap-1.5">
-              <button 
-                onClick={() => setActivePromoIndex(prev => (prev - 1 + promoProducts.length) % promoProducts.length)}
-                className="p-1.5 rounded-lg border border-white/10 hover:border-[#C5A059] bg-white/[0.02] hover:bg-white/[0.06] text-white/60 hover:text-[#C5A059] transition-all cursor-pointer"
-                title="Previous Offer"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button 
-                onClick={() => setActivePromoIndex(prev => (prev + 1) % promoProducts.length)}
-                className="p-1.5 rounded-lg border border-white/10 hover:border-[#C5A059] bg-white/[0.02] hover:bg-white/[0.06] text-white/60 hover:text-[#C5A059] transition-all cursor-pointer"
-                title="Next Offer"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-white/30 font-mono">
+                {activePromoIndex + 1} of {promoProducts.length} live
+              </span>
+              <div className="flex gap-1.5">
+                <button 
+                  onClick={() => setActivePromoIndex(prev => (prev - 1 + promoProducts.length) % promoProducts.length)}
+                  className="p-1.5 rounded-xl border border-white/10 hover:border-[#C5A059] bg-white/[0.02] hover:bg-white/[0.08] text-white/60 hover:text-[#C5A059] transition-all cursor-pointer"
+                  title="Previous Offer"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button 
+                  onClick={() => setActivePromoIndex(prev => (prev + 1) % promoProducts.length)}
+                  className="p-1.5 rounded-xl border border-white/10 hover:border-[#C5A059] bg-white/[0.02] hover:bg-white/[0.08] text-white/60 hover:text-[#C5A059] transition-all cursor-pointer"
+                  title="Next Offer"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-r from-red-950/20 via-[#0F0F0F] to-amber-950/20 border border-white/10 rounded-3xl p-6 sm:p-8 relative overflow-hidden min-h-[260px] flex flex-col justify-center">
-            {/* Ambient background blur circles */}
-            <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute bottom-0 left-12 w-32 h-32 bg-red-500/5 rounded-full blur-2xl pointer-events-none" />
+          <div className="bg-radial-at-t from-[#151515] via-[#0E0E0E] to-black border border-white/[0.08] rounded-3xl p-6 sm:p-10 relative overflow-hidden min-h-[290px] flex flex-col justify-center shadow-2xl">
+            {/* Ambient visual layers */}
+            <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-gradient-to-b from-[#C5A059]/10 to-transparent rounded-full blur-[100px] pointer-events-none -z-10" />
+            <div className="absolute -bottom-10 -left-10 w-[250px] h-[250px] bg-gradient-to-tr from-red-500/5 to-transparent rounded-full blur-[80px] pointer-events-none -z-10" />
 
             <AnimatePresence mode="wait">
               {promoProducts.map((product, idx) => {
@@ -271,28 +299,28 @@ export default function HomeView() {
                 return (
                   <motion.div
                     key={product.id}
-                    initial={{ opacity: 0, x: 40 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -40 }}
-                    transition={{ type: "spring", stiffness: 100, damping: 15 }}
-                    className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center relative z-10"
+                    initial={{ opacity: 0, scale: 0.98, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.98, y: -10 }}
+                    transition={{ type: "spring", stiffness: 120, damping: 18 }}
+                    className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center relative z-10"
                   >
                     {/* Text Details (7 Cols) */}
-                    <div className="md:col-span-7 text-left space-y-3">
+                    <div className="md:col-span-7 text-left space-y-4">
                       <div className="flex flex-wrap gap-2 items-center">
-                        <span className="font-mono text-[9px] font-extrabold tracking-widest text-[#C5A059] bg-[#C5A059]/10 border border-[#C5A059]/20 px-2 py-0.5 rounded-full uppercase flex items-center gap-1">
-                          <Flame className="w-3 h-3 text-amber-500 fill-amber-500 animate-pulse" />
+                        <span className="font-mono text-[9px] font-extrabold tracking-widest text-[#C5A059] bg-[#C5A059]/10 border border-[#C5A059]/20 px-2.5 py-1 rounded-md uppercase flex items-center gap-1.5 animate-pulse">
+                          <Flame className="w-3 h-3 text-amber-500 fill-amber-500" />
                           {textInfo.badge}
                         </span>
                         {discountPercent > 0 && (
-                          <span className="font-mono text-[9px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
-                            <Percent className="w-2.5 h-2.5" />
-                            Save {discountPercent}% Today
+                          <span className="font-mono text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md flex items-center gap-1.5">
+                            <Percent className="w-3 h-3" />
+                            OFFER ACTIVE! SAVE {discountPercent}% TODAY
                           </span>
                         )}
                       </div>
 
-                      <h3 className="font-sans font-bold text-lg sm:text-2xl text-white tracking-tight leading-snug">
+                      <h3 className="font-sans font-extrabold text-2xl sm:text-4xl text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-gray-400 tracking-tight leading-tight">
                         {textInfo.title}
                       </h3>
                       
@@ -300,61 +328,87 @@ export default function HomeView() {
                         {textInfo.tagline}
                       </p>
 
-                      <div className="flex flex-wrap items-end gap-3 pt-1.5">
-                        <div className="space-y-0.5">
-                          <span className="text-[10px] text-white/35 font-mono uppercase tracking-wider block">PROMOTIONAL OFFER</span>
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-xl sm:text-2xl font-extrabold text-[#C5A059] font-mono">
+                      <div className="flex flex-wrap items-center gap-5 pt-1.5">
+                        <div className="space-y-1">
+                          <span className="text-[9px] text-white/35 font-mono uppercase tracking-wider block">PROMO CAMPAIGN PRICE</span>
+                          <div className="flex items-baseline gap-2.5">
+                            <span className="text-2xl sm:text-3xl font-extrabold text-[#C5A059] font-mono tracking-tight">
                               KES {promoPrice.toLocaleString()}
                             </span>
                             {discountPercent > 0 && (
-                              <span className="text-xs text-white/35 line-through font-mono">
+                              <span className="text-xs sm:text-sm text-white/30 line-through font-mono">
                                 KES {originalPrice.toLocaleString()}
                               </span>
                             )}
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-md font-mono h-fit mb-0.5">
-                          <Clock className="w-3 h-3 animate-pulse" />
-                          <span>Expires soon: {product.stock} left</span>
+                        <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 bg-emerald-500/8 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg font-mono h-fit">
+                          <Clock className="w-3.5 h-3.5 animate-pulse text-emerald-400" />
+                          <span>Expires soon: Only {product.stock} left in stock</span>
                         </div>
                       </div>
 
-                      <div className="flex gap-2.5 pt-2">
+                      <div className="flex flex-wrap gap-3 pt-3">
                         <button
                           onClick={() => {
                             setSelectedProductId(product.id);
                             setActiveView("product-details");
                             window.scrollTo(0, 0);
                           }}
-                          className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-black font-sans font-bold text-xs px-4.5 py-2.5 rounded-xl shadow-md cursor-pointer transition-all flex items-center gap-1.5 group/btn"
+                          className="bg-[#C5A059] hover:bg-[#B38F4B] text-black font-sans font-extrabold text-xs px-5 py-3 rounded-xl shadow-lg shadow-[#C5A059]/10 cursor-pointer transition-all flex items-center gap-2 group/btn"
                         >
                           <span>Secure Deal Specs</span>
-                          <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover/btn:translate-x-0.5" />
+                          <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
                         </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             addToCart(product);
                           }}
-                          className="bg-white/5 hover:bg-white/10 text-white border border-white/10 font-sans text-xs px-4.5 py-2.5 rounded-xl transition-all cursor-pointer hover:border-[#C5A059]/40"
+                          className="bg-white/5 hover:bg-white/10 text-white border border-white/10 font-sans font-bold text-xs px-5 py-3 rounded-xl transition-all cursor-pointer hover:border-[#C5A059]/30"
                         >
                           Add to Dispatch
                         </button>
+                        {userProfile?.role === "admin" && (
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (confirm(`Are you sure you want to remove the promotional flash offer for "${product.name}"? This updates Firestore immediately.`)) {
+                                try {
+                                  await removeFlashOffer(product.id);
+                                } catch (err) {
+                                  console.error("Failed to remove flash offer:", err);
+                                }
+                              }
+                            }}
+                            className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 hover:border-red-500/40 font-sans font-bold text-xs px-5 py-3 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                            title="Remove Promo Offer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Remove Offer</span>
+                          </button>
+                        )}
                       </div>
                     </div>
 
                     {/* Interactive Image Display (5 Cols) */}
                     <div className="md:col-span-5 flex justify-center md:justify-end relative">
-                      <div className="relative group/promoimg">
-                        <div className="absolute inset-0 bg-[#C5A059]/10 rounded-2xl blur-xl group-hover/promoimg:bg-[#C5A059]/20 transition-all duration-500" />
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="w-full max-w-[200px] h-36 sm:h-44 object-cover rounded-2xl border border-white/15 bg-black/60 shadow-xl relative z-10 transition-transform duration-500 group-hover/promoimg:scale-105"
-                          referrerPolicy="no-referrer"
-                        />
+                      <div className="relative group/promoimg max-w-[260px] w-full">
+                        {/* Outer Glow behind image wrapper */}
+                        <div className="absolute -inset-1.5 bg-gradient-to-r from-[#C5A059] to-amber-500 rounded-2xl blur-xl opacity-20 group-hover/promoimg:opacity-35 transition duration-1000 group-hover/promoimg:duration-200" />
+                        <div className="relative bg-[#0F0F0F] border border-white/[0.08] rounded-2xl overflow-hidden p-4 flex flex-col items-center">
+                          <img
+                            src={product.image}
+                            alt={product.name}
+                            className="w-full h-44 object-cover rounded-xl border border-white/5 bg-black/40 shadow-inner transition-all duration-700 group-hover/promoimg:scale-105"
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="mt-3 w-full flex justify-between items-center text-[9px] font-mono text-white/30 tracking-wider">
+                            <span>LIMITED STOCK</span>
+                            <span className="text-emerald-400 font-bold">100% SECURE</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </motion.div>
@@ -363,13 +417,13 @@ export default function HomeView() {
             </AnimatePresence>
 
             {/* Navigation Dots */}
-            <div className="flex justify-center gap-2 mt-6 relative z-10">
+            <div className="flex justify-center gap-2 mt-8 relative z-10">
               {promoProducts.map((_, i) => (
                 <button
                   key={i}
                   onClick={() => setActivePromoIndex(i)}
                   className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                    i === activePromoIndex ? "bg-[#C5A059] w-5" : "bg-white/15 hover:bg-white/30"
+                    i === activePromoIndex ? "bg-[#C5A059] w-6" : "bg-white/10 hover:bg-white/25"
                   }`}
                   title={`Slide ${i + 1}`}
                 />

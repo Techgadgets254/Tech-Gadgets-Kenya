@@ -102,6 +102,11 @@ interface StoreContextType {
   addProduct: (productData: Omit<Product, "id">) => Promise<void>;
   editProduct: (id: string, productData: Partial<Product>) => Promise<void>;
   removeProduct: (id: string) => Promise<void>;
+  
+  // Flash Offer Actions
+  addFlashOffer: (productId: string, data: { flashPrice: number; flashStart?: string | null; flashExpiry: string; flashBanner: string }) => Promise<void>;
+  removeFlashOffer: (productId: string) => Promise<void>;
+  clearAllFlashOffers: () => Promise<void>;
 
   // Admin Order Actions
   updateOrderStatus: (id: string, paymentStatus: Order["paymentStatus"], shippingStatus: Order["shippingStatus"], receiptNo?: string) => Promise<void>;
@@ -140,7 +145,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [products, setProducts] = useState<Product[]>(() => {
+  const [dbProducts, setDbProducts] = useState<Product[]>(() => {
     try {
       const cached = localStorage.getItem("tsk_products_cache");
       const cacheTime = localStorage.getItem("tsk_products_cache_time");
@@ -160,6 +165,31 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
     return [];
   });
+
+  const [flashOffers, setFlashOffers] = useState<any[]>([]);
+
+  const products = React.useMemo(() => {
+    return dbProducts.map((p) => {
+      const offer = flashOffers.find((o) => o.productId === p.id || o.id === p.id);
+      if (offer) {
+        return {
+          ...p,
+          flashPrice: offer.flashPrice,
+          flashStart: offer.flashStart || null,
+          flashExpiry: offer.flashExpiry,
+          flashBanner: offer.flashBanner,
+        };
+      } else {
+        return {
+          ...p,
+          flashPrice: null,
+          flashStart: null,
+          flashExpiry: null,
+          flashBanner: null,
+        };
+      }
+    });
+  }, [dbProducts, flashOffers]);
 
   const [productsLoading, setProductsLoading] = useState(() => {
     try {
@@ -614,10 +644,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return unsubscribe;
   }, []);
 
+  // Real-time Flash Offers listener
+  useEffect(() => {
+    const flashColRef = collection(db, "flash_offers");
+    const unsubscribe = onSnapshot(flashColRef, (snapshot) => {
+      const list: any[] = [];
+      snapshot.forEach((doc) => {
+        list.push({ id: doc.id, ...doc.data() });
+      });
+      setFlashOffers(list);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, "flash_offers");
+    });
+    return unsubscribe;
+  }, []);
+
   // 2. Load Products and Real-time Snapshot with Auto-Seeding
   useEffect(() => {
     const productsColRef = collection(db, "products");
-    if (products.length === 0) {
+    if (dbProducts.length === 0) {
       setProductsLoading(true);
     }
 
@@ -655,7 +700,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           })) as Product[];
-          setProducts(fallbackProducts);
+          setDbProducts(fallbackProducts);
           setProductsLoading(false);
 
           // Only attempt to seed if current user is admin
@@ -685,7 +730,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
             return dateB - dateA;
           });
-          setProducts(sorted);
+          setDbProducts(sorted);
           try {
             localStorage.setItem("tsk_products_cache", JSON.stringify(sorted));
             localStorage.setItem("tsk_products_cache_time", Date.now().toString());
@@ -1134,11 +1179,48 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Flash Offer Actions
+  const addFlashOffer = async (productId: string, data: { flashPrice: number; flashStart?: string | null; flashExpiry: string; flashBanner: string }) => {
+    try {
+      const offerRef = doc(db, "flash_offers", productId);
+      await setDoc(offerRef, {
+        productId,
+        flashPrice: Number(data.flashPrice),
+        flashStart: data.flashStart || null,
+        flashExpiry: data.flashExpiry,
+        flashBanner: data.flashBanner,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `flash_offers/${productId}`);
+    }
+  };
+
+  const removeFlashOffer = async (productId: string) => {
+    try {
+      const offerRef = doc(db, "flash_offers", productId);
+      await deleteDoc(offerRef);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `flash_offers/${productId}`);
+    }
+  };
+
+  const clearAllFlashOffers = async () => {
+    try {
+      const flashColRef = collection(db, "flash_offers");
+      const snapshot = await getDocs(flashColRef);
+      const deletePromises = snapshot.docs.map((doc) => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, "flash_offers");
+    }
+  };
+
   // Delete Product Action (Soft-deletes to Trash collection for 60 days before purge)
   const removeProduct = async (id: string) => {
     try {
       // Update local state immediately for instant, lag-free visual UI feedback
-      setProducts(prev => prev.filter(p => p.id !== id));
+      setDbProducts(prev => prev.filter(p => p.id !== id));
 
       const productRef = doc(db, "products", id);
       const productSnap = await getDoc(productRef);
@@ -1516,6 +1598,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         addProduct,
         editProduct,
         removeProduct,
+        addFlashOffer,
+        removeFlashOffer,
+        clearAllFlashOffers,
         updateOrderStatus,
         subscribeNewsletter,
         theme,
