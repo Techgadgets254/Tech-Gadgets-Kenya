@@ -21,7 +21,7 @@ export function Helmet({ title, description, keywords }: HelmetProps) {
     if (description) {
       metaDescription.setAttribute("content", description);
     } else {
-      metaDescription.setAttribute("content", "Tech Soko Kenya provides premium laptops, desktops, and accessories along Kenyatta Avenue, Nairobi.");
+      metaDescription.setAttribute("content", "Tech Sokoni Kenya provides premium laptops, desktops, and accessories along Kenyatta Avenue, Nairobi.");
     }
 
     // 3. Optional SEO keywords tags

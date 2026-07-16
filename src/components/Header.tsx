@@ -120,7 +120,7 @@ export default function Header() {
             <div className="relative w-9 h-9 bg-[#0F0F0F] rounded-lg flex items-center justify-center shadow-lg shrink-0 border border-[#C5A059]/30 overflow-hidden transition-all duration-300 group-hover:scale-110 group-hover:shadow-[0_0_15px_rgba(197,160,89,0.7)] group-hover:border-[#C5A059]">
               <img 
                 src={brandLogo} 
-                alt="Tech Soko Kenya Logo" 
+                alt="Tech Sokoni Kenya Logo" 
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"
               />
@@ -129,7 +129,7 @@ export default function Header() {
             {/* Custom Brand Labels */}
             <div className="text-left">
               <span className="font-serif italic text-base sm:text-lg font-bold tracking-[0.12em] uppercase text-white block leading-none">
-                TECH SOKO
+                TECH SOKONI
               </span>
               <span className="font-mono text-[8px] tracking-[0.16em] text-[#C5A059] block font-bold mt-1">
                 KENYA • PREMIUM

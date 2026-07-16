@@ -35,7 +35,7 @@ export default function MetadataEditor() {
           setKeywords(data.keywords || "");
         } else {
           // Defaults if document doesn't exist yet
-          setTitle("Tech Soko Kenya | Authorized Apple, HP & ASUS Dealer");
+          setTitle("Tech Sokoni Kenya | Authorized Apple, HP & ASUS Dealer");
           setDescription("Premium laptops, custom workstation desktops, and high-tier accessories along Kenyatta Avenue, Nairobi.");
           setKeywords("macbook pro, hp elitebook, asus rog, premium gadgets, nairobi tech store");
         }
@@ -133,7 +133,7 @@ export default function MetadataEditor() {
             required
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Tech Soko Kenya | Premium Apple & Dell Laptops Nairobi"
+            placeholder="e.g. Tech Sokoni Kenya | Premium Apple & Dell Laptops Nairobi"
             className="w-full bg-[#161616] border border-white/10 hover:border-white/20 focus:border-[#C5A059] focus:outline-hidden rounded-xl px-4 py-3 text-xs text-white placeholder-white/20 font-sans tracking-wide transition-all"
           />
           <p className="text-[10px] text-white/40 mt-1 font-sans">

@@ -5412,10 +5412,10 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
       )}
 
       {activeSubTab === "flash_offers" && (() => {
-        const activeFlashOffers = products.filter(p => p.flashPrice);
+        const activeFlashOffers = liveProducts.filter(p => p.flashPrice);
         const MAX_FLASH_OFFERS = 5;
         const isExceedingThreshold = !flashEditingProductId && activeFlashOffers.length >= MAX_FLASH_OFFERS;
-        const isAlreadyPresent = !flashEditingProductId && !!selectedFlashProductId && products.some(p => p.id === selectedFlashProductId && p.flashPrice);
+        const isAlreadyPresent = !flashEditingProductId && !!selectedFlashProductId && liveProducts.some(p => p.id === selectedFlashProductId && p.flashPrice);
         const cannotSubmit = isExceedingThreshold || isAlreadyPresent;
 
         return (
@@ -5507,7 +5507,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                       value={selectedFlashProductId}
                       onChange={(e) => {
                         setSelectedFlashProductId(e.target.value);
-                        const prod = products.find(p => p.id === e.target.value);
+                        const prod = liveProducts.find(p => p.id === e.target.value);
                         if (prod) {
                           setFlashPrice(Math.round(prod.price * 0.85).toString()); // suggest 15% discount
                           setFlashBanner("ACTIVE CAMPAIGN! 15% OFF!");
@@ -5516,7 +5516,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                       className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white placeholder-white/25 focus:border-[#C5A059]/60 focus:outline-hidden"
                     >
                       <option value="">-- Choose Live Product --</option>
-                      {products.map(p => (
+                      {liveProducts.map(p => (
                         <option key={p.id} value={p.id}>
                           [{p.brand}] {p.name} (Reg: KES {p.price.toLocaleString()})
                         </option>
@@ -5589,7 +5589,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                         alert(isExceedingThreshold ? `Cannot add offer: Max limit of ${MAX_FLASH_OFFERS} active offers reached.` : "This product already has an active flash offer.");
                         return;
                       }
-                      const targetProd = products.find(p => p.id === pid);
+                      const targetProd = liveProducts.find(p => p.id === pid);
                       if (!targetProd) return;
                       
                       try {
@@ -5638,14 +5638,14 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5 text-xs text-white/80">
-                    {products.filter(p => p.flashPrice).length === 0 ? (
+                    {liveProducts.filter(p => p.flashPrice).length === 0 ? (
                       <tr>
                         <td colSpan={6} className="py-8 text-center text-white/30 font-sans italic">
                           No scheduled or active campaigns found. Click "Schedule New Offer" to create a promotional price cut!
                         </td>
                       </tr>
                     ) : (
-                      products.filter(p => p.flashPrice).map((prod) => {
+                      liveProducts.filter(p => p.flashPrice).map((prod) => {
                         const now = new Date();
                         const hasStart = !!prod.flashStart;
                         const isUpcoming = hasStart && new Date(prod.flashStart!) > now;

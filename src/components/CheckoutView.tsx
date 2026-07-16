@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { KENYAN_COUNTIES } from "../data";
 import { PaymentHandler } from "./PaymentHandler";
+import MpesaStatusMonitor from "./MpesaStatusMonitor";
 
 export const getSafaricomValidation = (phone: string) => {
   const digits = phone.replace(/\D/g, "");
@@ -1430,212 +1431,24 @@ export default function CheckoutView() {
       )}
 
       {showMpesaQrScreen && (
-        <div className="max-w-md mx-auto bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 sm:p-8 text-center animate-fadeIn my-12 relative overflow-hidden">
-          {/* M-Pesa green branding ribbon */}
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-[#4f9e31]"></div>
-          
-          <div className="flex justify-center mb-4">
-            <div className="bg-[#4f9e31]/10 px-4 py-1.5 rounded-full border border-[#4f9e31]/30 flex items-center gap-2">
-              <span className="w-2 bg-[#4f9e31] h-2 rounded-full animate-ping"></span>
-              <span className="font-mono text-[9px] font-bold text-[#4f9e31] tracking-wider uppercase">LIPA NA M-PESA INSTANT PORTAL</span>
-            </div>
-          </div>
-          
-          <h2 className="font-sans font-bold text-lg text-white">Dynamic M-Pesa Checkout</h2>
-          <p className="text-white/40 text-[11px] mt-1.5 leading-relaxed font-sans">
-            We've mapped a dynamic routing payload to fast-track your transaction. Scan the generated QR bar below in your M-Pesa App or enter details manually.
-          </p>
-
-          <div className="bg-emerald-950/20 border border-emerald-500/20 rounded-2xl p-4 my-4 text-left">
-            <p className="text-xs text-emerald-400 font-bold mb-1 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              Lipa Na M-Pesa Push Sent Status
-            </p>
-            <p className="text-[10.5px] text-white/70 leading-relaxed font-sans">
-              An M-Pesa dynamic secure prompt has been sent to your phone <strong className="text-[#C5A059] font-mono">+{getSafaricomValidation(customerPhone).apiFormatted}</strong>. Check your phone screen for the prompt or use the simulation console below.
-            </p>
-            <button
-              type="button"
-              disabled={stkSessionExpired}
-              onClick={() => {
-                setMpesaPushStep("prompt");
-                setMpesaPushPin("");
-                setMpesaPushError("");
-                setShowMpesaPushModal(true);
-              }}
-              className="mt-3 w-full bg-[#4f9e31]/25 hover:bg-[#4f9e31]/40 border border-[#4f9e31]/45 disabled:opacity-40 disabled:hover:bg-[#4f9e31]/25 text-[#4f9e31] hover:text-[#5ebd3d] disabled:cursor-not-allowed font-mono text-[10px] font-black py-2 rounded-xl transition-all uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              ⚡ Re-Trigger Lipa Na M-Pesa STK Prompt
-            </button>
-          </div>
-
-          {/* Live real-time STK status tracker */}
-          <div className="my-4 bg-white/[0.01] border border-white/5 rounded-2xl p-4 flex items-center justify-between font-sans">
-            <div className="text-left">
-              <span className="text-white/30 block text-[9px] font-mono font-bold uppercase tracking-wide">Live Daraja Signal</span>
-              <span className="text-white font-bold text-xs">M-Pesa Webhook Monitor</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              {liveOrderStatus === "Processing" && (
-                <span className="px-3 py-1 font-mono text-[10px] font-bold text-amber-400 bg-amber-400/10 border border-amber-500/25 rounded-full flex items-center gap-1.5 animate-pulse uppercase tracking-wider">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-                  Processing STK Push
-                </span>
-              )}
-              {liveOrderStatus === "Confirmed" && (
-                <span className="px-3 py-1 font-mono text-[10px] font-bold text-emerald-400 bg-emerald-400/10 border border-emerald-500/25 rounded-full flex items-center gap-1.5 uppercase tracking-wider animate-pulse">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                  Confirmed & Paid
-                </span>
-              )}
-              {liveOrderStatus === "Cancelled" && (
-                <span className="px-3 py-1 font-mono text-[10px] font-bold text-red-400 bg-red-400/10 border border-red-500/25 rounded-full flex items-center gap-1.5 uppercase tracking-wider">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
-                  Cancelled
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Dynamic QR Code or Secure Expiry Warning Overlay */}
-          <div className="my-6 min-h-[220px] flex flex-col items-center justify-center">
-            {stkSessionExpired ? (
-              <div className="p-6 bg-red-950/20 border border-red-500/20 rounded-2xl text-center space-y-4 max-w-[280px] mx-auto animate-fadeIn">
-                <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mx-auto border border-red-500/20">
-                  <AlertCircle className="w-6 h-6" />
-                </div>
-                <div className="space-y-1">
-                  <h4 className="font-sans font-bold text-red-400 text-sm uppercase tracking-wide">STK Session Expired</h4>
-                  <p className="text-[10px] text-white/50 leading-relaxed font-sans">
-                    For security reasons, the dynamic STK payment lock has initiated a timeout after 30 seconds of idle wait.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    // Reset countdown timer back to 30 and trigger prompt back
-                    setSessionTimeLeft(30);
-                    setStkSessionExpired(false);
-                    setLiveOrderStatus("Processing");
-                    setMpesaPushStep("prompt");
-                    setMpesaPushPin("");
-                    setMpesaPushError("");
-                    setShowMpesaPushModal(true);
-                  }}
-                  className="w-full bg-red-600 hover:bg-red-500 text-white font-sans text-[10px] font-black py-2.5 rounded-xl uppercase tracking-wider transition-colors cursor-pointer"
-                >
-                  🔄 Retry STK Prompt
-                </button>
-              </div>
-            ) : (
-              <div className="p-4 bg-white rounded-2xl inline-block border-2 border-[#4f9e31]/20 shadow-lg shrink-0 relative">
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=2e7d32&data=${encodeURIComponent(
-                    `M-PESA|BUY GOODS|TILL:9309020|ACC:TGK-${mpesaQrOrderId}|AMT:${mpesaQrAmount}`
-                  )}`}
-                  alt="M-Pesa Buy Goods Till QR Code"
-                  className="w-40 h-40 object-contain rounded-lg"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="absolute -bottom-2 -right-2 bg-[#4f9e31] text-white font-mono text-[8px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1 border border-white/20">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
-                  {sessionTimeLeft}s left
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Core Payment Specifics Panel */}
-          <div className="grid grid-cols-2 gap-3 bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-left text-xs mb-6 font-sans">
-            <div>
-              <span className="text-white/30 block text-[9.5px] font-mono font-bold uppercase tracking-wide">Recipient Merchant</span>
-              <span className="text-white font-semibold">Tech Soko Kenya</span>
-            </div>
-            <div>
-              <span className="text-white/30 block text-[9.5px] font-mono font-bold uppercase tracking-wide">Till Number</span>
-              <span className="text-emerald-400 font-bold font-mono text-sm">9309020</span>
-            </div>
-            <div className="mt-2.5">
-              <span className="text-white/30 block text-[9.5px] font-mono font-bold uppercase tracking-wide">System Reference</span>
-              <span className="text-white font-semibold font-mono text-[11px]">TSK-{mpesaQrOrderId.substring(0, 8).toUpperCase()}</span>
-            </div>
-            <div className="mt-2.5">
-              <span className="text-white/30 block text-[9.5px] font-mono font-bold uppercase tracking-wide">Invoice Amount</span>
-              <span className="text-[#C5A059] font-extrabold font-mono text-xs sm:text-sm">KES {mpesaQrAmount.toLocaleString()}</span>
-            </div>
-          </div>
-
-          {/* Quick instructions list */}
-          <div className="text-white/40 text-[10px] text-left space-y-1 bg-white/[0.01] p-3.5 rounded-xl border border-white/5 mb-6 font-sans">
-            <p className="font-semibold text-white/50 text-[10.5px] mb-1">How to pay manually:</p>
-            <p>1. Open your Safaricom M-Pesa App or SIM Toolkit</p>
-            <p>2. Select <strong>Lipa Na M-Pesa</strong> &rarr; <strong>Buy Goods and Services</strong></p>
-            <p>3. Enter Till: <strong className="text-white">9309020</strong></p>
-            <p>4. Enter exact Amount: <strong className="text-white">KES {mpesaQrAmount.toLocaleString()}</strong></p>
-            <p>5. Receive notification code and paste it below to verify</p>
-          </div>
-
-          <div className="space-y-4 text-left border-t border-white/5 pt-5">
-            <div className="space-y-1.5">
-              <label className="font-mono text-[9px] font-black text-white/40 block uppercase tracking-wider">
-                M-Pesa Transaction Code
-              </label>
-              <input
-                type="text"
-                required
-                value={mpesaTransactionCode}
-                onChange={(e) => {
-                  setMpesaTransactionCode(e.target.value.toUpperCase().trim());
-                  setMpesaError("");
-                }}
-                maxLength={10}
-                className="w-full bg-[#050505] border border-white/10 py-3 px-4 rounded-xl text-white font-mono text-sm uppercase tracking-widest text-center focus:border-[#4f9e31] focus:ring-1 focus:ring-[#4f9e31]/20 outline-hidden"
-                placeholder="e.g. SGT245HJ89"
-              />
-              <p className="text-[9px] text-white/30 font-mono mt-1 text-center font-medium">
-                Enter the 10-byte transaction reference from Safaricom receipt.
-              </p>
-            </div>
-
-            {mpesaError && (
-              <div className="p-3 bg-red-950/20 border border-red-500/20 rounded-xl text-red-400 text-[10.5px] font-sans flex items-start gap-2.5">
-                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                <p className="leading-relaxed">{mpesaError}</p>
-              </div>
-            )}
-
-            <div className="pt-2 flex gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowMpesaQrScreen(false);
-                  setMpesaTransactionCode("");
-                  setMpesaError("");
-                }}
-                className="flex-1 bg-white/5 hover:bg-white/10 text-white/80 font-sans font-bold py-3 rounded-xl text-xs transition-colors cursor-pointer"
-              >
-                Cancel Checkout
-              </button>
-              <button
-                type="button"
-                disabled={isVerifyingMpesa}
-                onClick={handleVerifyMpesaQrPayment}
-                className="flex-1 bg-[#4f9e31] hover:bg-[#4f9e31]/90 text-white font-sans font-bold py-3 rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-center gap-2"
-              >
-                {isVerifyingMpesa ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
-                    <span>Verifying Code...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-3.5 h-3.5 text-white" />
-                    <span>Confirm Settlement</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
+        <div className="my-12">
+          <MpesaStatusMonitor
+            orderId={mpesaQrOrderId}
+            expectedAmount={mpesaQrAmount}
+            onSuccess={() => {
+              setGeneratedReceipt(mpesaTransactionCode || "M-PESA-STK-CONFIRMED");
+              setGeneratedOrderId(mpesaQrOrderId);
+              setPaymentSuccess(true);
+              clearCart();
+              setShowMpesaQrScreen(false);
+            }}
+            onFailure={(err) => {
+              setMpesaError(err);
+            }}
+            onClose={() => {
+              setShowMpesaQrScreen(false);
+            }}
+          />
         </div>
       )}
 
@@ -1689,7 +1502,7 @@ export default function CheckoutView() {
                 <div className="space-y-4">
                   <div className="bg-white/90 border border-black/5 rounded-xl p-3.5 space-y-2 text-xs text-center border-l-4 border-l-[#4f9e31]">
                     <p className="font-semibold text-[13px] text-gray-800 leading-snug">
-                      Do you want to pay KES {mpesaQrAmount.toLocaleString()} to Tech Soko Kenya?
+                      Do you want to pay KES {mpesaQrAmount.toLocaleString()} to Tech Sokoni Kenya?
                     </p>
                     <div className="pt-2 border-t border-gray-200 flex justify-between font-mono text-[10.5px] font-bold text-[#4f9e31]">
                       <span>TILL NO: 9309020</span>

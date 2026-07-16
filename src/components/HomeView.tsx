@@ -6,6 +6,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useStore } from "../StoreContext";
 import { motion, AnimatePresence } from "motion/react";
+import LiveOrderTracker from "./LiveOrderTracker";
 import { 
   Laptop, 
   Smartphone, 
@@ -172,8 +173,12 @@ export default function HomeView() {
               </button>
               <button
                 onClick={() => {
-                  setSearchQuery("");
-                  setActiveView("client-dashboard");
+                  const el = document.getElementById("live-tracking-section");
+                  if (el) {
+                    el.scrollIntoView({ behavior: "smooth" });
+                  } else {
+                    setActiveView("client-dashboard");
+                  }
                 }}
                 className="bg-white/[0.03] hover:bg-white/[0.08] text-white border border-white/10 font-sans px-5 py-3 rounded-xl transition-colors text-sm cursor-pointer"
               >
@@ -232,6 +237,11 @@ export default function HomeView() {
         {/* Ambient backdrop gradient glow */}
         <div className="absolute right-0 bottom-0 top-0 w-1/2 bg-gradient-to-l from-[#C5A059]/10 to-transparent pointer-events-none hidden md:block z-0" />
       </motion.section>
+
+      {/* Live Order Tracking section */}
+      <section className="mb-12">
+        <LiveOrderTracker onNavigateToShop={() => setActiveView("shop")} />
+      </section>
 
       {/* Dynamic Cycling Motion-Based Promotional Banner */}
       {promoProducts.length > 0 && (

@@ -165,7 +165,7 @@ export default function AIAdvisor() {
   const [chatHistory, setChatHistory] = useState<{ role: "user" | "assistant"; content: string }[]>([
     {
       role: "assistant",
-      content: "Hello! I am your Tech Soko Kenya AI Advisor. Ask me anything about our live hardware inventory, compare specs, or ask for professional recommendation on buying!"
+      content: "Hello! I am your Tech Sokoni Kenya AI Advisor. Ask me anything about our live hardware inventory, compare specs, or ask for professional recommendation on buying!"
     }
   ]);
 
@@ -292,7 +292,7 @@ export default function AIAdvisor() {
             : "No products context available";
 
           const systemInstruction = `
-You are the AI Hardware Specialist for "Tech Soko Kenya", an elite authorized electronics distributor in Nairobi, Kenya.
+You are the AI Hardware Specialist for "Tech Sokoni Kenya", an elite authorized electronics distributor in Nairobi, Kenya.
 Your job is to assist clients professionally by answering queries about electronics, making product recommendations, comparing hardware side-by-side, and providing technical support.
 
 Guidelines:
@@ -371,7 +371,7 @@ Where "id_1, id_2" are the raw matching IDs of the products from the live databa
     setChatHistory([
       {
         role: "assistant",
-        content: "Hello! I am your Tech Soko Kenya AI Advisor. Ask me anything about our live hardware inventory, compare specs, or ask for professional recommendation on buying!"
+        content: "Hello! I am your Tech Sokoni Kenya AI Advisor. Ask me anything about our live hardware inventory, compare specs, or ask for professional recommendation on buying!"
       }
     ]);
   };

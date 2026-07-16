@@ -14,8 +14,9 @@ const AdminStoreContext = createContext<AdminStoreType | undefined>(undefined);
 
 export function AdminStoreProvider({ children }: { children: React.ReactNode }) {
   const { user, userProfile } = useStore();
-  const [liveProducts, setLiveProducts] = useState<Product[]>([]);
+  const [rawProducts, setRawProducts] = useState<Product[]>([]);
   const [liveOrders, setLiveOrders] = useState<Order[]>([]);
+  const [flashOffers, setFlashOffers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const isAdmin = user && (
@@ -25,10 +26,34 @@ export function AdminStoreProvider({ children }: { children: React.ReactNode }) 
     userProfile?.["admin-claims"] === true
   );
 
+  const liveProducts = React.useMemo(() => {
+    return rawProducts.map((p) => {
+      const offer = flashOffers.find((o) => o.productId === p.id || o.id === p.id);
+      if (offer) {
+        return {
+          ...p,
+          flashPrice: offer.flashPrice,
+          flashStart: offer.flashStart || null,
+          flashExpiry: offer.flashExpiry,
+          flashBanner: offer.flashBanner,
+        };
+      } else {
+        return {
+          ...p,
+          flashPrice: null,
+          flashStart: null,
+          flashExpiry: null,
+          flashBanner: null,
+        };
+      }
+    });
+  }, [rawProducts, flashOffers]);
+
   useEffect(() => {
     if (!isAdmin) {
-      setLiveProducts([]);
+      setRawProducts([]);
       setLiveOrders([]);
+      setFlashOffers([]);
       setLoading(false);
       return;
     }
@@ -51,12 +76,24 @@ export function AdminStoreProvider({ children }: { children: React.ReactNode }) 
         const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return dateB - dateA;
       });
-      setLiveProducts(list);
+      setRawProducts(list);
     }, (error) => {
       console.error("AdminStore products sync error:", error);
     });
 
-    // 2. Real-time orders/transactions sync (no limits, instant synchronization)
+    // 2. Real-time flash offers sync
+    const flashCol = collection(db, "flash_offers");
+    const unsubscribeFlash = onSnapshot(flashCol, (snapshot) => {
+      const list: any[] = [];
+      snapshot.forEach((doc) => {
+        list.push({ id: doc.id, ...doc.data() });
+      });
+      setFlashOffers(list);
+    }, (error) => {
+      console.error("AdminStore flash offers sync error:", error);
+    });
+
+    // 3. Real-time orders/transactions sync (no limits, instant synchronization)
     const ordersCol = collection(db, "orders");
     const unsubscribeOrders = onSnapshot(ordersCol, (snapshot) => {
       const list: Order[] = [];
@@ -78,6 +115,7 @@ export function AdminStoreProvider({ children }: { children: React.ReactNode }) 
 
     return () => {
       unsubscribeProducts();
+      unsubscribeFlash();
       unsubscribeOrders();
     };
   }, [isAdmin]);

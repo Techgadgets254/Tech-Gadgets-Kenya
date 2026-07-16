@@ -21,6 +21,8 @@ import {
   MessageCircle,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   TrendingUp,
   X
 } from "lucide-react";
@@ -121,12 +123,78 @@ export default function ProductDetailsView() {
     return products.find(p => p.id === selectedProductId) || null;
   }, [products, selectedProductId]);
 
+  // Construct a robust set of showcase images showing different angles and features
+  const galleryImages = useMemo(() => {
+    if (!product) return [];
+    if (product.gallery && product.gallery.length > 0) {
+      return [product.image, ...product.gallery];
+    }
+    
+    // Fallback beautiful device angles and lifestyle showcases from Unsplash depending on category
+    const cat = product.category.toLowerCase();
+    
+    if (cat.includes("laptop") || cat.includes("macbook")) {
+      return [
+        product.image,
+        "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=600", // Side ports / layout
+        "https://images.unsplash.com/photo-1496181130204-755241544e35?auto=format&fit=crop&q=80&w=600", // Sleek metallic cover
+        "https://images.unsplash.com/photo-1541807084-5c52b6b3adef?auto=format&fit=crop&q=80&w=600", // Ergonomic backlit keyboard close-up
+        "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?auto=format&fit=crop&q=80&w=600"  // Multi-angle workstation mockup
+      ];
+    } else if (cat.includes("phone") || cat.includes("iphone")) {
+      return [
+        product.image,
+        "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&q=80&w=600", // Profile / camera glass
+        "https://images.unsplash.com/photo-1598327105666-5b89351aff97?auto=format&fit=crop&q=80&w=600", // Elegant tactile side keys
+        "https://images.unsplash.com/photo-1565849328263-1a7dd3218122?auto=format&fit=crop&q=80&w=600", // High brightness HDR panel
+        "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&q=80&w=600"  // Device in active hand use
+      ];
+    } else if (cat.includes("printer")) {
+      return [
+        product.image,
+        "https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?auto=format&fit=crop&q=80&w=600", // High capacity input feed tray
+        "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=600", // Pristine color printer output
+        "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&q=80&w=600"  // Wireless touchscreen selection pad
+      ];
+    } else if (cat.includes("accessories") || cat.includes("charger") || cat.includes("cable") || cat.includes("hub")) {
+      return [
+        product.image,
+        "https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&q=80&w=600", // Connector contacts close-up
+        "https://images.unsplash.com/photo-1468436139062-f60a71c5c892?auto=format&fit=crop&q=80&w=600", // Safe thermal dissipation structure
+        "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=600"  // Packaging box and accessories
+      ];
+    } else {
+      return [
+        product.image,
+        "https://images.unsplash.com/photo-1498049794561-7780e7231661?auto=format&fit=crop&q=80&w=600", // Isometric alignment specs
+        "https://images.unsplash.com/photo-1527689368864-3a821dbccc34?auto=format&fit=crop&q=80&w=600", // Ambient office desktop setting
+        "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&q=80&w=600"  // Reflected camera detail layout
+      ];
+    }
+  }, [product]);
+
   // Sync activeImage when product changes
   React.useEffect(() => {
     if (product) {
       setActiveImage(product.image);
     }
   }, [product]);
+
+  const handlePrevImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (galleryImages.length === 0) return;
+    const currIndex = galleryImages.indexOf(activeImage || product.image);
+    const prevIndex = currIndex <= 0 ? galleryImages.length - 1 : currIndex - 1;
+    setActiveImage(galleryImages[prevIndex]);
+  };
+
+  const handleNextImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (galleryImages.length === 0) return;
+    const currIndex = galleryImages.indexOf(activeImage || product.image);
+    const nextIndex = currIndex >= galleryImages.length - 1 ? 0 : currIndex + 1;
+    setActiveImage(galleryImages[nextIndex]);
+  };
 
   // Load database reviews from the top-level Firestore collection
   const dbReviews = useMemo(() => {
@@ -482,28 +550,62 @@ export default function ProductDetailsView() {
       {/* Main split grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 mb-12">
         
-        {/* Left Side: Media Display with interactive multi-image switcher - Medium sized */}
+        {/* Left Side: Media Display with interactive multi-image gallery slider */}
         <div className="lg:col-span-6 space-y-4 flex flex-col items-center">
           <div 
-            className="bg-[#1A1A1A] border border-white/10 rounded-3xl overflow-hidden shadow-2xl h-64 sm:h-80 w-full max-w-sm sm:max-w-md mx-auto relative cursor-zoom-in group/zoom container-zoom-magnifier"
+            className="bg-[#161616] border border-white/10 rounded-3xl overflow-hidden shadow-2xl h-64 sm:h-80 w-full max-w-sm sm:max-w-md mx-auto relative cursor-zoom-in group/zoom container-zoom-magnifier"
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
           >
+            {/* Main Interactive Zoomed Image */}
             <img
               src={activeImage || product.image}
               alt={product.name}
               loading="lazy"
               referrerPolicy="no-referrer"
-              className="w-full h-full object-contain p-3 transition-transform duration-75 ease-out"
+              className="w-full h-full object-contain p-4 transition-transform duration-75 ease-out"
               style={zoomStyle}
             />
+
+            {/* Left Chevron Slide Trigger */}
+            {galleryImages.length > 1 && (
+              <button
+                onClick={handlePrevImage}
+                className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-[#C5A059] text-white hover:text-black p-2 rounded-full border border-white/10 transition-all duration-200 hover:scale-105 active:scale-95 backdrop-blur-md cursor-pointer z-20 group-hover/zoom:opacity-100"
+                aria-label="Previous showcase view"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+            )}
+
+            {/* Right Chevron Slide Trigger */}
+            {galleryImages.length > 1 && (
+              <button
+                onClick={handleNextImage}
+                className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-[#C5A059] text-white hover:text-black p-2 rounded-full border border-white/10 transition-all duration-200 hover:scale-105 active:scale-95 backdrop-blur-md cursor-pointer z-20 group-hover/zoom:opacity-100"
+                aria-label="Next showcase view"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            )}
+
+            {/* Translucent Numeric Indicator overlay */}
+            {galleryImages.length > 1 && (
+              <div className="absolute bottom-3 right-4 bg-black/60 backdrop-blur-md text-white/90 text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/5 select-none pointer-events-none z-20">
+                {galleryImages.indexOf(activeImage || product.image) + 1} / {galleryImages.length}
+              </div>
+            )}
           </div>
           
-          {/* Thumbnails list mapping up to 5 images */}
-          {product.gallery && product.gallery.length > 0 && (
+          {/* Enhanced Thumbnails list mapping up to 5 beautiful device angles */}
+          {galleryImages.length > 1 && (
             <div className="flex justify-center gap-2 px-2 py-1.5 bg-black/30 border border-white/5 rounded-2xl overflow-x-auto w-full max-w-sm sm:max-w-md">
-              {[product.image, ...product.gallery].map((img, index) => {
+              {galleryImages.map((img, index) => {
                 const isActive = (activeImage || product.image) === img;
+                // Human-readable labels representing device views
+                const viewLabels = ["Primary", "Ports/Side", "Detail/Profile", "Interface/Keys", "Setup/Box"];
+                const label = viewLabels[index] || `View ${index + 1}`;
+
                 return (
                   <button
                     key={index}
@@ -513,21 +615,26 @@ export default function ProductDetailsView() {
                         ? "border-[#C5A059] ring-2 ring-[#C5A059]/20" 
                         : "border-white/10 hover:border-white/20"
                     }`}
+                    title={label}
                   >
-                    <LazyImage src={img} alt={`Asset View ${index + 1}`} className="w-full h-full object-cover" />
+                    <LazyImage src={img} alt={`${product.name} - ${label}`} className="w-full h-full object-cover" />
+                    {/* Hover text label overlay */}
+                    <span className="absolute bottom-0 inset-x-0 bg-black/70 text-[8px] text-white/80 font-sans py-0.5 text-center opacity-0 hover:opacity-100 transition-opacity truncate">
+                      {label}
+                    </span>
                   </button>
                 );
               })}
             </div>
           )}
           
-          <div className="flex border border-white/5 bg-white/[0.02] rounded-2xl p-4 items-center gap-3">
+          <div className="flex border border-white/5 bg-white/[0.02] rounded-2xl p-4 items-center gap-3 w-full max-w-sm sm:max-w-md">
             <span className="p-2 rounded-lg bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/20 shrink-0">
               <CheckCircle className="w-5 h-5 text-[#C5A059]" />
             </span>
             <div>
               <p className="text-xs font-bold text-white leading-tight">Authentic East African Warranty Verified</p>
-              <p className="text-[11px] text-white/70 mt-0.5">This {product.brand} packaging is factory sealed and covered by standard 12-month manufacturer backing.</p>
+              <p className="text-[11px] text-white/70 mt-0.5 font-sans">This {product.brand} packaging is factory sealed and covered by standard 12-month manufacturer backing.</p>
             </div>
           </div>
         </div>
