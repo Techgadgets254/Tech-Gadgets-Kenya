@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin-dashboard
+Disallow: /client-dashboard
+Disallow: /api/
+
+Sitemap: https://techsokoni.com/sitemap.xml

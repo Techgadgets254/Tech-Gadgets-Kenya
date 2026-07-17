@@ -551,6 +551,7 @@ export default function ProductDetailsView() {
         keywords={`${product.name}, ${product.brand || "Tech Sokoni"}, laptop, specs, Tech Sokoni Kenya, Kenya electronics`}
         image={product.image}
         url={`https://techsokoni.com/product/${product.id}`}
+        product={product}
       />
       <script type="application/ld+json" dangerouslySetInnerHTML={{
         __html: JSON.stringify({

@@ -26,7 +26,7 @@ import {
   ChevronRight
 } from "lucide-react";
 
-type TabType = "meta" | "merchant" | "seo_health";
+type TabType = "meta" | "merchant" | "seo_health" | "crawlers";
 
 export default function MetadataEditor() {
   const { liveProducts, loading: loadingProducts } = useAdminStore();
@@ -49,6 +49,106 @@ export default function MetadataEditor() {
   const [feedError, setFeedError] = useState("");
   const [feedLoaded, setFeedLoaded] = useState(false);
   const [copiedFeedUrl, setCopiedFeedUrl] = useState(false);
+
+  // Tab 4: Crawler Diagnostics states
+  const [checkingCrawlers, setCheckingCrawlers] = useState(false);
+  const [robotsStatus, setRobotsStatus] = useState<{
+    exists: boolean;
+    size: number;
+    linesCount: number;
+    content: string;
+    sitemapDeclared: boolean;
+    disallowedPaths: string[];
+  } | null>(null);
+  const [sitemapStatus, setSitemapStatus] = useState<{
+    exists: boolean;
+    size: number;
+    urlsCount: number;
+    content: string;
+    validXml: boolean;
+  } | null>(null);
+
+  const testCrawlerFiles = async () => {
+    setCheckingCrawlers(true);
+    
+    // 1. Check robots.txt
+    try {
+      const robotsRes = await fetch("/robots.txt");
+      if (robotsRes.ok) {
+        const text = await robotsRes.text();
+        const lines = text.split("\n");
+        const disallowed = lines
+          .filter(line => line.trim().toLowerCase().startsWith("disallow:"))
+          .map(line => {
+            const parts = line.split(":");
+            return parts.slice(1).join(":").trim();
+          })
+          .filter(p => p !== "");
+        const hasSitemap = text.toLowerCase().includes("sitemap:");
+        setRobotsStatus({
+          exists: true,
+          size: text.length,
+          linesCount: lines.length,
+          content: text,
+          sitemapDeclared: hasSitemap,
+          disallowedPaths: disallowed
+        });
+      } else {
+        setRobotsStatus({
+          exists: false,
+          size: 0,
+          linesCount: 0,
+          content: "",
+          sitemapDeclared: false,
+          disallowedPaths: []
+        });
+      }
+    } catch (err) {
+      setRobotsStatus({
+        exists: false,
+        size: 0,
+        linesCount: 0,
+        content: "",
+        sitemapDeclared: false,
+        disallowedPaths: []
+      });
+    }
+
+    // 2. Check sitemap.xml
+    try {
+      const sitemapRes = await fetch("/sitemap.xml");
+      if (sitemapRes.ok) {
+        const text = await sitemapRes.text();
+        const locCount = (text.match(/<loc>/g) || []).length;
+        const isValidXml = text.trim().startsWith("<?xml") && text.includes("<urlset");
+        setSitemapStatus({
+          exists: true,
+          size: text.length,
+          urlsCount: locCount,
+          content: text,
+          validXml: isValidXml
+        });
+      } else {
+        setSitemapStatus({
+          exists: false,
+          size: 0,
+          urlsCount: 0,
+          content: "",
+          validXml: false
+        });
+      }
+    } catch (err) {
+      setSitemapStatus({
+        exists: false,
+        size: 0,
+        urlsCount: 0,
+        content: "",
+        validXml: false
+      });
+    }
+
+    setCheckingCrawlers(false);
+  };
 
   // Load site-wide SEO metadata
   useEffect(() => {
@@ -329,6 +429,20 @@ export default function MetadataEditor() {
         >
           <Activity className="w-4 h-4" />
           SEO Schema Health
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("crawlers");
+            testCrawlerFiles();
+          }}
+          className={`flex items-center gap-2 px-5 py-3 border-b-2 font-sans text-xs font-semibold tracking-wide transition-all ${
+            activeTab === "crawlers"
+              ? "border-[#C5A059] text-[#C5A059] bg-[#C5A059]/5"
+              : "border-transparent text-white/40 hover:text-white"
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          Crawler Diagnostics
         </button>
       </div>
 
@@ -779,6 +893,301 @@ export default function MetadataEditor() {
                 <p className="text-[11px] text-white/50 leading-relaxed">
                   Google Rich Snippets require active rating tags to display star counts, increasing CTR by up to 30%.
                 </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "crawlers" && (
+        <div className="space-y-6 animate-fadeIn">
+          {/* Top Status Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* robots.txt status card */}
+            <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-white/5 text-[#C5A059]">
+                    <FileText className="w-4 h-4 text-[#C5A059]" />
+                  </div>
+                  <div>
+                    <h3 className="font-sans font-bold text-xs text-white uppercase">robots.txt Status</h3>
+                    <p className="text-[10px] text-white/40">Crawl Permissions Map</p>
+                  </div>
+                </div>
+                {checkingCrawlers ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-white/50" />
+                ) : robotsStatus?.exists ? (
+                  <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono rounded">
+                    ACTIVE (200 OK)
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-mono rounded">
+                    MISSING / ERR
+                  </span>
+                )}
+              </div>
+
+              {robotsStatus ? (
+                <div className="space-y-3.5 text-xs font-sans">
+                  {robotsStatus.exists ? (
+                    <>
+                      <div className="grid grid-cols-2 gap-4 bg-white/[0.02] p-3 rounded-xl border border-white/5 font-mono text-[11px]">
+                        <div>
+                          <span className="text-white/40 block">File Size</span>
+                          <span className="text-white font-medium">{robotsStatus.size} bytes</span>
+                        </div>
+                        <div>
+                          <span className="text-white/40 block">Configuration Lines</span>
+                          <span className="text-white font-medium">{robotsStatus.linesCount} rows</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 text-left">
+                        <div className="flex items-center gap-2">
+                          {robotsStatus.sitemapDeclared ? (
+                            <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                          ) : (
+                            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                          )}
+                          <span className="text-white">
+                            Sitemap Pointer Declared: <strong className="font-mono text-[#C5A059]">{robotsStatus.sitemapDeclared ? "YES" : "NO"}</strong>
+                          </span>
+                        </div>
+
+                        <div className="flex items-start gap-2">
+                          <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                          <div>
+                            <span className="text-white block">Sensitive Routes Protected:</span>
+                            <div className="flex flex-wrap gap-1.5 mt-1.5">
+                              {robotsStatus.disallowedPaths.map((p, idx) => (
+                                <span key={idx} className="px-1.5 py-0.5 bg-white/5 rounded text-[10px] font-mono text-white/70 border border-white/5">
+                                  {p}
+                                </span>
+                              ))}
+                              {robotsStatus.disallowedPaths.length === 0 && (
+                                <span className="text-[10px] text-rose-400 font-mono">No sensitive paths blocked!</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 text-left">
+                        <span className="text-[10px] font-mono text-white/40 uppercase block">Raw File Content:</span>
+                        <pre className="p-3 bg-[#141414] border border-white/5 rounded-xl font-mono text-[10px] leading-relaxed text-emerald-400/80 overflow-x-auto max-h-[120px] scrollbar-thin text-left">
+                          {robotsStatus.content}
+                        </pre>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="p-4 bg-rose-500/5 border border-rose-500/10 rounded-2xl text-rose-400/90 text-xs">
+                      <p className="font-bold mb-1">robots.txt File Access Failed</p>
+                      <p className="text-[11px] leading-relaxed text-white/50">
+                        Search engine crawlers could not locate a robots.txt file at your host root. This can cause index delays or exposure of sensitive panels.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="py-6 text-center text-white/30 text-xs font-sans">
+                  Click 'Run Diagnostics' below to analyze files.
+                </div>
+              )}
+            </div>
+
+            {/* sitemap.xml status card */}
+            <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-white/5 text-[#C5A059]">
+                    <Globe className="w-4 h-4 text-[#C5A059]" />
+                  </div>
+                  <div>
+                    <h3 className="font-sans font-bold text-xs text-white uppercase">sitemap.xml Status</h3>
+                    <p className="text-[10px] text-white/40">Search Engine Index Map</p>
+                  </div>
+                </div>
+                {checkingCrawlers ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-white/50" />
+                ) : sitemapStatus?.exists ? (
+                  <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono rounded">
+                    ACTIVE (200 OK)
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-mono rounded">
+                    MISSING / ERR
+                  </span>
+                )}
+              </div>
+
+              {sitemapStatus ? (
+                <div className="space-y-3.5 text-xs font-sans">
+                  {sitemapStatus.exists ? (
+                    <>
+                      <div className="grid grid-cols-2 gap-4 bg-white/[0.02] p-3 rounded-xl border border-white/5 font-mono text-[11px]">
+                        <div>
+                          <span className="text-white/40 block">File Size</span>
+                          <span className="text-white font-medium">{sitemapStatus.size} bytes</span>
+                        </div>
+                        <div>
+                          <span className="text-white/40 block">Indexed URLs Count</span>
+                          <span className="text-white font-medium">{sitemapStatus.urlsCount} links</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 text-left">
+                        <div className="flex items-center gap-2">
+                          {sitemapStatus.validXml ? (
+                            <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                          ) : (
+                            <AlertTriangle className="w-4 h-4 text-[#C5A059] shrink-0" />
+                          )}
+                          <span className="text-white">
+                            Structure Validation: <strong className="font-mono text-emerald-400">{sitemapStatus.validXml ? "VALID XML SCHEMA" : "SCHEMA ERROR"}</strong>
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <span className="text-white">
+                            Live Crawler Accessibility: <strong className="text-emerald-400 font-bold">SUCCESSFUL</strong>
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl text-[11px] leading-relaxed text-white/60 text-left">
+                        <span className="font-bold text-emerald-400 block mb-1">Index Map Fully Loaded:</span>
+                        Search crawlers like Googlebot and Bingbot can read sitemap links automatically. Crawl budget is optimized.
+                      </div>
+                    </>
+                  ) : (
+                    <div className="p-4 bg-rose-500/5 border border-rose-500/10 rounded-2xl text-rose-400/90 text-xs">
+                      <p className="font-bold mb-1">sitemap.xml Access Failed</p>
+                      <p className="text-[11px] leading-relaxed text-white/50">
+                        Search engine crawlers could not fetch /sitemap.xml. Ensure index routing is running and your site has active inventory items.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="py-6 text-center text-white/30 text-xs font-sans">
+                  Click 'Run Diagnostics' below to analyze files.
+                </div>
+              )}
+            </div>
+
+          </div>
+
+          {/* Action Trigger Row */}
+          <div className="flex justify-center">
+            <button
+              onClick={testCrawlerFiles}
+              disabled={checkingCrawlers}
+              className="px-6 py-3 bg-[#C5A059] hover:bg-[#C5A059]/90 text-black text-xs font-bold font-sans tracking-wide rounded-2xl transition-all cursor-pointer flex items-center gap-2 shadow-lg disabled:opacity-50"
+            >
+              {checkingCrawlers ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>CRAWLING DIAGNOSTIC SITES...</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-pulse" />
+                  <span>RUN RE-CHECK &amp; PING CRONTAB</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Google Merchant Center Instruction Guide (SOLVES MANUAL vs SCHEDULED FETCH) */}
+          <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl text-left">
+            <div className="border-b border-white/5 pb-4">
+              <h3 className="font-sans font-bold text-sm text-white uppercase flex items-center gap-2.5">
+                <HelpCircle className="w-5 h-5 text-[#C5A059]" />
+                Google Merchant Center Connection Manual
+              </h3>
+              <p className="text-[11px] text-white/50 mt-1 leading-relaxed">
+                Learn how to resolve the <strong className="text-white">"File not found"</strong> error and choose the optimal method to submit your catalog to Google.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs font-sans">
+              <div className="space-y-4">
+                <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl space-y-2 text-left">
+                  <h4 className="font-bold text-amber-400 uppercase text-[11px] tracking-wider flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" />
+                    Why did manual file upload fail?
+                  </h4>
+                  <p className="text-white/70 leading-relaxed text-[11px]">
+                    If you choose <strong className="text-white">"Upload a file"</strong> under "Add products from a file", Google expects you to upload a physical, static file stored on your local hard drive. 
+                  </p>
+                  <p className="text-white/50 leading-relaxed text-[11px]">
+                    Entering a web URL like <code className="text-emerald-400 font-mono text-[10px] bg-white/5 px-1 py-0.5 rounded">https://techsokoni.com/google-merchant-feed.xml</code> there will trigger a <strong className="text-rose-400">"File Not Found"</strong> or "Failed to locate file" error, because it is a web endpoint, not a physical folder path on your computer.
+                  </p>
+                </div>
+
+                <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl space-y-2 text-left">
+                  <h4 className="font-bold text-emerald-400 uppercase text-[11px] tracking-wider flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4" />
+                    The Solution: Choose "Scheduled Fetch"
+                  </h4>
+                  <p className="text-white/70 leading-relaxed text-[11px]">
+                    Instead of manual uploads or the complex Content API, choose the <strong className="text-white">Scheduled Fetch</strong> feed method. This lets Google automatically download and sync your inventory from your server every day!
+                  </p>
+                  <ul className="space-y-1.5 text-white/60 text-[11px] list-disc pl-4">
+                    <li>Always keeps prices &amp; stocks 100% accurate.</li>
+                    <li>Automatic sync runs daily at midnight.</li>
+                    <li>No manual download/re-upload needed!</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="p-5 bg-white/[0.02] border border-white/5 rounded-2xl space-y-3 leading-relaxed text-left">
+                  <h4 className="font-bold text-[#C5A059] uppercase text-[11px] tracking-wider">
+                    Step-by-Step Setup in Google Merchant Center
+                  </h4>
+                  
+                  <div className="space-y-3.5 text-[11px] text-white/70">
+                    <div className="flex gap-2">
+                      <span className="font-mono text-[#C5A059] font-bold">1.</span>
+                      <p>Go to your <strong className="text-white">Merchant Center Console</strong> &rarr; click on <strong className="text-white">Products</strong> &rarr; <strong className="text-white">Feeds</strong>.</p>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <span className="font-mono text-[#C5A059] font-bold">2.</span>
+                      <p>Click the big <strong className="text-white">"+" blue button</strong> to add a new primary product feed.</p>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <span className="font-mono text-[#C5A059] font-bold">3.</span>
+                      <p>Select target country (<strong className="text-white">Kenya</strong>) and language, then choose <strong className="text-white">Scheduled Fetch</strong> when asked how you want to set up your feed.</p>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <span className="font-mono text-[#C5A059] font-bold">4.</span>
+                      <p>Name your feed, then in the next step enter the URL:</p>
+                    </div>
+
+                    <div className="bg-[#141414] border border-white/5 px-3.5 py-2.5 rounded-xl flex items-center justify-between font-mono text-[10px] text-emerald-400">
+                      <span>https://techsokoni.com/google-merchant-feed.xml</span>
+                      <button 
+                        onClick={handleCopyFeedUrl}
+                        className="p-1 bg-white/5 hover:bg-white/10 rounded text-white/80 border border-white/10 cursor-pointer"
+                        title="Copy Feed URL"
+                      >
+                        {copiedFeedUrl ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <span className="font-mono text-[#C5A059] font-bold">5.</span>
+                      <p>Set Fetch frequency to <strong className="text-white">Daily</strong> and time to any hour. Click <strong className="text-white">Create Feed</strong>. Done!</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

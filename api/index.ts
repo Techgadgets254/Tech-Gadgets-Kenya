@@ -380,7 +380,7 @@ app.get(["/google-merchant-feed.xml", "/api/google-merchant-feed.xml"], async (r
       const priceVal = `${prod.price || 0} KES`;
       const descriptionText = prod.description || `Buy ${prod.name} by ${prod.brand || "Tech Sokoni Kenya"} online at the best price in Kenya.`;
       
-      let imageLink = prod.images && prod.images[0] ? prod.images[0] : "";
+      let imageLink = prod.image || (prod.images && prod.images[0]) || "";
       if (imageLink && !imageLink.startsWith("http")) {
         imageLink = `${baseUrl}${imageLink.startsWith("/") ? "" : "/"}${imageLink}`;
       } else if (!imageLink) {

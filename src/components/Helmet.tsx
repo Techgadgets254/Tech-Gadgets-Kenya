@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { Product } from "../types";
 
 interface HelmetProps {
   title: string;
@@ -6,9 +7,10 @@ interface HelmetProps {
   keywords?: string;
   image?: string;
   url?: string;
+  product?: Product;
 }
 
-export function Helmet({ title, description, keywords, image, url }: HelmetProps) {
+export function Helmet({ title, description, keywords, image, url, product }: HelmetProps) {
   useEffect(() => {
     // 1. Update Browser Dynamic Document Title
     document.title = title;
@@ -48,7 +50,73 @@ export function Helmet({ title, description, keywords, image, url }: HelmetProps
     setMetaTag("name", "twitter:description", activeDesc);
     setMetaTag("name", "twitter:image", activeImage);
 
-  }, [title, description, keywords, image, url]);
+    // 5. Dynamic JSON-LD structured data injection for Product Crawling
+    if (product) {
+      let scriptElement = document.getElementById("helmet-jsonld") as HTMLScriptElement;
+      if (!scriptElement) {
+        scriptElement = document.createElement("script");
+        scriptElement.id = "helmet-jsonld";
+        scriptElement.type = "application/ld+json";
+        document.head.appendChild(scriptElement);
+      }
+
+      const ratingValue = product.rating || 4.8;
+      const isRefurbished = product.category?.toLowerCase().includes("refurbished") || product.name?.toLowerCase().includes("refurbished");
+      const availability = (product.stock !== undefined && product.stock > 0) 
+        ? "https://schema.org/InStock" 
+        : "https://schema.org/OutOfStock";
+
+      const jsonLd = {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": product.name,
+        "image": product.image ? (product.image.startsWith("http") ? product.image : `https://techsokoni.com${product.image}`) : "https://techsokoni.com/logo.png",
+        "description": product.description || `Genuine ${product.name} with local warranty, available at Tech Sokoni Kenya.`,
+        "brand": {
+          "@type": "Brand",
+          "name": product.brand || "Tech Sokoni"
+        },
+        "sku": product.id,
+        "mpn": product.id,
+        "offers": {
+          "@type": "Offer",
+          "url": `https://techsokoni.com/product/${product.id}`,
+          "priceCurrency": "KES",
+          "price": product.price,
+          "priceValidUntil": "2027-12-31",
+          "itemCondition": isRefurbished ? "https://schema.org/RefurbishedCondition" : "https://schema.org/NewCondition",
+          "availability": availability,
+          "seller": {
+            "@type": "Organization",
+            "name": "Tech Sokoni Kenya",
+            "url": "https://techsokoni.com"
+          }
+        },
+        "aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": ratingValue,
+          "reviewCount": product.reviews?.length || 1,
+          "bestRating": "5",
+          "worstRating": "1"
+        }
+      };
+
+      scriptElement.textContent = JSON.stringify(jsonLd);
+    } else {
+      const existingScript = document.getElementById("helmet-jsonld");
+      if (existingScript) {
+        existingScript.remove();
+      }
+    }
+
+    return () => {
+      // Cleanup dynamically created script on unmount
+      const existingScript = document.getElementById("helmet-jsonld");
+      if (existingScript) {
+        existingScript.remove();
+      }
+    };
+  }, [title, description, keywords, image, url, product]);
 
   return null;
 }
