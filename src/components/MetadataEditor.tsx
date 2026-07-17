@@ -44,6 +44,7 @@ export default function MetadataEditor() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [keywords, setKeywords] = useState("");
+  const [googleSiteVerification, setGoogleSiteVerification] = useState("");
   const [loadingMeta, setLoadingMeta] = useState(true);
   const [savingMeta, setSavingMeta] = useState(false);
   const [metaStatus, setMetaStatus] = useState<"idle" | "success" | "error">("idle");
@@ -452,11 +453,13 @@ export default function MetadataEditor() {
           setTitle(data.title || "");
           setDescription(data.description || "");
           setKeywords(data.keywords || "");
+          setGoogleSiteVerification(data.googleSiteVerification || "GSC_VERIFICATION_TOKEN_HERE");
         } else {
           // Defaults
           setTitle("Tech Sokoni Kenya | Authorized Apple, HP & ASUS Dealer");
           setDescription("Premium laptops, custom workstation desktops, and high-tier accessories along Kenyatta Avenue, Nairobi.");
           setKeywords("macbook pro, hp elitebook, asus rog, premium gadgets, nairobi tech store");
+          setGoogleSiteVerification("GSC_VERIFICATION_TOKEN_HERE");
         }
       } catch (err: any) {
         console.error("Error loading SEO configuration:", err);
@@ -482,6 +485,7 @@ export default function MetadataEditor() {
         title: title.trim().substring(0, 200),
         description: description.trim().substring(0, 1000),
         keywords: keywords.trim().substring(0, 1000),
+        googleSiteVerification: googleSiteVerification.trim(),
         updatedAt: new Date().toISOString()
       });
       setMetaStatus("success");
@@ -846,6 +850,23 @@ export default function MetadataEditor() {
                   placeholder="e.g. nairobi laptops, genuine macbook kenya, tech soko, waiyaki way gadgets"
                   className="w-full bg-[#161616] border border-white/10 hover:border-white/20 focus:border-[#C5A059] focus:outline-none rounded-xl px-4 py-3 text-xs text-white placeholder-white/20 font-mono transition-all"
                 />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono font-bold tracking-wider text-white/70 uppercase mb-1.5 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#C5A059]" />
+                  GLOBAL HEADERS: GOOGLE SITE VERIFICATION
+                </label>
+                <input
+                  type="text"
+                  value={googleSiteVerification}
+                  onChange={(e) => setGoogleSiteVerification(e.target.value)}
+                  placeholder="e.g. GSC_VERIFICATION_TOKEN_HERE"
+                  className="w-full bg-[#161616] border border-white/10 hover:border-white/20 focus:border-[#C5A059] focus:outline-none rounded-xl px-4 py-3 text-xs text-white placeholder-white/20 font-mono transition-all"
+                />
+                <p className="text-[10px] text-white/40 mt-1 font-mono">
+                  Enter your Google Search Console verification token (e.g. <code className="text-[#C5A059] bg-white/5 px-1 rounded">GSC_VERIFICATION_TOKEN_HERE</code>). GSC verification checks for this tag to prove ownership of techsokoni.com.
+                </p>
               </div>
 
               <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 flex gap-3">

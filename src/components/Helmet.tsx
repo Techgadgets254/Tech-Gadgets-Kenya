@@ -1,5 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Product } from "../types";
+import { db } from "../firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 interface HelmetProps {
   title: string;
@@ -11,6 +13,26 @@ interface HelmetProps {
 }
 
 export function Helmet({ title, description, keywords, image, url, product }: HelmetProps) {
+  const [googleSiteVerification, setGoogleSiteVerification] = useState("");
+
+  useEffect(() => {
+    const fetchSiteMetadata = async () => {
+      try {
+        const seoRef = doc(db, "seo_metadata", "site");
+        const snap = await getDoc(seoRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.googleSiteVerification) {
+            setGoogleSiteVerification(data.googleSiteVerification);
+          }
+        }
+      } catch (err) {
+        console.error("Error loading verification meta:", err);
+      }
+    };
+    fetchSiteMetadata();
+  }, []);
+
   useEffect(() => {
     // 1. Update Browser Dynamic Document Title
     document.title = title;
@@ -30,6 +52,10 @@ export function Helmet({ title, description, keywords, image, url, product }: He
       }
       element.setAttribute("content", content);
     };
+
+    if (googleSiteVerification) {
+      setMetaTag("name", "google-site-verification", googleSiteVerification);
+    }
 
     // 2. Standard Description and Keywords
     setMetaTag("name", "description", activeDesc);
@@ -116,7 +142,7 @@ export function Helmet({ title, description, keywords, image, url, product }: He
         existingScript.remove();
       }
     };
-  }, [title, description, keywords, image, url, product]);
+  }, [title, description, keywords, image, url, product, googleSiteVerification]);
 
   return null;
 }
