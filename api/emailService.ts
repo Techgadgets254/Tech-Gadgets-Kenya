@@ -48,6 +48,10 @@ export function getTransporter() {
       user,
       pass,
     },
+    tls: {
+      // Do not fail on invalid, untrusted, or self-signed certificates
+      rejectUnauthorized: false
+    }
   });
 }
 
@@ -55,8 +59,16 @@ export function getTransporter() {
  * Sends a professional, beautifully formatted receipt to the customer's email.
  */
 export async function sendReceiptEmail(email: string, orderId: string, order: Order): Promise<{ success: boolean; message: string; simulated?: boolean }> {
-  const from = process.env.SMTP_FROM || '"Tech Sokoni Kenya" <support@techsokoni.com>';
-  const cleanFrom = from.includes("support@techsokoni.com") ? from : '"Tech Sokoni Kenya" <support@techsokoni.com>';
+  const fromName = "Tech Sokoni Kenya";
+  const smtpUser = process.env.SMTP_USER;
+  
+  // Use SMTP_USER directly as the sender email address to comply with Zoho's strict SPF/DKIM verification rules
+  let cleanFrom = `"${fromName}" <support@techsokoni.com>`;
+  if (smtpUser && smtpUser.includes("@")) {
+    cleanFrom = `"${fromName}" <${smtpUser}>`;
+  } else if (process.env.SMTP_FROM) {
+    cleanFrom = process.env.SMTP_FROM;
+  }
 
   const itemsListHtml = (order.items || []).map((item) => `
     <tr style="border-bottom: 1px solid #eeeeee;">
@@ -178,8 +190,16 @@ export async function sendReceiptEmail(email: string, orderId: string, order: Or
  * Sends a stock/price alert or newsletter.
  */
 export async function sendRestockAlertEmail(email: string, productName: string): Promise<{ success: boolean; message: string; simulated?: boolean }> {
-  const from = process.env.SMTP_FROM || '"Tech Sokoni Kenya" <support@techsokoni.com>';
-  const cleanFrom = from.includes("support@techsokoni.com") ? from : '"Tech Sokoni Kenya" <support@techsokoni.com>';
+  const fromName = "Tech Sokoni Kenya";
+  const smtpUser = process.env.SMTP_USER;
+  
+  // Use SMTP_USER directly as the sender email address to comply with Zoho's strict SPF/DKIM verification rules
+  let cleanFrom = `"${fromName}" <support@techsokoni.com>`;
+  if (smtpUser && smtpUser.includes("@")) {
+    cleanFrom = `"${fromName}" <${smtpUser}>`;
+  } else if (process.env.SMTP_FROM) {
+    cleanFrom = process.env.SMTP_FROM;
+  }
 
   const emailHtmlContent = `
     <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #dddddd; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">

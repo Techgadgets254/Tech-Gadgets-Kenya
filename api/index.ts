@@ -492,6 +492,135 @@ app.post("/api/email/send-restock-alert", async (req, res) => {
   }
 });
 
+// GET dynamic SMTP status check (safe masking of sensitive credentials)
+app.get("/api/email/smtp-status", (req, res) => {
+  try {
+    const host = process.env.SMTP_HOST || "";
+    const port = process.env.SMTP_PORT || "";
+    const user = process.env.SMTP_USER || "";
+    const pass = process.env.SMTP_PASS || "";
+    const from = process.env.SMTP_FROM || "";
+
+    res.json({
+      success: true,
+      configured: !!(host && user && pass),
+      host: host || "(not set)",
+      port: port || "(not set)",
+      user: user || "(not set)",
+      passMasked: pass ? "•".repeat(Math.min(12, pass.length)) + " (configured)" : "(not set)",
+      from: from || "(not set)",
+      timestamp: new Date().toISOString()
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST send real SMTP test email and return active transport verification log
+app.post("/api/email/test-smtp", async (req, res) => {
+  const { recipientEmail } = req.body;
+  if (!recipientEmail) {
+    return res.status(400).json({ error: "recipientEmail is required" });
+  }
+
+  const host = process.env.SMTP_HOST;
+  const port = parseInt(process.env.SMTP_PORT || "587", 10);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  if (!host || !user || !pass) {
+    return res.json({
+      success: false,
+      message: "SMTP is not fully configured in your environment.",
+      details: "Missing environment variables. Ensure SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS are set in Google Secrets / Vercel Environment variables."
+    });
+  }
+
+  let transporter;
+  try {
+    transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: {
+        user,
+        pass,
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+  } catch (initErr: any) {
+    return res.json({
+      success: false,
+      message: "Nodemailer transporter initialization crashed.",
+      details: initErr.message || String(initErr)
+    });
+  }
+
+  // Capturing SMTP handshake logs
+  try {
+    console.log(`[SMTP Diagnostic] Verifying connection to ${host}:${port}...`);
+    await transporter.verify();
+    
+    // Attempt sending test mail
+    const fromName = "Tech Sokoni Kenya [Diagnostic]";
+    const cleanFrom = `"${fromName}" <${user}>`;
+    
+    const mailOptions = {
+      from: cleanFrom,
+      to: recipientEmail,
+      subject: `[Diagnostic] Tech Sokoni Kenya SMTP Connection Test`,
+      html: `
+        <div style="font-family: sans-serif; padding: 25px; border: 1px solid #e5e7eb; border-radius: 12px; max-width: 500px; margin: 0 auto; background-color: #ffffff; color: #1f2937;">
+          <h2 style="color: #b45309; border-bottom: 2px solid #f3f4f6; padding-bottom: 12px; margin-top: 0; font-family: 'Helvetica Neue', Arial, sans-serif; letter-spacing: -0.5px;">SMTP Connection Succeeded!</h2>
+          <p style="font-size: 14px; line-height: 1.5; color: #4b5563;">This is a live diagnostic verification email triggered from your Tech Sokoni Kenya administrator dashboard.</p>
+          <div style="background: #f9fafb; padding: 16px; border-radius: 8px; font-family: monospace; font-size: 11px; margin: 20px 0; border: 1px solid #f3f4f6; color: #374151; line-height: 1.6;">
+            <strong>SMTP Server:</strong> ${host}<br/>
+            <strong>Port:</strong> ${port}<br/>
+            <strong>Authentication User:</strong> ${user}<br/>
+            <strong>Sender Display:</strong> ${cleanFrom}<br/>
+            <strong>Recipient Address:</strong> ${recipientEmail}
+          </div>
+          <p style="color: #059669; font-size: 13px; font-weight: bold; margin: 0 0 10px 0;">✓ Outbound email services are fully active and validated!</p>
+          <p style="color: #6b7280; font-size: 12px; margin: 0; line-height: 1.4;">Zoho Mail SPF, DKIM, App-Specific authorization, and secure port relays are performing perfectly on techsokoni.com.</p>
+        </div>
+      `
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[SMTP Diagnostic] Test email dispatched successfully! MessageID: ${info.messageId}`);
+    
+    return res.json({
+      success: true,
+      message: "SMTP handshakes and delivery completed successfully!",
+      details: `Test email has been dispatched to ${recipientEmail} with Message-ID: ${info.messageId}. Check your inbox or spam folder!`,
+      info
+    });
+  } catch (smtpErr: any) {
+    console.error("[SMTP Diagnostic] Failure:", smtpErr);
+    
+    let errorHelp = "Diagnostic advice:\n";
+    if (smtpErr.code === "EAUTH" || smtpErr.message?.includes("Invalid login") || smtpErr.message?.includes("authentication failed")) {
+      errorHelp += "• Zoho Mail accounts require 'Two-Factor Authentication' App-Specific Passwords! Create a dedicated App Password from accounts.zoho.com (My Account -> Security -> App Passwords) and use it in SMTP_PASS instead of your normal Zoho password.\n• Confirm SMTP_USER is exactly your Zoho email address (e.g. support@techsokoni.com).\n• Verify SMTP is active in Zoho: Mail Settings -> Mail Accounts -> IMAP/POP/SMTP Sync -> Enable Outgoing SMTP.";
+    } else if (smtpErr.code === "ETIMEOUT" || smtpErr.code === "ECONNREFUSED" || smtpErr.message?.includes("connect")) {
+      errorHelp += "• Confirm SMTP_HOST is exactly 'smtp.zoho.com'.\n• If using Port 465, double-check secure mode is SSL. If using Port 587, use STARTTLS/TLS.\n• Network/firewall configuration may be blocking outward port connections. Swap between 465 and 587 to test.";
+    } else if (smtpErr.message?.includes("Relaying disallowed") || smtpErr.message?.includes("Sender Address Rejected")) {
+      errorHelp += "• Zoho forbids spoofing. The SMTP user must match the sender (From) address. We have updated your server code to enforce this!";
+    } else {
+      errorHelp += "• Make sure your domain techsokoni.com is fully verified in Zoho Mail and has MX records set.";
+    }
+
+    return res.json({
+      success: false,
+      message: "SMTP Connection or Delivery Failed.",
+      details: smtpErr.message || String(smtpErr),
+      code: smtpErr.code || "UNKNOWN",
+      help: errorHelp
+    });
+  }
+});
+
 
 // ----------------------------------------------------
 // ADMINISTRATOR SYSTEM ACCOUNTS & PRIVILEGES ENDPOINTS

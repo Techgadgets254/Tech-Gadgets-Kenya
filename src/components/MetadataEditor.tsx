@@ -27,10 +27,12 @@ import {
   Link2,
   ShieldCheck,
   Key,
-  Database
+  Database,
+  Mail,
+  Send
 } from "lucide-react";
 
-type TabType = "meta" | "merchant" | "seo_health" | "crawlers" | "content_api";
+type TabType = "meta" | "merchant" | "seo_health" | "crawlers" | "content_api" | "smtp";
 
 export default function MetadataEditor() {
   const { liveProducts, loading: loadingProducts } = useAdminStore();
@@ -76,12 +78,73 @@ export default function MetadataEditor() {
 
   // Tab 5: Google Content API config states
   const [merchantId, setMerchantId] = useState("");
+  const [feedId, setFeedId] = useState(""); // Primary Feed ID / Data Source ID
   const [gmcProjectId, setGmcProjectId] = useState("");
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
   const [developerKey, setDeveloperKey] = useState("");
   const [isSyncEnabled, setIsSyncEnabled] = useState(false);
   const [syncInterval, setSyncInterval] = useState("realtime"); // realtime, hourly, daily
+
+  // SMTP & Email Diagnostics states
+  const [smtpStatus, setSmtpStatus] = useState<any>(null);
+  const [loadingSmtpStatus, setLoadingSmtpStatus] = useState(false);
+  const [smtpTestEmail, setSmtpTestEmail] = useState("techgadgetsk@gmail.com");
+  const [testingSmtp, setTestingSmtp] = useState(false);
+  const [smtpTestResult, setSmtpTestResult] = useState<{
+    success: boolean;
+    message: string;
+    details?: string;
+    code?: string;
+    help?: string;
+  } | null>(null);
+
+  const fetchSmtpStatus = async () => {
+    setLoadingSmtpStatus(true);
+    try {
+      const res = await fetch("/api/email/smtp-status");
+      if (res.ok) {
+        const data = await res.json();
+        setSmtpStatus(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch SMTP status:", err);
+    } finally {
+      setLoadingSmtpStatus(false);
+    }
+  };
+
+  const handleTestSmtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTestingSmtp(true);
+    setSmtpTestResult(null);
+    try {
+      const res = await fetch("/api/email/test-smtp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientEmail: smtpTestEmail })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSmtpTestResult(data);
+      } else {
+        setSmtpTestResult({
+          success: false,
+          message: "Internal Server Error or route failure.",
+          details: `HTTP status: ${res.status}`
+        });
+      }
+    } catch (err: any) {
+      setSmtpTestResult({
+        success: false,
+        message: "Failed to communicate with SMTP verification backend.",
+        details: err.message || String(err)
+      });
+    } finally {
+      setTestingSmtp(false);
+      fetchSmtpStatus(); // Refresh credentials state view
+    }
+  };
   const [loadingApiConfig, setLoadingApiConfig] = useState(true);
   const [savingApiConfig, setSavingApiConfig] = useState(false);
   const [apiConfigStatus, setApiConfigStatus] = useState<"idle" | "success" | "error">("idle");
@@ -191,6 +254,9 @@ export default function MetadataEditor() {
     if (activeTab === "merchant" || activeTab === "seo_health" || activeTab === "crawlers") {
       fetchSitemapCheck();
     }
+    if (activeTab === "smtp") {
+      fetchSmtpStatus();
+    }
   }, [activeTab]);
 
   useEffect(() => {
@@ -201,12 +267,16 @@ export default function MetadataEditor() {
         if (snap.exists()) {
           const data = snap.data();
           setMerchantId(data.merchantId || "");
+          setFeedId(data.feedId || "10686938183");
           setGmcProjectId(data.projectId || "");
           setClientId(data.clientId || "");
           setClientSecret(data.clientSecret || "");
           setDeveloperKey(data.developerKey || "");
           setIsSyncEnabled(!!data.isSyncEnabled);
           setSyncInterval(data.syncInterval || "realtime");
+        } else {
+          // Default feed ID for newer accounts if not yet saved
+          setFeedId("10686938183");
         }
       } catch (err: any) {
         console.error("Error loading Google Content API configuration:", err);
@@ -231,6 +301,7 @@ export default function MetadataEditor() {
       const apiRef = doc(db, "seo_metadata", "google_content_api");
       await setDoc(apiRef, {
         merchantId,
+        feedId,
         projectId: gmcProjectId,
         clientId,
         clientSecret,
@@ -676,6 +747,19 @@ export default function MetadataEditor() {
         >
           <Link2 className="w-4 h-4" />
           Google Content API
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("smtp");
+          }}
+          className={`flex items-center gap-2 px-5 py-3 border-b-2 font-sans text-xs font-semibold tracking-wide transition-all ${
+            activeTab === "smtp"
+              ? "border-[#C5A059] text-[#C5A059] bg-[#C5A059]/5"
+              : "border-transparent text-white/40 hover:text-white"
+          }`}
+        >
+          <Mail className="w-4 h-4" />
+          SMTP &amp; Email
         </button>
       </div>
 
@@ -1662,21 +1746,32 @@ export default function MetadataEditor() {
               {/* Form Config Block */}
               <div className="lg:col-span-7 space-y-6">
                 <form onSubmit={handleSaveApiConfig} className="space-y-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="space-y-1.5 text-left">
                       <label className="text-[10px] font-mono text-white/50 uppercase tracking-wider block">
                         Merchant Center ID <span className="text-amber-500">*</span>
                       </label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          required={isSyncEnabled}
-                          placeholder="e.g. 533491022"
-                          value={merchantId}
-                          onChange={(e) => setMerchantId(e.target.value)}
-                          className="w-full bg-white/[0.02] border border-white/10 rounded-xl px-4 py-3 font-sans text-xs text-white placeholder-white/20 focus:border-[#C5A059] focus:outline-none transition-all"
-                        />
-                      </div>
+                      <input
+                        type="text"
+                        required={isSyncEnabled}
+                        placeholder="e.g. 533491022"
+                        value={merchantId}
+                        onChange={(e) => setMerchantId(e.target.value)}
+                        className="w-full bg-white/[0.02] border border-white/10 rounded-xl px-4 py-3 font-sans text-xs text-white placeholder-white/20 focus:border-[#C5A059] focus:outline-none transition-all"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 text-left">
+                      <label className="text-[10px] font-mono text-white/50 uppercase tracking-wider block">
+                        Primary Feed ID / Source ID <span className="text-amber-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 10686938183"
+                        value={feedId}
+                        onChange={(e) => setFeedId(e.target.value)}
+                        className="w-full bg-white/[0.02] border border-white/10 rounded-xl px-4 py-3 font-sans text-xs text-white placeholder-white/20 focus:border-[#C5A059] focus:outline-none transition-all"
+                      />
                     </div>
 
                     <div className="space-y-1.5 text-left">
@@ -2062,6 +2157,189 @@ export default function MetadataEditor() {
                 })}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "smtp" && (
+        <div className="space-y-6 animate-fadeIn text-left">
+          {/* Header Banner */}
+          <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 sm:p-8 text-white shadow-2xl">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-4 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-gradient-to-br from-[#C5A059]/20 to-amber-500/10 text-[#C5A059] border border-[#C5A059]/30 animate-pulse">
+                  <Mail className="w-5 h-5 text-[#C5A059]" />
+                </div>
+                <div>
+                  <h2 className="font-sans font-bold text-sm tracking-wide uppercase">
+                    SMTP Server &amp; Email Diagnostics
+                  </h2>
+                  <p className="text-[11px] text-white/40">Secure outbound transactional receipt delivery engine</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {smtpStatus?.configured ? (
+                  <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    SMTP Configuration Loaded
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 px-3 py-1 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-bold uppercase rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping" />
+                    SMTP Simulation Mode
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              {/* Left Side: Server Configuration Parameters */}
+              <div className="lg:col-span-6 space-y-6">
+                <div>
+                  <h3 className="font-sans font-bold text-xs uppercase tracking-wider text-[#C5A059] mb-3 flex items-center gap-2">
+                    <Database className="w-4 h-4 text-[#C5A059]" />
+                    1. Outbound Environment Variables Status
+                  </h3>
+                  <p className="text-white/60 leading-relaxed text-[11px] mb-4 font-sans">
+                    Nodemailer reads these parameters at startup from Google Secrets or Vercel configuration panels.
+                  </p>
+
+                  {loadingSmtpStatus ? (
+                    <div className="py-8 text-center text-white/30 font-mono text-[10px] space-y-1.5 bg-black/30 border border-white/5 rounded-2xl">
+                      <Loader2 className="w-4 h-4 mx-auto animate-spin text-[#C5A059]" />
+                      <p>Querying container secrets context...</p>
+                    </div>
+                  ) : smtpStatus ? (
+                    <div className="bg-black/40 border border-white/5 rounded-2xl p-4.5 space-y-3 font-mono text-[11px]">
+                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                        <span className="text-white/40 text-[10px]">SMTP_HOST</span>
+                        <span className="text-white font-semibold">{smtpStatus.host}</span>
+                      </div>
+                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                        <span className="text-white/40 text-[10px]">SMTP_PORT</span>
+                        <span className="text-white font-semibold">{smtpStatus.port}</span>
+                      </div>
+                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                        <span className="text-white/40 text-[10px]">SMTP_USER</span>
+                        <span className="text-white font-semibold truncate max-w-[200px]" title={smtpStatus.user}>{smtpStatus.user}</span>
+                      </div>
+                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                        <span className="text-white/40 text-[10px]">SMTP_PASS</span>
+                        <span className="text-[#C5A059] font-semibold">{smtpStatus.passMasked}</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-1">
+                        <span className="text-white/40 text-[10px]">SENDER FROM</span>
+                        <span className="text-white/80 text-[10px] truncate max-w-[200px]" title={smtpStatus.from}>{smtpStatus.from || `support@techsokoni.com`}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-rose-500/10 border border-rose-500/25 rounded-2xl text-rose-300 text-[11px]">
+                      Failed to fetch active environment state check.
+                    </div>
+                  )}
+                </div>
+
+                {/* Zoho configuration help note */}
+                <div className="bg-amber-500/[0.03] border border-amber-500/20 rounded-2xl p-5 space-y-3 font-sans text-[11px] leading-relaxed">
+                  <h4 className="font-bold text-amber-400 uppercase tracking-wide text-[10px] flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    Zoho Mail Security Compliance Checklist
+                  </h4>
+                  <ul className="space-y-2 text-white/75 pl-4 list-disc">
+                    <li>
+                      <strong className="text-white">Strict Sender Check:</strong> Zoho forbids sending email where the sender's address (From) differs from the SMTP login user. <strong className="text-[#C5A059]">We have updated your server code to enforce this alignment automatically!</strong>
+                    </li>
+                    <li>
+                      <strong className="text-white">Two-Factor Auth (2FA):</strong> If 2FA is active on your Zoho account, standard passwords will be rejected! Generate a 16-character <strong className="text-amber-400">App-Specific Password</strong> from <span className="text-[#C5A059] underline">accounts.zoho.com &rarr; Security &rarr; App Passwords</span>, and set it as your <code className="bg-white/5 px-1 rounded text-[#C5A059]">SMTP_PASS</code>.
+                    </li>
+                    <li>
+                      <strong className="text-white">IMAP/SMTP Sync:</strong> Verify SMTP is active: Go to Zoho Mail Settings &rarr; Mail Accounts &rarr; POP/IMAP/SMTP Sync, and check <code className="text-white">Enable Outgoing SMTP</code>.
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Right Side: Interactive Diagnostics Console */}
+              <div className="lg:col-span-6 space-y-5">
+                <h3 className="font-sans font-bold text-xs uppercase tracking-wider text-[#C5A059] flex items-center gap-2">
+                  <Send className="w-4 h-4 text-[#C5A059]" />
+                  2. Interactive Live SMTP Diagnostics Console
+                </h3>
+                <p className="text-white/60 leading-relaxed text-[11px] font-sans">
+                  Trigger a live server-side verification to test connection ports, logins, and send a diagnostic test email immediately.
+                </p>
+
+                <form onSubmit={handleTestSmtp} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono text-white/50 uppercase tracking-wider block">
+                      Test Recipient Email Address
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="email"
+                        required
+                        placeholder="e.g. techgadgetsk@gmail.com"
+                        value={smtpTestEmail}
+                        onChange={(e) => setSmtpTestEmail(e.target.value)}
+                        className="flex-1 bg-white/[0.02] border border-white/10 rounded-xl px-4 py-3 font-sans text-xs text-white placeholder-white/20 focus:border-[#C5A059] focus:outline-none transition-all"
+                      />
+                      <button
+                        type="submit"
+                        disabled={testingSmtp || loadingSmtpStatus}
+                        className="px-5 py-3 bg-[#C5A059] hover:bg-amber-600 disabled:opacity-40 text-black text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-lg shadow-amber-500/5 shrink-0"
+                      >
+                        {testingSmtp ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>TESTING...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4" />
+                            <span>SEND TEST</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+
+                {/* Test Results Output block */}
+                {smtpTestResult && (
+                  <div className={`border rounded-2xl p-5 space-y-3.5 animate-fadeIn font-sans ${
+                    smtpTestResult.success 
+                      ? "bg-emerald-950/10 border-emerald-500/25 text-emerald-300" 
+                      : "bg-rose-950/10 border-rose-500/25 text-rose-300"
+                  }`}>
+                    <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wide">
+                      {smtpTestResult.success ? (
+                        <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                      )}
+                      <span>{smtpTestResult.message}</span>
+                    </div>
+
+                    <p className="text-[11px] font-sans text-white/70 leading-relaxed">
+                      {smtpTestResult.details}
+                    </p>
+
+                    {smtpTestResult.code && (
+                      <div className="font-mono text-[10px] bg-black/40 border border-white/5 p-2 rounded-xl text-white/40">
+                        ERROR_CODE: {smtpTestResult.code}
+                      </div>
+                    )}
+
+                    {smtpTestResult.help && (
+                      <div className="bg-black/30 border border-white/5 rounded-xl p-3 text-[11px] font-sans text-white/80 leading-normal space-y-1.5 whitespace-pre-wrap text-left">
+                        <span className="font-mono text-[#C5A059] text-[10px] uppercase font-bold tracking-widest block">How to resolve this issue:</span>
+                        {smtpTestResult.help}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
