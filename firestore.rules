@@ -360,8 +360,14 @@ service cloud.firestore {
     // - Only administrators can write/update this
     match /seo_metadata/{docId} {
       allow read, get, list: if true;
-      allow create, update: if isAdmin() && isValidSeoMetadata(incoming());
+      allow create, update: if isAdmin() && (docId == 'google_content_api' || docId == 'google_merchant_sync_logs' || isValidSeoMetadata(incoming()));
       allow delete: if isAdmin();
+    }
+
+    // Google Merchant Sync Logs
+    // - Only admins can read or write sync diagnostics logs
+    match /merchant_sync_logs/{logId} {
+      allow read, write, get, list: if isAdmin();
     }
 
     // Search Queries logs collection:

@@ -88,6 +88,56 @@ export default function MetadataEditor() {
   const [testingConnection, setTestingConnection] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
+  // Sync Diagnostics states
+  const [syncLogs, setSyncLogs] = useState<any[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+  const [triggeringSync, setTriggeringSync] = useState(false);
+
+  const fetchSyncLogs = async () => {
+    setLoadingLogs(true);
+    try {
+      const res = await fetch("/api/merchant-sync/logs");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setSyncLogs(data.logs);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch sync logs:", err);
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
+  const handleTriggerSync = async () => {
+    setTriggeringSync(true);
+    try {
+      const res = await fetch("/api/merchant-sync/trigger", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          await fetchSyncLogs();
+          setApiConnectionTested(true);
+          setTestResult({
+            success: data.log.status === "success",
+            message: data.log.message
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to trigger live sync:", err);
+    } finally {
+      setTriggeringSync(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "content_api") {
+      fetchSyncLogs();
+    }
+  }, [activeTab]);
+
   useEffect(() => {
     const fetchApiConfig = async () => {
       try {
@@ -691,6 +741,73 @@ export default function MetadataEditor() {
 
       {activeTab === "merchant" && (
         <div className="space-y-6 animate-fadeIn">
+          {/* Migration Guidance Card */}
+          <div className="bg-gradient-to-r from-amber-950/40 to-neutral-900 border border-amber-500/20 rounded-3xl p-6 text-left space-y-4 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
+            <div className="flex flex-col sm:flex-row items-start gap-4 justify-between border-b border-white/5 pb-4">
+              <div className="flex items-start gap-3">
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-400 shrink-0">
+                  <AlertTriangle className="w-5 h-5 animate-pulse" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-sans font-bold text-sm tracking-wide uppercase text-amber-400 flex items-center gap-2">
+                    MIGRATION ADVISORY: Resolve "File Not Found" Feed Failures
+                  </h4>
+                  <p className="text-xs text-white/70 leading-relaxed max-w-2xl">
+                    Using <strong className="text-white">"Add products from file"</strong> with manual uploads or browser links triggers crawl failure timeouts. Convert your store to the official <strong className="text-white">Google Content API for Shopping</strong> to feed live inventory and restock changes instantly.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveTab("content_api")}
+                className="px-4 py-2 bg-[#C5A059] hover:bg-[#C5A059]/90 text-black text-xs font-bold font-sans tracking-wide rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-lg self-stretch sm:self-auto text-center justify-center shrink-0"
+              >
+                <span>Configure Content API</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Migration Workflow Steps */}
+            <div>
+              <span className="text-[10px] font-mono text-[#C5A059] font-bold uppercase tracking-widest block mb-3">
+                RECOMMENDED CONTENT API MIGRATION WORKFLOW
+              </span>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-[11px] font-sans">
+                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 space-y-1.5 hover:border-[#C5A059]/20 transition-all text-left">
+                  <span className="font-mono text-[#C5A059] font-bold text-xs">01. CONFIGURE APIS</span>
+                  <h5 className="font-semibold text-white">Enable Shopping API</h5>
+                  <p className="text-white/50 leading-relaxed text-[11px]">
+                    Open Google Cloud, enable the Content API for Shopping in your project APIs, and generate OAuth 2.0 Web Client credentials.
+                  </p>
+                </div>
+
+                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 space-y-1.5 hover:border-[#C5A059]/20 transition-all text-left">
+                  <span className="font-mono text-[#C5A059] font-bold text-xs">02. INPUT CREDENTIALS</span>
+                  <h5 className="font-semibold text-white">Input OAuth Keys</h5>
+                  <p className="text-white/50 leading-relaxed text-[11px]">
+                    Switch to the <strong>Google Content API</strong> tab, enter your numeric Merchant ID, Google Client ID, and Client Secret.
+                  </p>
+                </div>
+
+                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 space-y-1.5 hover:border-[#C5A059]/20 transition-all text-left">
+                  <span className="font-mono text-[#C5A059] font-bold text-xs">03. TEST CONNECTION</span>
+                  <h5 className="font-semibold text-white">Run Endpoint Handshake</h5>
+                  <p className="text-white/50 leading-relaxed text-[11px]">
+                    Perform a test handshake using the <strong>"Test Endpoint"</strong> client utility to verify OAuth permissions and account linking.
+                  </p>
+                </div>
+
+                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 space-y-1.5 hover:border-[#C5A059]/20 transition-all text-left">
+                  <span className="font-mono text-[#C5A059] font-bold text-xs">04. ACTIVATE SYNC</span>
+                  <h5 className="font-semibold text-white">Toggle Live Inventory Sync</h5>
+                  <p className="text-white/50 leading-relaxed text-[11px]">
+                    Toggle <strong>"Enable Live Sync"</strong> to push price adjustments, restock updates, and catalog edits instantly to Google Search.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Main Controls Header */}
           <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="text-left">
@@ -1595,6 +1712,134 @@ export default function MetadataEditor() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Sync Diagnostics Panel */}
+          <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl text-left border-t-2 border-t-[#C5A059]/40 mt-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
+              <div className="space-y-1">
+                <h3 className="font-sans font-bold text-sm text-white uppercase flex items-center gap-2.5">
+                  <Activity className="w-5 h-5 text-[#C5A059]" />
+                  Google Merchant Center Sync Diagnostics
+                </h3>
+                <p className="text-[11px] text-white/50 leading-relaxed">
+                  Analyzes the last five ingestion and API communication logs to detect crawler timeouts, authentication blocks, and product validation failures.
+                </p>
+              </div>
+              <button
+                onClick={handleTriggerSync}
+                disabled={triggeringSync}
+                className="px-4 py-2 bg-[#C5A059]/10 hover:bg-[#C5A059]/20 border border-[#C5A059]/30 text-[#C5A059] text-[11px] font-bold font-sans tracking-wide rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                {triggeringSync ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>RUNNING LIVE SYNC...</span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>TRIGGER MANUAL SYNC</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {loadingLogs ? (
+              <div className="py-12 text-center text-white/30 font-mono text-[11px] space-y-2">
+                <Loader2 className="w-4 h-4 mx-auto animate-spin text-[#C5A059]" />
+                <p>Retrieving diagnostic sync logs...</p>
+              </div>
+            ) : syncLogs.length === 0 ? (
+              <div className="py-12 text-center text-white/30 text-xs font-sans">
+                No sync logs detected in database. Trigger a manual sync above to initialize logs.
+              </div>
+            ) : (
+              <div className="space-y-4 font-sans">
+                {syncLogs.map((log: any, idx: number) => {
+                  const dateStr = new Date(log.timestamp).toLocaleString();
+                  const isFailed = log.status === "failed";
+                  return (
+                    <div
+                      key={log.id || `log-${idx}`}
+                      className={`border rounded-2xl overflow-hidden transition-all duration-200 ${
+                        isFailed ? "bg-rose-950/10 border-rose-500/20" : "bg-emerald-950/10 border-emerald-500/20"
+                      }`}
+                    >
+                      {/* Log Header Row */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4.5 py-3.5 bg-white/[0.01] border-b border-white/5 text-[11px]">
+                        <div className="flex flex-wrap items-center gap-2.5">
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase font-mono ${
+                            isFailed ? "bg-rose-500/10 text-rose-400 border border-rose-500/20" : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                          }`}>
+                            {log.status}
+                          </span>
+                          <span className="text-white/40 font-mono">[{log.method}]</span>
+                          <span className="text-white/85 font-semibold">{log.message}</span>
+                        </div>
+                        <div className="text-white/40 font-mono text-[10px] shrink-0">
+                          {dateStr}
+                        </div>
+                      </div>
+
+                      {/* Log Body Details */}
+                      <div className="p-4 space-y-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[10px] font-mono text-white/50">
+                          <div>
+                            <span className="text-white/30 block text-[9px]">MERCHANT ID</span>
+                            <span className="text-white/85">{log.merchantId}</span>
+                          </div>
+                          <div>
+                            <span className="text-white/30 block text-[9px]">PRODUCTS ATTEMPTED</span>
+                            <span className="text-white/85">{log.productsSynced} items</span>
+                          </div>
+                          <div>
+                            <span className="text-white/30 block text-[9px]">ERRORS DETECTED</span>
+                            <span className={`font-bold ${log.errorsCount > 0 ? "text-rose-400" : "text-emerald-400"}`}>
+                              {log.errorsCount} issues
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-white/30 block text-[9px]">LATENCY</span>
+                            <span className="text-white/85">{log.durationMs} ms</span>
+                          </div>
+                        </div>
+
+                        {/* Individual Item Errors List */}
+                        {log.errors && log.errors.length > 0 && (
+                          <div className="space-y-2 border-t border-white/5 pt-3">
+                            <span className="text-[9px] font-mono text-white/30 uppercase tracking-widest block">
+                              Failed Ingestion Details &amp; Validation Breakdowns:
+                            </span>
+                            <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+                              {log.errors.map((err: any, eIdx: number) => (
+                                <div
+                                  key={`err-${idx}-${eIdx}`}
+                                  className="p-3 bg-black/40 border border-white/5 rounded-xl flex items-start gap-2.5 text-xs text-left"
+                                >
+                                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                                  <div className="space-y-1">
+                                    <div className="font-bold text-white flex items-center gap-1.5 flex-wrap">
+                                      <span>{err.name}</span>
+                                      {err.productId !== "system" && err.productId !== "auth" && (
+                                        <span className="font-mono text-[9px] bg-white/5 text-white/40 px-1 py-0.5 rounded">
+                                          ID: {err.productId.substring(0, 8)}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-[11px] text-rose-300 leading-relaxed font-sans">{err.reason}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
