@@ -290,6 +290,18 @@ app.get("/api/paystack/check-config", (req, res) => {
   });
 });
 
+// Dynamic robots.txt Router for Search Engine Crawlers
+app.get(["/robots.txt", "/api/robots.txt"], (req, res) => {
+  res.header("Content-Type", "text/plain");
+  res.status(200).send(`User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/
+
+Sitemap: https://techsokoni.com/sitemap.xml
+`);
+});
+
 // Dynamic XML Sitemap Generator for Google Search Console
 app.get(["/sitemap.xml", "/api/sitemap.xml"], async (req, res) => {
   try {
