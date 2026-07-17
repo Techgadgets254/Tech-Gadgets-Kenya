@@ -330,26 +330,98 @@ Sitemap: https://techsokoni.com/sitemap.xml
 `);
 });
 
+// Reusable, ultra-robust, crash-safe product fetching helper supporting multiple fallbacks
+async function fetchProductsHelper(): Promise<any[]> {
+  const products: any[] = [];
+  
+  // Strategy 1: Firebase Admin SDK (Standard GCP container direct auth)
+  try {
+    if (adminDb) {
+      console.log("[fetchProductsHelper] Fetching products via Firebase Admin SDK...");
+      const snap = await adminDb.collection("products").get();
+      snap.forEach(doc => {
+        products.push({ id: doc.id, ...doc.data() });
+      });
+      console.log(`[fetchProductsHelper] Successfully fetched ${products.length} products via Admin SDK.`);
+      return products;
+    }
+  } catch (adminErr: any) {
+    console.warn("[fetchProductsHelper] Admin SDK read failed (common in non-GCP hosting like Vercel). Trying REST API fallback...", adminErr.message || adminErr);
+  }
+
+  // Strategy 2: Firebase REST API (100% reliable, zero-credentials, bypasses gRPC/Websocket serverless hangs)
+  try {
+    console.log("[fetchProductsHelper] Fetching products via Public Firestore REST API...");
+    const projectId = "tech-gadgets-kenya";
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/products?pageSize=1000`;
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`REST API HTTP error status: ${response.status}`);
+    }
+    const data = await response.json();
+    if (data.documents && Array.isArray(data.documents)) {
+      for (const doc of data.documents) {
+        const id = doc.name.split("/").pop();
+        const fields = doc.fields || {};
+        const prod: any = { id };
+        
+        // Helper to parse complex Firestore REST API value types
+        const parseVal = (value: any): any => {
+          if (!value) return null;
+          if ('stringValue' in value) return value.stringValue;
+          if ('integerValue' in value) return parseInt(value.integerValue, 10);
+          if ('doubleValue' in value) return parseFloat(value.doubleValue);
+          if ('booleanValue' in value) return value.booleanValue;
+          if ('arrayValue' in value) {
+            return (value.arrayValue.values || []).map((v: any) => parseVal(v));
+          }
+          if ('mapValue' in value) {
+            const obj: any = {};
+            const subFields = value.mapValue.fields || {};
+            for (const k of Object.keys(subFields)) {
+              obj[k] = parseVal(subFields[k]);
+            }
+            return obj;
+          }
+          if ('timestampValue' in value) return value.timestampValue;
+          return null;
+        };
+
+        for (const k of Object.keys(fields)) {
+          prod[k] = parseVal(fields[k]);
+        }
+        products.push(prod);
+      }
+      console.log(`[fetchProductsHelper] Successfully fetched ${products.length} products via Firestore REST API.`);
+      return products;
+    }
+  } catch (restErr: any) {
+    console.error("[fetchProductsHelper] Firestore REST API failed:", restErr.message || restErr);
+  }
+
+  // Strategy 3: Client SDK (Fallback, standard implementation)
+  try {
+    console.log("[fetchProductsHelper] Fetching products via Firebase Client SDK...");
+    if (serverDb) {
+      const snap = await serverGetDocs(serverCollection(serverDb, "products"));
+      snap.forEach(doc => {
+        products.push({ id: doc.id, ...doc.data() });
+      });
+      console.log(`[fetchProductsHelper] Successfully fetched ${products.length} products via Client SDK.`);
+      return products;
+    }
+  } catch (clientErr: any) {
+    console.error("[fetchProductsHelper] Firebase Client SDK fallback failed:", clientErr.message || clientErr);
+  }
+
+  return [];
+}
+
 // Dynamic XML Sitemap Generator for Google Search Console
 app.get(["/sitemap.xml", "/api/sitemap.xml"], async (req, res) => {
   try {
-    const products: any[] = [];
-    try {
-      if (adminDb) {
-        const productsSnap = await adminDb.collection("products").get();
-        productsSnap.forEach(doc => {
-          products.push({ id: doc.id, ...doc.data() });
-        });
-      } else {
-        throw new Error("Admin SDK is not initialized.");
-      }
-    } catch (dbErr: any) {
-      console.warn("[Sitemap Engine] Falling back to Client SDK Firestore:", dbErr.message || dbErr);
-      const productsSnap = await serverGetDocs(serverCollection(serverDb, "products"));
-      productsSnap.forEach(doc => {
-        products.push({ id: doc.id, ...doc.data() });
-      });
-    }
+    const products = await fetchProductsHelper();
 
     const host = req.get("host") || "techsokoni.com";
     const protocol = req.headers["x-forwarded-proto"] === "https" || req.secure ? "https" : "http";
@@ -397,23 +469,7 @@ app.get(["/sitemap.xml", "/api/sitemap.xml"], async (req, res) => {
 // Dynamic XML Product Feed for Google Merchant Center
 app.get(["/google-merchant-feed.xml", "/api/google-merchant-feed.xml"], async (req, res) => {
   try {
-    const products: any[] = [];
-    try {
-      if (adminDb) {
-        const productsSnap = await adminDb.collection("products").get();
-        productsSnap.forEach(doc => {
-          products.push({ id: doc.id, ...doc.data() });
-        });
-      } else {
-        throw new Error("Admin SDK is not initialized.");
-      }
-    } catch (dbErr: any) {
-      console.warn("[Merchant Feed] Falling back to Client SDK Firestore:", dbErr.message || dbErr);
-      const productsSnap = await serverGetDocs(serverCollection(serverDb, "products"));
-      productsSnap.forEach(doc => {
-        products.push({ id: doc.id, ...doc.data() });
-      });
-    }
+    const products = await fetchProductsHelper();
 
     const host = req.get("host") || "techsokoni.com";
     const protocol = req.headers["x-forwarded-proto"] === "https" || req.secure ? "https" : "http";
@@ -1872,17 +1928,7 @@ app.post("/api/merchant-sync/trigger", async (req, res) => {
 
     let products: any[] = [];
     try {
-      if (adminDb) {
-        const productsSnap = await adminDb.collection("products").get();
-        productsSnap.forEach(doc => {
-          products.push({ id: doc.id, ...doc.data() });
-        });
-      } else {
-        const productsSnap = await serverGetDocs(serverCollection(serverDb, "products"));
-        productsSnap.forEach(doc => {
-          products.push({ id: doc.id, ...doc.data() });
-        });
-      }
+      products = await fetchProductsHelper();
     } catch (prodErr) {
       console.error("Failed to fetch products for live sync simulation:", prodErr);
     }

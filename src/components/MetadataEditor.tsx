@@ -453,13 +453,13 @@ export default function MetadataEditor() {
           setTitle(data.title || "");
           setDescription(data.description || "");
           setKeywords(data.keywords || "");
-          setGoogleSiteVerification(data.googleSiteVerification || "GSC_VERIFICATION_TOKEN_HERE");
+          setGoogleSiteVerification(data.googleSiteVerification || "rrGmCuK82a5ZTyHm-o1SoqqZWva8MGOr2UE0AS1rlGg");
         } else {
           // Defaults
           setTitle("Tech Sokoni Kenya | Authorized Apple, HP & ASUS Dealer");
           setDescription("Premium laptops, custom workstation desktops, and high-tier accessories along Kenyatta Avenue, Nairobi.");
           setKeywords("macbook pro, hp elitebook, asus rog, premium gadgets, nairobi tech store");
-          setGoogleSiteVerification("GSC_VERIFICATION_TOKEN_HERE");
+          setGoogleSiteVerification("rrGmCuK82a5ZTyHm-o1SoqqZWva8MGOr2UE0AS1rlGg");
         }
       } catch (err: any) {
         console.error("Error loading SEO configuration:", err);
