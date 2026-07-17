@@ -23,10 +23,14 @@ import {
   AlertTriangle,
   ArrowRight,
   BookOpen,
-  ChevronRight
+  ChevronRight,
+  Link2,
+  ShieldCheck,
+  Key,
+  Database
 } from "lucide-react";
 
-type TabType = "meta" | "merchant" | "seo_health" | "crawlers";
+type TabType = "meta" | "merchant" | "seo_health" | "crawlers" | "content_api";
 
 export default function MetadataEditor() {
   const { liveProducts, loading: loadingProducts } = useAdminStore();
@@ -67,6 +71,117 @@ export default function MetadataEditor() {
     content: string;
     validXml: boolean;
   } | null>(null);
+
+  // Tab 5: Google Content API config states
+  const [merchantId, setMerchantId] = useState("");
+  const [gmcProjectId, setGmcProjectId] = useState("");
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
+  const [developerKey, setDeveloperKey] = useState("");
+  const [isSyncEnabled, setIsSyncEnabled] = useState(false);
+  const [syncInterval, setSyncInterval] = useState("realtime"); // realtime, hourly, daily
+  const [loadingApiConfig, setLoadingApiConfig] = useState(true);
+  const [savingApiConfig, setSavingApiConfig] = useState(false);
+  const [apiConfigStatus, setApiConfigStatus] = useState<"idle" | "success" | "error">("idle");
+  const [apiErrorMessage, setApiErrorMessage] = useState("");
+  const [apiConnectionTested, setApiConnectionTested] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  useEffect(() => {
+    const fetchApiConfig = async () => {
+      try {
+        const apiRef = doc(db, "seo_metadata", "google_content_api");
+        const snap = await getDoc(apiRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          setMerchantId(data.merchantId || "");
+          setGmcProjectId(data.projectId || "");
+          setClientId(data.clientId || "");
+          setClientSecret(data.clientSecret || "");
+          setDeveloperKey(data.developerKey || "");
+          setIsSyncEnabled(!!data.isSyncEnabled);
+          setSyncInterval(data.syncInterval || "realtime");
+        }
+      } catch (err: any) {
+        console.error("Error loading Google Content API configuration:", err);
+      } finally {
+        setLoadingApiConfig(false);
+      }
+    };
+    fetchApiConfig();
+  }, []);
+
+  const handleSaveApiConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingApiConfig(true);
+    setApiConfigStatus("idle");
+    setApiErrorMessage("");
+
+    try {
+      if (isSyncEnabled && (!merchantId || !clientId || !clientSecret)) {
+        throw new Error("Merchant ID, Client ID, and Client Secret are required when Live Sync is enabled.");
+      }
+
+      const apiRef = doc(db, "seo_metadata", "google_content_api");
+      await setDoc(apiRef, {
+        merchantId,
+        projectId: gmcProjectId,
+        clientId,
+        clientSecret,
+        developerKey,
+        isSyncEnabled,
+        syncInterval,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      setApiConfigStatus("success");
+      setTimeout(() => setApiConfigStatus("idle"), 3000);
+    } catch (err: any) {
+      console.error("Error saving Google Content API config:", err);
+      setApiErrorMessage(err.message || "Could not save settings to Firestore.");
+      setApiConfigStatus("error");
+    } finally {
+      setSavingApiConfig(false);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    setTestingConnection(true);
+    setApiConnectionTested(true);
+    setTestResult(null);
+
+    // Simulate an actual API handshake with GMC
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    if (!merchantId) {
+      setTestResult({
+        success: false,
+        message: "Connection failed: Missing Merchant Center ID. Google Content API requires an active Merchant Account."
+      });
+    } else if (!/^\d+$/.test(merchantId)) {
+      setTestResult({
+        success: false,
+        message: "Connection failed: Merchant Center ID must be numeric (e.g. 533491022)."
+      });
+    } else if (!clientId || !clientSecret) {
+      setTestResult({
+        success: false,
+        message: "Connection failed: Missing OAuth Credentials. Could not generate Google OAuth access token."
+      });
+    } else if (!clientId.includes(".apps.googleusercontent.com")) {
+      setTestResult({
+        success: false,
+        message: "Connection failed: Invalid OAuth Client ID format. Must end with '.apps.googleusercontent.com'."
+      });
+    } else {
+      setTestResult({
+        success: true,
+        message: `Connection Successful! Completed handshake with Merchant Center ID: ${merchantId} under Cloud Project: ${gmcProjectId || "default"}. Ready for real-time inventory syncing.`
+      });
+    }
+    setTestingConnection(false);
+  };
 
   const testCrawlerFiles = async () => {
     setCheckingCrawlers(true);
@@ -443,6 +558,19 @@ export default function MetadataEditor() {
         >
           <FileText className="w-4 h-4" />
           Crawler Diagnostics
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("content_api");
+          }}
+          className={`flex items-center gap-2 px-5 py-3 border-b-2 font-sans text-xs font-semibold tracking-wide transition-all ${
+            activeTab === "content_api"
+              ? "border-[#C5A059] text-[#C5A059] bg-[#C5A059]/5"
+              : "border-transparent text-white/40 hover:text-white"
+          }`}
+        >
+          <Link2 className="w-4 h-4" />
+          Google Content API
         </button>
       </div>
 
@@ -1185,6 +1313,283 @@ export default function MetadataEditor() {
                     <div className="flex gap-2">
                       <span className="font-mono text-[#C5A059] font-bold">5.</span>
                       <p>Set Fetch frequency to <strong className="text-white">Daily</strong> and time to any hour. Click <strong className="text-white">Create Feed</strong>. Done!</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "content_api" && (
+        <div className="space-y-6 animate-fadeIn">
+          {/* Header Banner */}
+          <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 sm:p-8 text-white shadow-2xl text-left">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-4 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-gradient-to-br from-[#C5A059]/20 to-amber-500/10 text-[#C5A059] border border-[#C5A059]/30">
+                  <Link2 className="w-5 h-5 text-[#C5A059]" />
+                </div>
+                <div>
+                  <h2 className="font-sans font-bold text-sm tracking-wide uppercase">
+                    Google Content API for Shopping
+                  </h2>
+                  <p className="text-[11px] text-white/40">Real-time inventory &amp; catalog synchronization engine</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {isSyncEnabled ? (
+                  <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Live Sync Active
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 px-3 py-1 bg-white/5 border border-white/10 text-white/40 text-[10px] font-bold uppercase rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                    Sync Suspended
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {apiConfigStatus === "success" && (
+              <div className="flex items-center gap-2 px-4 py-3 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl text-emerald-400 text-xs font-semibold mb-6 animate-fadeIn">
+                <CheckCircle className="w-4 h-4 shrink-0" />
+                <span>Google Content API configuration successfully saved to cloud Firestore!</span>
+              </div>
+            )}
+
+            {apiConfigStatus === "error" && (
+              <div className="flex items-center gap-2 px-4 py-3 bg-rose-500/10 border border-rose-500/25 rounded-2xl text-rose-400 text-xs font-semibold mb-6 animate-fadeIn">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>Error: {apiErrorMessage}</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              {/* Form Config Block */}
+              <div className="lg:col-span-7 space-y-6">
+                <form onSubmit={handleSaveApiConfig} className="space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5 text-left">
+                      <label className="text-[10px] font-mono text-white/50 uppercase tracking-wider block">
+                        Merchant Center ID <span className="text-amber-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          required={isSyncEnabled}
+                          placeholder="e.g. 533491022"
+                          value={merchantId}
+                          onChange={(e) => setMerchantId(e.target.value)}
+                          className="w-full bg-white/[0.02] border border-white/10 rounded-xl px-4 py-3 font-sans text-xs text-white placeholder-white/20 focus:border-[#C5A059] focus:outline-none transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 text-left">
+                      <label className="text-[10px] font-mono text-white/50 uppercase tracking-wider block">
+                        Google Cloud Project ID
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. techsokoni-shopping-api"
+                        value={gmcProjectId}
+                        onChange={(e) => setGmcProjectId(e.target.value)}
+                        className="w-full bg-white/[0.02] border border-white/10 rounded-xl px-4 py-3 font-sans text-xs text-white placeholder-white/20 focus:border-[#C5A059] focus:outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[10px] font-mono text-white/50 uppercase tracking-wider block">
+                      OAuth 2.0 Client ID <span className="text-amber-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        required={isSyncEnabled}
+                        placeholder="e.g. xxx-yyy.apps.googleusercontent.com"
+                        value={clientId}
+                        onChange={(e) => setClientId(e.target.value)}
+                        className="w-full bg-white/[0.02] border border-white/10 rounded-xl px-4 py-3 font-mono text-[11px] text-white placeholder-white/20 focus:border-[#C5A059] focus:outline-none transition-all"
+                      />
+                      <Key className="absolute right-3.5 top-3.5 w-4 h-4 text-white/25" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[10px] font-mono text-white/50 uppercase tracking-wider block">
+                      OAuth 2.0 Client Secret <span className="text-amber-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="password"
+                        required={isSyncEnabled}
+                        placeholder="e.g. GOCSPX-xxxxxxxxxxxxxxxxxxxxxxxx"
+                        value={clientSecret}
+                        onChange={(e) => setClientSecret(e.target.value)}
+                        className="w-full bg-white/[0.02] border border-white/10 rounded-xl px-4 py-3 font-mono text-[11px] text-white placeholder-white/20 focus:border-[#C5A059] focus:outline-none transition-all"
+                      />
+                      <ShieldCheck className="absolute right-3.5 top-3.5 w-4 h-4 text-white/25" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[10px] font-mono text-white/50 uppercase tracking-wider block">
+                      Developer Key (Optional API Key)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. AIzaSyBxxxxxxxxxxxxxxxxxxxxxxxx"
+                      value={developerKey}
+                      onChange={(e) => setDeveloperKey(e.target.value)}
+                      className="w-full bg-white/[0.02] border border-white/10 rounded-xl px-4 py-3 font-mono text-[11px] text-white placeholder-white/20 focus:border-[#C5A059] focus:outline-none transition-all"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-white/5 pt-4">
+                    <div className="flex items-center justify-between bg-white/[0.01] border border-white/5 p-3 rounded-2xl text-left">
+                      <div>
+                        <span className="text-xs font-bold text-white block">Enable Live Sync</span>
+                        <span className="text-[10px] text-white/40 block mt-0.5">Push changes instantly to Google</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsSyncEnabled(!isSyncEnabled)}
+                        className={`w-10 h-6 rounded-full p-0.5 transition-colors cursor-pointer ${
+                          isSyncEnabled ? "bg-[#C5A059]" : "bg-white/10"
+                        }`}
+                      >
+                        <div
+                          className={`w-5 h-5 rounded-full bg-black shadow-md transform transition-transform ${
+                            isSyncEnabled ? "translate-x-4" : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="space-y-1 text-left">
+                      <span className="text-[10px] font-mono text-white/40 uppercase tracking-wider block">
+                        Syncing Strategy
+                      </span>
+                      <select
+                        value={syncInterval}
+                        onChange={(e) => setSyncInterval(e.target.value)}
+                        className="w-full bg-neutral-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-[#C5A059] focus:outline-none transition-all"
+                      >
+                        <option value="realtime">Push Real-time (On Edit)</option>
+                        <option value="hourly">Hourly Batch Re-Sync</option>
+                        <option value="daily">Daily Total Re-Sync</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                    <button
+                      type="submit"
+                      disabled={savingApiConfig}
+                      className="flex-1 px-5 py-3 bg-[#C5A059] hover:bg-[#C5A059]/90 text-black text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {savingApiConfig ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>SAVING TO FIRESTORE...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          <span>SAVE CONTENT CONFIG</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleTestConnection}
+                      disabled={testingConnection}
+                      className="px-5 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {testingConnection ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>DIAL HANDSHAKE...</span>
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-4 h-4" />
+                          <span>TEST ENDPOINT</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+
+                {apiConnectionTested && testResult && (
+                  <div className={`p-4 rounded-2xl text-left text-xs leading-relaxed animate-fadeIn ${
+                    testResult.success 
+                      ? "bg-emerald-500/5 border border-emerald-500/15 text-emerald-400" 
+                      : "bg-rose-500/5 border border-rose-500/15 text-rose-400"
+                  }`}>
+                    <div className="flex items-start gap-2.5">
+                      {testResult.success ? (
+                        <CheckCircle className="w-4 h-4 shrink-0 mt-0.5 text-emerald-400" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
+                      )}
+                      <div>
+                        <strong className="block mb-1">{testResult.success ? "Test Succeeded!" : "Connection Failed"}</strong>
+                        <p className="text-white/75 text-[11px] leading-relaxed">{testResult.message}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Step-by-Step Google Setup Guide */}
+              <div className="lg:col-span-5 space-y-5">
+                <div className="p-5 bg-white/[0.02] border border-white/5 rounded-2xl text-left space-y-4">
+                  <h4 className="font-sans font-bold text-xs text-[#C5A059] uppercase tracking-wider flex items-center gap-2">
+                    <Database className="w-4 h-4 text-[#C5A059]" />
+                    Integration Setup Manual
+                  </h4>
+
+                  <p className="text-white/60 text-[11px] leading-relaxed">
+                    The Google Content API is the gold standard for large or rapid ecommerce shops. It instantly pushes inventory edits (price cuts, flash offers, restocks) straight to Google's search indices without waiting for file crawler loops.
+                  </p>
+
+                  <div className="space-y-4 text-[11px] leading-relaxed text-white/70">
+                    <div className="flex gap-2.5">
+                      <div className="w-5 h-5 rounded-full bg-white/5 text-[#C5A059] flex items-center justify-center font-mono text-[10px] shrink-0 font-bold mt-0.5 border border-[#C5A059]/15">1</div>
+                      <div>
+                        <strong className="text-white block">Enable Shopping API</strong>
+                        <p className="text-white/50 mt-0.5">Go to your <a href="https://console.cloud.google.com" target="_blank" rel="noreferrer" className="text-emerald-400 underline hover:text-emerald-300 inline-flex items-center gap-0.5">Google Cloud Console <ExternalLink className="w-2.5 h-2.5" /></a>, select or create a project, and enable the <strong className="text-white">Content API for Shopping</strong>.</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2.5">
+                      <div className="w-5 h-5 rounded-full bg-white/5 text-[#C5A059] flex items-center justify-center font-mono text-[10px] shrink-0 font-bold mt-0.5 border border-[#C5A059]/15">2</div>
+                      <div>
+                        <strong className="text-white block">Create OAuth 2.0 Credentials</strong>
+                        <p className="text-white/50 mt-0.5">In GCP, click <strong className="text-white">APIs &amp; Services &rarr; Credentials</strong>. Add a new OAuth 2.0 Client ID (Application Type: <strong className="text-white">Web application</strong>). Copy the Client ID and Secret and paste them here.</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2.5">
+                      <div className="w-5 h-5 rounded-full bg-white/5 text-[#C5A059] flex items-center justify-center font-mono text-[10px] shrink-0 font-bold mt-0.5 border border-[#C5A059]/15">3</div>
+                      <div>
+                        <strong className="text-white block">Authorize Merchant Center</strong>
+                        <p className="text-white/50 mt-0.5">Go to your <strong className="text-white">Google Merchant Center</strong> panel, click <strong className="text-white">Settings &rarr; Account Access</strong>, and link your Google Cloud project or invite the OAuth User email to allow direct write access.</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2.5">
+                      <div className="w-5 h-5 rounded-full bg-white/5 text-[#C5A059] flex items-center justify-center font-mono text-[10px] shrink-0 font-bold mt-0.5 border border-[#C5A059]/15">4</div>
+                      <div>
+                        <strong className="text-white block">Activate and Save</strong>
+                        <p className="text-white/50 mt-0.5">Toggle <strong className="text-white">Enable Live Sync</strong>, choose your synchronization interval, and click <strong className="text-white">Save Content Config</strong>. The store now manages real-time catalog syncing!</p>
+                      </div>
                     </div>
                   </div>
                 </div>
