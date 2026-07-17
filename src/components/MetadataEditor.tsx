@@ -53,6 +53,8 @@ export default function MetadataEditor() {
   const [feedError, setFeedError] = useState("");
   const [feedLoaded, setFeedLoaded] = useState(false);
   const [copiedFeedUrl, setCopiedFeedUrl] = useState(false);
+  const [copiedVerifyTag, setCopiedVerifyTag] = useState(false);
+  const [copiedRewriteConfig, setCopiedRewriteConfig] = useState(false);
 
   // Tab 4: Crawler Diagnostics states
   const [checkingCrawlers, setCheckingCrawlers] = useState(false);
@@ -92,6 +94,56 @@ export default function MetadataEditor() {
   const [syncLogs, setSyncLogs] = useState<any[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [triggeringSync, setTriggeringSync] = useState(false);
+
+  // Sitemap.xml dynamic health check state
+  const [sitemapCheck, setSitemapCheck] = useState<{
+    status: "loading" | "success" | "yellow" | "failed";
+    message: string;
+    details: string;
+    urlsCount: number;
+    url: string;
+  }>({
+    status: "loading",
+    message: "Verifying sitemap.xml accessibility...",
+    details: "",
+    urlsCount: 0,
+    url: ""
+  });
+
+  const fetchSitemapCheck = async () => {
+    try {
+      const res = await fetch("/api/merchant-sync/sitemap-status");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setSitemapCheck({
+            status: data.status,
+            message: data.message,
+            details: data.details,
+            urlsCount: data.urlsCount,
+            url: data.url
+          });
+        }
+      } else {
+        setSitemapCheck({
+          status: "failed",
+          message: "Unable to reach diagnostic sitemap endpoint.",
+          details: "Router returned non-200 code.",
+          urlsCount: 0,
+          url: "/sitemap.xml"
+        });
+      }
+    } catch (err) {
+      console.error("Failed to fetch sitemap status:", err);
+      setSitemapCheck({
+        status: "failed",
+        message: "Network error checking sitemap.",
+        details: "An error occurred during fetch.",
+        urlsCount: 0,
+        url: "/sitemap.xml"
+      });
+    }
+  };
 
   const fetchSyncLogs = async () => {
     setLoadingLogs(true);
@@ -133,8 +185,11 @@ export default function MetadataEditor() {
   };
 
   useEffect(() => {
-    if (activeTab === "content_api") {
+    if (activeTab === "content_api" || activeTab === "merchant") {
       fetchSyncLogs();
+    }
+    if (activeTab === "merchant" || activeTab === "seo_health" || activeTab === "crawlers") {
+      fetchSitemapCheck();
     }
   }, [activeTab]);
 
@@ -1141,6 +1196,125 @@ export default function MetadataEditor() {
               </div>
             </div>
           </div>
+
+          {/* Crawling Help & Search Console Verification Section */}
+          <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl mt-8">
+            <div className="flex items-center gap-3 border-b border-white/5 pb-4">
+              <BookOpen className="w-5 h-5 text-[#C5A059]" />
+              <div className="space-y-0.5">
+                <h4 className="font-sans font-bold text-sm tracking-wide text-white uppercase">
+                  Crawling Help &amp; Search Console Verification Guide
+                </h4>
+                <p className="text-[11px] text-white/50">
+                  Step-by-step documentation for validating techsokoni.com on Google Search Console (GSC) and fixing crawl failures.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-xs font-sans text-left">
+              {/* Left Column: Domain Verification Guide */}
+              <div className="space-y-4">
+                <h5 className="font-sans font-bold text-xs uppercase tracking-wider text-[#C5A059] flex items-center gap-2">
+                  <Award className="w-4 h-4" />
+                  1. Google Search Console Domain Verification
+                </h5>
+                <p className="text-white/70 leading-relaxed text-[11px]">
+                  To register your sitemap on Google, you must prove ownership of <strong className="text-white">techsokoni.com</strong>. GSC provides an HTML Meta verification code or DNS TXT records.
+                </p>
+
+                <div className="bg-black/50 border border-white/5 rounded-2xl p-4.5 space-y-3.5">
+                  <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest block">
+                    Option A: HTML Meta Tag Verification (Recommended)
+                  </span>
+                  <p className="text-[11px] text-white/50 leading-relaxed">
+                    Copy this tag, open the <strong className="text-white">Site Meta &amp; Headers</strong> tab on this dashboard, and paste it into the Global Headers configuration to persist it dynamically in your HTML head.
+                  </p>
+
+                  <div className="flex items-center justify-between gap-2.5 bg-white/[0.02] border border-white/5 rounded-xl p-2.5 font-mono text-[10px] text-[#C5A059]">
+                    <span className="truncate pr-2">
+                      &lt;meta name="google-site-verification" content="GSC_VERIFICATION_TOKEN_HERE" /&gt;
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText('<meta name="google-site-verification" content="GSC_VERIFICATION_TOKEN_HERE" />');
+                        setCopiedVerifyTag(true);
+                        setTimeout(() => setCopiedVerifyTag(false), 2000);
+                      }}
+                      className="p-1.5 hover:bg-white/5 rounded-lg text-white/60 hover:text-white transition-colors shrink-0"
+                      title="Copy code"
+                    >
+                      {copiedVerifyTag ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-black/50 border border-white/5 rounded-2xl p-4.5 space-y-3.5">
+                  <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest block">
+                    Option B: DNS TXT Record Verification
+                  </span>
+                  <p className="text-[11px] text-white/50 leading-relaxed">
+                    If managing domain DNS records (e.g., via Cloudflare, Namecheap, or GoDaddy), add a new record of type <strong className="text-white">TXT</strong> with host <strong className="text-white">@</strong> and value <strong className="text-white">google-site-verification=GSC_VERIFICATION_TOKEN_HERE</strong>.
+                  </p>
+                </div>
+              </div>
+
+              {/* Right Column: SPA Pathing Troubleshooting */}
+              <div className="space-y-4">
+                <h5 className="font-sans font-bold text-xs uppercase tracking-wider text-rose-400 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  2. Resolving "File Not Found" SPA Sitemap Failures
+                </h5>
+                <p className="text-white/70 leading-relaxed text-[11px]">
+                  Single-Page Applications (SPAs) utilize client-side routers (like React Router). By default, hosting servers route all requests to the main <strong className="text-white">index.html</strong> shell.
+                </p>
+
+                <div className="bg-rose-950/5 border border-rose-500/10 rounded-2xl p-4.5 space-y-3.5">
+                  <h6 className="font-bold text-rose-300 text-[11px]">The Core Root Cause:</h6>
+                  <p className="text-[11px] text-white/60 leading-relaxed">
+                    When search engine crawlers request <strong className="text-white">/sitemap.xml</strong> or <strong className="text-white">/google-merchant-feed.xml</strong>, the host falls back to the client-side SPA bundle instead of serving pure XML. This causes Google Search Console to encounter an HTML template, generating an <strong>"access failed"</strong> or <strong>"unsupported format"</strong> error.
+                  </p>
+                </div>
+
+                <div className="bg-black/50 border border-white/5 rounded-2xl p-4.5 space-y-3">
+                  <span className="text-[10px] font-mono text-[#C5A059] uppercase tracking-widest block">
+                    The Solution (Now Pre-Configured on Your Server):
+                  </span>
+                  <p className="text-[11px] text-white/50 leading-relaxed">
+                    We resolved this by injecting native serverless rewrite instructions into your deployment config. This forces the platform to route sitemap requests directly to our dynamic Express XML endpoint:
+                  </p>
+
+                  <div className="flex items-center justify-between gap-2.5 bg-white/[0.02] border border-white/5 rounded-xl p-2.5 font-mono text-[9px] text-[#C5A059] text-left">
+                    <pre className="overflow-x-auto pr-2 select-all leading-normal text-white/80">
+{`{
+  "rewrites": [
+    { "source": "/sitemap.xml", "destination": "/api/index" }
+  ]
+}`}
+                    </pre>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText('{\n  "rewrites": [\n    { "source": "/sitemap.xml", "destination": "/api/index" }\n  ]\n}');
+                        setCopiedRewriteConfig(true);
+                        setTimeout(() => setCopiedRewriteConfig(false), 2000);
+                      }}
+                      className="p-1.5 hover:bg-white/5 rounded-lg text-white/60 hover:text-white transition-colors shrink-0 self-start"
+                      title="Copy code"
+                    >
+                      {copiedRewriteConfig ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1718,9 +1892,57 @@ export default function MetadataEditor() {
           <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl text-left border-t-2 border-t-[#C5A059]/40 mt-8">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
               <div className="space-y-1">
-                <h3 className="font-sans font-bold text-sm text-white uppercase flex items-center gap-2.5">
+                <h3 className="font-sans font-bold text-sm text-white uppercase flex items-center gap-2.5 flex-wrap">
                   <Activity className="w-5 h-5 text-[#C5A059]" />
-                  Google Merchant Center Sync Diagnostics
+                  <span>Google Merchant Center Sync Diagnostics</span>
+                  
+                  {/* Sitemap.xml Accessibility Indicator Badge with Tooltip */}
+                  <div className="relative group flex items-center">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-mono font-bold tracking-wider uppercase border cursor-help transition-all duration-300 ${
+                      sitemapCheck.status === "success" 
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20" 
+                        : sitemapCheck.status === "yellow"
+                        ? "bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20"
+                        : sitemapCheck.status === "loading"
+                        ? "bg-white/5 text-white/40 border-white/10"
+                        : "bg-rose-500/10 text-rose-400 border-rose-500/30 hover:bg-rose-500/20"
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        sitemapCheck.status === "success" 
+                          ? "bg-emerald-400 animate-pulse" 
+                          : sitemapCheck.status === "yellow"
+                          ? "bg-amber-400 animate-pulse"
+                          : sitemapCheck.status === "loading"
+                          ? "bg-white/40 animate-spin border border-t-transparent border-white"
+                          : "bg-rose-400 animate-pulse"
+                      }`} />
+                      Sitemap: {sitemapCheck.status === "loading" ? "CHECKING" : sitemapCheck.status.toUpperCase()}
+                    </span>
+
+                    {/* Highly Polished Tooltip */}
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 p-3 bg-[#111111] border border-white/15 rounded-xl shadow-2xl text-[10px] font-sans normal-case tracking-normal text-white/90 font-normal leading-relaxed opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 z-50">
+                      <div className="flex items-center gap-2 border-b border-white/5 pb-1.5 mb-1.5">
+                        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                          sitemapCheck.status === "success" ? "bg-emerald-400" : sitemapCheck.status === "yellow" ? "bg-amber-400" : sitemapCheck.status === "loading" ? "bg-white/40" : "bg-rose-400"
+                        }`} />
+                        <span className="font-bold text-white uppercase text-[9px] font-mono tracking-wider">
+                          Google Sitemap Health Status
+                        </span>
+                      </div>
+                      <p className="font-medium text-white/90">{sitemapCheck.message}</p>
+                      {sitemapCheck.details && (
+                        <p className="text-white/50 mt-1 font-mono text-[9px] bg-black/40 p-1.5 rounded border border-white/5">
+                          {sitemapCheck.details}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between text-white/30 text-[8px] font-mono mt-2 pt-1 border-t border-white/5">
+                        <span>URL: /sitemap.xml</span>
+                        {sitemapCheck.urlsCount > 0 && <span>{sitemapCheck.urlsCount} routes</span>}
+                      </div>
+                      {/* Tooltip arrow */}
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#111111]" />
+                    </div>
+                  </div>
                 </h3>
                 <p className="text-[11px] text-white/50 leading-relaxed">
                   Analyzes the last five ingestion and API communication logs to detect crawler timeouts, authentication blocks, and product validation failures.

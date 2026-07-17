@@ -2,6 +2,14 @@
   "version": 2,
   "rewrites": [
     {
+      "source": "/sitemap.xml",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/google-merchant-feed.xml",
+      "destination": "/api/index"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/index"
     }
