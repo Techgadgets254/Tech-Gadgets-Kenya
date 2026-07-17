@@ -172,8 +172,10 @@ export default function LiveOrderTracker({ initialOrderId = "", onNavigateToShop
       let wrappedAddress = doc.splitTextToSize(trackedOrder.shippingAddress || "Nairobi CBD Delivery Counter", 82);
       doc.text(wrappedAddress, 112, 70);
 
-      // 5. Table Header lines
-      let currentY = 94;
+      // 5. Table Header lines - dynamically calculated based on address height
+      let addressHeight = wrappedAddress.length * 4.5;
+      let currentY = Math.max(94, 70 + addressHeight + 8);
+
       doc.setFillColor(242, 244, 247);
       doc.rect(15, currentY, 180, 8, "F");
       doc.setDrawColor(220, 222, 225);
@@ -193,24 +195,39 @@ export default function LiveOrderTracker({ initialOrderId = "", onNavigateToShop
 
       // 6. Loop and output line items
       (trackedOrder.items || []).forEach((item) => {
+        // If we are running out of page space, start a new page
+        if (currentY > 190) {
+          doc.addPage();
+          currentY = 20;
+        }
+
+        let fullName = `${item.brand} ${item.name}`;
+        let wrappedName = doc.splitTextToSize(fullName, 100); // Max 100mm to avoid overlapping with Qty at 125!
+
         doc.setFont("Helvetica", "bold");
         doc.setTextColor(20, 20, 20);
-        doc.text(`${item.brand} ${item.name}`, 18, currentY + 6);
+        doc.text(wrappedName, 18, currentY + 5);
         
         doc.setFont("Helvetica", "normal");
         doc.setTextColor(60, 60, 60);
-        doc.text(String(item.quantity), 126, currentY + 6);
-        doc.text(Number(item.price).toLocaleString(), 145, currentY + 6);
+        doc.text(String(item.quantity), 126, currentY + 5);
+        doc.text(Number(item.price).toLocaleString(), 145, currentY + 5);
         
         doc.setFont("Helvetica", "bold");
         doc.setTextColor(15, 15, 15);
-        doc.text(Number(item.price * item.quantity).toLocaleString(), 171, currentY + 6);
+        doc.text(Number(item.price * item.quantity).toLocaleString(), 171, currentY + 5);
 
-        currentY += 9;
+        let rowHeight = Math.max(9, wrappedName.length * 4.5 + 2);
+        currentY += rowHeight;
         doc.line(15, currentY, 195, currentY);
       });
 
       // 7. Balance calculation section
+      if (currentY > 190) {
+        doc.addPage();
+        currentY = 20;
+      }
+
       currentY += 8;
       doc.setFillColor(248, 250, 252);
       doc.rect(15, currentY, 180, 26, "F");
@@ -251,6 +268,10 @@ export default function LiveOrderTracker({ initialOrderId = "", onNavigateToShop
 
       // 7.5. Warranty, Return & Terms Block
       let warrantyY = currentY + 32;
+      if (warrantyY > 230) {
+        doc.addPage();
+        warrantyY = 20;
+      }
       doc.setFillColor(248, 250, 252);
       doc.setDrawColor(218, 222, 229);
       doc.rect(15, warrantyY, 180, 36, "F");

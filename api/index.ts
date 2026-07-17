@@ -5,6 +5,7 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import nodemailer from "nodemailer";
+import { sendReceiptEmail, sendRestockAlertEmail } from "./emailService";
 import { initializeApp as serverInitApp } from "firebase/app";
 import { 
   getFirestore as serverGetFS, 
@@ -289,6 +290,115 @@ app.get("/api/paystack/check-config", (req, res) => {
   });
 });
 
+// Dynamic XML Sitemap Generator for Google Search Console
+app.get(["/sitemap.xml", "/api/sitemap.xml"], async (req, res) => {
+  try {
+    const productsSnap = await adminDb.collection("products").get();
+    const products: any[] = [];
+    productsSnap.forEach(doc => {
+      products.push({ id: doc.id, ...doc.data() });
+    });
+
+    const baseUrl = "https://techsokoni.com";
+    
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
+    
+    // Static Routes
+    const staticRoutes = [
+      { path: "", priority: "1.0", changefreq: "daily" },
+      { path: "/categories", priority: "0.8", changefreq: "weekly" },
+      { path: "/search", priority: "0.8", changefreq: "weekly" },
+      { path: "/cart", priority: "0.5", changefreq: "monthly" },
+      { path: "/track", priority: "0.7", changefreq: "daily" }
+    ];
+    
+    for (const route of staticRoutes) {
+      xml += `  <url>\n`;
+      xml += `    <loc>${baseUrl}${route.path}</loc>\n`;
+      xml += `    <changefreq>${route.changefreq}</changefreq>\n`;
+      xml += `    <priority>${route.priority}</priority>\n`;
+      xml += `  </url>\n`;
+    }
+    
+    // Dynamic Product Routes
+    for (const prod of products) {
+      xml += `  <url>\n`;
+      xml += `    <loc>${baseUrl}/product/${prod.id}</loc>\n`;
+      xml += `    <changefreq>weekly</changefreq>\n`;
+      xml += `    <priority>0.9</priority>\n`;
+      xml += `  </url>\n`;
+    }
+    
+    xml += `</urlset>`;
+    
+    res.header("Content-Type", "application/xml");
+    res.status(200).send(xml);
+  } catch (err: any) {
+    console.error("Sitemap generation failure:", err);
+    res.status(500).send(`<?xml version="1.0" encoding="UTF-8"?><error>${err.message || "Failed to generate sitemap"}</error>`);
+  }
+});
+
+// Dynamic XML Product Feed for Google Merchant Center
+app.get(["/google-merchant-feed.xml", "/api/google-merchant-feed.xml"], async (req, res) => {
+  try {
+    const productsSnap = await adminDb.collection("products").get();
+    const products: any[] = [];
+    productsSnap.forEach(doc => {
+      products.push({ id: doc.id, ...doc.data() });
+    });
+
+    const baseUrl = "https://techsokoni.com";
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    xml += `<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">\n`;
+    xml += `  <channel>\n`;
+    xml += `    <title><![CDATA[Tech Sokoni Kenya]]></title>\n`;
+    xml += `    <link>${baseUrl}</link>\n`;
+    xml += `    <description><![CDATA[Premium Imports & Enterprise Computers in Nairobi, Kenya]]></description>\n`;
+
+    for (const prod of products) {
+      const isRefurbished = prod.category?.toLowerCase().includes("refurbished") || 
+                            prod.tags?.some((t: string) => t.toLowerCase() === "refurbished") || 
+                            prod.name?.toLowerCase().includes("refurbished");
+      
+      const condition = isRefurbished ? "refurbished" : "new";
+      const availability = (prod.stock && prod.stock > 0) ? "in_stock" : "out_of_stock";
+      const priceVal = `${prod.price || 0} KES`;
+      const descriptionText = prod.description || `Buy ${prod.name} by ${prod.brand || "Tech Sokoni Kenya"} online at the best price in Kenya.`;
+      
+      let imageLink = prod.images && prod.images[0] ? prod.images[0] : "";
+      if (imageLink && !imageLink.startsWith("http")) {
+        imageLink = `${baseUrl}${imageLink.startsWith("/") ? "" : "/"}${imageLink}`;
+      } else if (!imageLink) {
+        imageLink = `${baseUrl}/src/assets/images/tech_soko_logo_1783961449391.jpg`;
+      }
+
+      xml += `    <item>\n`;
+      xml += `      <g:id><![CDATA[${prod.id}]]></g:id>\n`;
+      xml += `      <g:title><![CDATA[${prod.name}]]></g:title>\n`;
+      xml += `      <g:description><![CDATA[${descriptionText}]]></g:description>\n`;
+      xml += `      <g:link>${baseUrl}/product/${prod.id}</g:link>\n`;
+      xml += `      <g:image_link>${imageLink}</g:image_link>\n`;
+      xml += `      <g:price>${priceVal}</g:price>\n`;
+      xml += `      <g:brand><![CDATA[${prod.brand || "Generic"}]]></g:brand>\n`;
+      xml += `      <g:availability>${availability}</g:availability>\n`;
+      xml += `      <g:condition>${condition}</g:condition>\n`;
+      xml += `    </item>\n`;
+    }
+
+    xml += `  </channel>\n`;
+    xml += `</rss>`;
+
+    res.header("Content-Type", "application/xml");
+    res.status(200).send(xml);
+  } catch (err: any) {
+    console.error("Google Merchant Feed generation failure:", err);
+    res.status(500).send(`<?xml version="1.0" encoding="UTF-8"?><error>${err.message || "Failed to generate merchant feed"}</error>`);
+  }
+});
+
 app.post("/api/email/send-receipt", async (req, res) => {
   const { orderId, email, order } = req.body;
 
@@ -296,235 +406,48 @@ app.post("/api/email/send-receipt", async (req, res) => {
     return res.status(400).json({ error: "Missing required parameters: email and order details." });
   }
 
-  const host = process.env.SMTP_HOST;
-  const port = parseInt(process.env.SMTP_PORT || "587", 10);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || '"Tech Gadgets Kenya" <receipts@techgadgetskenya.co.ke>';
-
-  const itemsListHtml = (order.items || []).map((item: any) => `
-    <tr>
-      <td style="padding: 10px; border-bottom: 1px solid #eeeeee;">
-        <div style="font-weight: bold; color: #222222;">${item.name}</div>
-        <div style="font-size: 11px; color: #777777;">Brand: ${item.brand}</div>
-      </td>
-      <td style="padding: 10px; border-bottom: 1px solid #eeeeee; text-align: center;">${item.quantity}</td>
-      <td style="padding: 10px; border-bottom: 1px solid #eeeeee; text-align: right; font-weight: bold;">KES ${item.price.toLocaleString()}</td>
-    </tr>
-  `).join("");
-
-  const emailHtmlContent = `
-    <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #dddddd; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
-      <div style="background-color: #111111; padding: 25px; text-align: center; border-bottom: 3px solid #C5A059;">
-        <h1 style="color: #ffffff; margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 2px;">Tech Gadgets Kenya</h1>
-        <p style="color: #C5A059; margin: 5px 0 0 0; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Premium Electronics Authorized Distributor</p>
-      </div>
-      <div style="padding: 30px; background-color: #ffffff;">
-        <h2 style="color: #111111; margin-top: 0; font-size: 18px; border-bottom: 1px solid #eeeeee; padding-bottom: 10px;">Official Fiscal Invoice & Receipt</h2>
-        <p style="font-size: 14px; color: #555555; line-height: 1.6;">Dear Client,</p>
-        <p style="font-size: 14px; color: #555555; line-height: 1.6;">Thank you for your purchase from Tech Gadgets Kenya! Your transaction of order <strong>#${orderId.substring(0, 8).toUpperCase()}</strong> has been captured successfully. Below is a detailed record of your purchase.</p>
-        
-        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 6px; margin: 20px 0; font-size: 13px;">
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-              <td style="padding: 4px 0; color: #777777;"><strong>Order ID:</strong></td>
-              <td style="padding: 4px 0; text-align: right; color: #333333;">${orderId}</td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0; color: #777777;"><strong>Date:</strong></td>
-              <td style="padding: 4px 0; text-align: right; color: #333333;">${new Date(order.createdAt).toLocaleString()}</td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0; color: #777777;"><strong>Customer Name:</strong></td>
-              <td style="padding: 4px 0; text-align: right; color: #333333;">${order.customerName}</td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0; color: #777777;"><strong>Delivery Address:</strong></td>
-              <td style="padding: 4px 0; text-align: right; color: #333333;">${order.shippingAddress}</td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0; color: #777777;"><strong>Payment Provider:</strong></td>
-              <td style="padding: 4px 0; text-align: right; color: #C5A059; font-weight: bold;">${order.paymentProvider}</td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0; color: #777777;"><strong>Payment Status:</strong></td>
-              <td style="padding: 4px 0; text-align: right; color: #2e7d32; font-weight: bold;">${order.paymentStatus}</td>
-            </tr>
-          </table>
-        </div>
-
-        <h3 style="color: #111111; font-size: 15px; margin-bottom: 10px;">Purchased Items</h3>
-        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-          <thead>
-            <tr style="background-color: #f1f1f1;">
-              <th style="padding: 10px; border-bottom: 2px solid #dddddd; text-align: left;">Item Description</th>
-              <th style="padding: 10px; border-bottom: 2px solid #dddddd; text-align: center;">Qty</th>
-              <th style="padding: 10px; border-bottom: 2px solid #dddddd; text-align: right;">Unit Price</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsListHtml}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colspan="2" style="padding: 10px; font-weight: bold; text-align: right;">Total Amount:</td>
-              <td style="padding: 10px; font-weight: bold; text-align: right; color: #C5A059; font-size: 15px;">KES ${order.totalAmount?.toLocaleString()}/=</td>
-            </tr>
-          </tfoot>
-        </table>
-
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eeeeee; font-size: 11px; color: #777777; text-align: center; line-height: 1.6;">
-          <p><strong>Physical Address:</strong> Kenyatta Pioneer Building, Kenyatta Avenue, 5th Floor, Shop 514 (Next to I&M Building), Nairobi, Kenya.</p>
-          <p>Contact Email: <a href="mailto:info@techgadgetskenya.co.ke" style="color: #C5A059; text-decoration: none;">info@techgadgetskenya.co.ke</a> | M-Pesa Till No: 9309020</p>
-          <p style="margin-top: 10px; font-weight: bold; color: #333333;">This invoice copy is verified electronically. Thank you for your business!</p>
-        </div>
-      </div>
-    </div>
-  `;
-
-  const isSmtpConfigured = !!(host && user && pass);
-
-  if (isSmtpConfigured) {
-    try {
-      const transporter = nodemailer.createTransport({
-        host,
-        port,
-        secure: port === 465,
-        auth: {
-          user,
-          pass,
-        },
-      });
-
-      const mailOptions = {
-        from,
-        to: email,
-        subject: `[Receipt] Tech Gadgets Kenya - Order #${orderId.substring(0, 8).toUpperCase()}`,
-        html: emailHtmlContent,
-      };
-
-      const info = await transporter.sendMail(mailOptions);
-      console.log(`[Email Dispatcher] Real Email sent via SMTP: ${info.messageId}`);
-      
-      return res.json({
-        success: true,
-        message: "Receipt dispatched successfully to user inbox.",
-        recipient: email,
-        deliveryMode: "live",
-        messageId: info.messageId
-      });
-    } catch (err: any) {
-      console.error("[Email Dispatcher] Outbound SMTP transport crash:", err);
-      // Fallback if SMTP fails to let user see successful simulation response
-      return res.json({
-        success: true,
-        message: `Outbound SMTP failed: ${err.message || String(err)}. Simulated delivery response fallback applied.`,
-        recipient: email,
-        deliveryMode: "simulated-fallback"
-      });
-    }
-  } else {
-    console.log(`[Email Dispatcher] SMTP credentials undefined on Server. Simulator dispatched mock invoice email to client at ${email}.`);
+  try {
+    const result = await sendReceiptEmail(email, orderId, order);
     return res.json({
       success: true,
-      message: "Receipt successfully processed and simulated.",
+      message: result.message,
       recipient: email,
-      deliveryMode: "simulated"
+      deliveryMode: result.simulated ? "simulated" : "live"
+    });
+  } catch (err: any) {
+    console.error("[Email Dispatcher] Outbound SMTP transport crash:", err);
+    return res.json({
+      success: true,
+      message: `Outbound SMTP failed: ${err.message || String(err)}. Simulated delivery response fallback applied.`,
+      recipient: email,
+      deliveryMode: "simulated-fallback"
     });
   }
 });
 
 // Manual/Automatic Restock Alerts Dispatch via SMTP
 app.post("/api/email/send-restock-alert", async (req, res) => {
-  const { email, productName, productId, price } = req.body;
+  const { email, productName } = req.body;
 
   if (!email || !productName) {
     return res.status(400).json({ error: "Missing required parameters: email and productName." });
   }
 
-  const host = process.env.SMTP_HOST;
-  const port = parseInt(process.env.SMTP_PORT || "587", 10);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || '"Tech Gadgets Kenya" <alerts@techgadgetskenya.co.ke>';
-
-  const emailHtmlContent = `
-    <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #dddddd; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
-      <div style="background-color: #111111; padding: 25px; text-align: center; border-bottom: 3px solid #C5A059;">
-        <h1 style="color: #ffffff; margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 2px;">Tech Gadgets Kenya</h1>
-        <p style="color: #C5A059; margin: 5px 0 0 0; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Premium Electronics Inventory Alert</p>
-      </div>
-      <div style="padding: 30px; background-color: #ffffff;">
-        <h2 style="color: #111111; margin-top: 0; font-size: 18px; border-bottom: 1px solid #eeeeee; padding-bottom: 10px;">Item Fully Restocked!</h2>
-        <p style="font-size: 14px; color: #555555; line-height: 1.6;">Dear Client,</p>
-        <p style="font-size: 14px; color: #555555; line-height: 1.6;">You are receiving this update because you subscribed to inventory status indicators or price metrics for the premium gadget detailed below:</p>
-        
-        <div style="background-color: #f9f9f9; padding: 20px; border-radius: 6px; margin: 20px 0; font-size: 14px; border-left: 4px solid #C5A059;">
-          <p style="margin: 0 0 6px 0; color: #111111; font-weight: bold;">${productName}</p>
-          <p style="margin: 0 0 6px 0; font-size: 12px; color: #777777;">Product Code: #${(productId || "").substring(0, 8).toUpperCase()}</p>
-          <p style="margin: 0; font-weight: bold; color: #835c17;">Current Price: KES ${(price || 0).toLocaleString()}/=</p>
-        </div>
-
-        <p style="font-size: 14px; color: #555555; line-height: 1.6;">Our fresh air consignment has officially cleared custom diagnostics, and this model has been restored to fully active inventory. Stock is currently limited and available on a first-come, first-served basis.</p>
-
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="https://techgadgetskenya.co.ke" style="background-color: #835c17; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; display: inline-block;">Secure Yours Now</a>
-        </div>
-        
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eeeeee; font-size: 11px; color: #777777; text-align: center; line-height: 1.6;">
-          <p><strong>Physical Address:</strong> Kenyatta Pioneer Building, Kenyatta Avenue, 5th Floor, Shop 514 (Next to I&M Building), Nairobi, Kenya.</p>
-          <p>Contact Email: <a href="mailto:info@techgadgetskenya.co.ke" style="color: #C5A059; text-decoration: none;">info@techgadgetskenya.co.ke</a> | WhatsApp: +254 700 000000</p>
-        </div>
-      </div>
-    </div>
-  `;
-
-  const isSmtpConfigured = !!(host && user && pass);
-
-  if (isSmtpConfigured) {
-    try {
-      const transporter = nodemailer.createTransport({
-        host,
-        port,
-        secure: port === 465,
-        auth: {
-          user,
-          pass,
-        },
-      });
-
-      const mailOptions = {
-        from,
-        to: email,
-        subject: `[Restock Alert] Tech Gadgets Kenya - ${productName} is back!`,
-        html: emailHtmlContent,
-      };
-
-      const info = await transporter.sendMail(mailOptions);
-      console.log(`[Email Dispatcher] Restock Alert Email sent via SMTP: ${info.messageId}`);
-      
-      return res.json({
-        success: true,
-        message: "Restock notification email sent successfully via SMTP.",
-        recipient: email,
-        deliveryMode: "live"
-      });
-    } catch (err: any) {
-      console.error("[Email Dispatcher] Outbound restock SMTP crash:", err);
-      return res.json({
-        success: true,
-        message: `Outbound SMTP failed: ${err.message || String(err)}. Simulated delivery response fallback applied.`,
-        recipient: email,
-        deliveryMode: "simulated-fallback"
-      });
-    }
-  } else {
-    console.log(`[Email Dispatcher] SMTP credentials undefined. Simulated restock email sent to ${email}.`);
+  try {
+    const result = await sendRestockAlertEmail(email, productName);
     return res.json({
       success: true,
-      message: "Restock alert successfully processed and simulated.",
+      message: result.message,
       recipient: email,
-      deliveryMode: "simulated"
+      deliveryMode: result.simulated ? "simulated" : "live"
+    });
+  } catch (err: any) {
+    console.error("[Email Dispatcher] Outbound restock SMTP crash:", err);
+    return res.json({
+      success: true,
+      message: `Outbound SMTP failed: ${err.message || String(err)}. Simulated delivery response fallback applied.`,
+      recipient: email,
+      deliveryMode: "simulated-fallback"
     });
   }
 });
@@ -1191,7 +1114,7 @@ function startDailyBackupScheduler() {
       const today = new Date().toISOString().split("T")[0];
       if ((global as any).lastBackupExecutedDate !== today) {
         console.log(`[Backup Scheduler] Running daily JSON backup system scan: "${today}"`);
-        await triggerDataBackup("SYSTEM_SCHEDULER", "system_scheduler@techgadgetskenya.co.ke");
+        await triggerDataBackup("SYSTEM_SCHEDULER", "system_scheduler@techsokoni.com");
         (global as any).lastBackupExecutedDate = today;
       }
     } catch (e: any) {

@@ -274,7 +274,7 @@ export default function ClientDashboard() {
 
     doc.setTextColor(160, 160, 160);
     doc.text("Kenyatta Pioneer Bldg, Kenyatta Ave, Shop 514, Nairobi", 34, 33);
-    doc.text("Clearance: Paystack Portal | support@techsokoni.co.ke", 34, 38);
+    doc.text("Clearance: Paystack Portal | support@techsokoni.com", 34, 38);
 
     // 3. Tax Invoice Badge
     doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -310,8 +310,10 @@ export default function ClientDashboard() {
     let wrappedAddress = doc.splitTextToSize(order.shippingAddress || "Nairobi CBD Delivery Counter", 82);
     doc.text(wrappedAddress, 112, 70);
 
-    // 5. Table Header lines
-    let currentY = 94;
+    // 5. Table Header lines - dynamically calculated based on address height
+    let addressHeight = wrappedAddress.length * 4.5;
+    let currentY = Math.max(94, 70 + addressHeight + 8);
+
     doc.setFillColor(242, 244, 247);
     doc.rect(15, currentY, 180, 8, "F");
     doc.setDrawColor(220, 222, 225);
@@ -331,24 +333,39 @@ export default function ClientDashboard() {
 
     // 6. Loop and output line items
     (order.items || []).forEach((item) => {
+      // If we are running out of page space, start a new page
+      if (currentY > 190) {
+        doc.addPage();
+        currentY = 20;
+      }
+
+      let fullName = `${item.brand} ${item.name}`;
+      let wrappedName = doc.splitTextToSize(fullName, 100); // Max 100mm to avoid overlapping with Qty at 125!
+
       doc.setFont("Helvetica", "bold");
       doc.setTextColor(20, 20, 20);
-      doc.text(`${item.brand} ${item.name}`, 18, currentY + 6);
+      doc.text(wrappedName, 18, currentY + 5);
       
       doc.setFont("Helvetica", "normal");
       doc.setTextColor(60, 60, 60);
-      doc.text(String(item.quantity), 126, currentY + 6);
-      doc.text(Number(item.price).toLocaleString(), 145, currentY + 6);
+      doc.text(String(item.quantity), 126, currentY + 5);
+      doc.text(Number(item.price).toLocaleString(), 145, currentY + 5);
       
       doc.setFont("Helvetica", "bold");
       doc.setTextColor(15, 15, 15);
-      doc.text(Number(item.price * item.quantity).toLocaleString(), 171, currentY + 6);
+      doc.text(Number(item.price * item.quantity).toLocaleString(), 171, currentY + 5);
 
-      currentY += 9;
+      let rowHeight = Math.max(9, wrappedName.length * 4.5 + 2);
+      currentY += rowHeight;
       doc.line(15, currentY, 195, currentY);
     });
 
     // 7. Balance calculation section
+    if (currentY > 190) {
+      doc.addPage();
+      currentY = 20;
+    }
+
     currentY += 8;
     doc.setFillColor(248, 250, 252);
     doc.rect(15, currentY, 180, 26, "F");
@@ -389,6 +406,10 @@ export default function ClientDashboard() {
 
     // 7.5. Warranty, Return & Terms Block
     let warrantyY = currentY + 32;
+    if (warrantyY > 230) {
+      doc.addPage();
+      warrantyY = 20;
+    }
     doc.setFillColor(248, 250, 252);
     doc.setDrawColor(218, 222, 229);
     doc.rect(15, warrantyY, 180, 36, "F");
@@ -1472,7 +1493,7 @@ export default function ClientDashboard() {
                       <div className="mt-4 text-[10px] text-white/40 print:text-black/60 font-mono leading-relaxed">
                         <p className="font-semibold text-white/60 print:text-black">Kenyatta Pioneer Building, along Kenyatta Avenue,</p>
                         <p className="font-semibold text-white/50 print:text-black/70">5th Floor, Shop Number 514 (Next to I&M Building)</p>
-                        <p>Postal Acc ID: info@techgadgetskenya.co.ke</p>
+                        <p>Postal Acc ID: support@techsokoni.com</p>
                         <p>M-Pesa Till No: 9309020 | Buy Goods</p>
                       </div>
                     </div>
@@ -1561,26 +1582,28 @@ export default function ClientDashboard() {
                       PURCHASING ITEM SUMMARY
                     </span>
                     
-                    <div className="border border-white/10 rounded-2xl overflow-hidden bg-[#0A0A0A]">
-                      <table className="w-full text-left border-collapse text-[11px] sm:text-xs">
+                     <div className="border border-white/10 rounded-2xl overflow-hidden bg-[#0A0A0A]">
+                      <table className="table-fixed w-full text-left border-collapse text-[11px] sm:text-xs">
                         <thead>
                           <tr className="bg-white/[0.02] border-b border-white/10 font-mono text-white/40 font-bold">
-                            <th className="p-3">Component / Model</th>
-                            <th className="p-3 text-center">Qty</th>
-                            <th className="p-3 text-right">Unit Price</th>
-                            <th className="p-3 text-right">Total (KES)</th>
+                            <th className="p-3 w-7/12 min-w-[140px]">Component / Model</th>
+                            <th className="p-3 w-[10%] text-center min-w-[30px]">Qty</th>
+                            <th className="p-3 w-[15%] text-right min-w-[70px]">Unit Price</th>
+                            <th className="p-3 w-[18%] text-right min-w-[80px]">Total (KES)</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5 font-sans text-white/80">
                           {(activeOrder.items || []).map((item, index) => (
                             <tr key={index}>
-                              <td className="p-3 font-medium">
-                                <span className="text-[10px] font-mono text-[#C5A059] block uppercase font-bold">{item.brand}</span>
-                                {item.name}
+                              <td className="p-3 font-medium break-words min-w-0 whitespace-normal">
+                                <span className="text-[10px] font-mono text-[#C5A059] block uppercase font-bold break-all">{item.brand}</span>
+                                <div className="break-words font-sans text-white/95 mt-0.5 leading-relaxed">
+                                  {item.name}
+                                </div>
                               </td>
-                              <td className="p-3 text-center font-mono font-bold text-white">{item.quantity}</td>
-                              <td className="p-3 text-right font-mono font-medium">KES {item.price.toLocaleString()}</td>
-                              <td className="p-3 text-right font-mono font-black text-white">
+                              <td className="p-3 text-center font-mono font-bold text-white whitespace-nowrap">{item.quantity}</td>
+                              <td className="p-3 text-right font-mono font-medium whitespace-nowrap">KES {item.price.toLocaleString()}</td>
+                              <td className="p-3 text-right font-mono font-black text-[#C5A059] whitespace-nowrap">
                                 KES {(item.price * item.quantity).toLocaleString()}
                               </td>
                             </tr>
@@ -1611,23 +1634,19 @@ export default function ClientDashboard() {
                       </div>
                     </div>
  
-                    <div className="w-full sm:w-auto space-y-2 border-t border-white/5 pt-3 sm:border-0 sm:pt-0 font-sans text-white/80">
-                      <div className="flex justify-between sm:justify-end gap-12 text-xs text-white/40">
-                        <span>Ledger Subtotal:</span>
-                        <span className="font-mono font-semibold text-white">KES {activeOrder.totalAmount.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between sm:justify-end gap-12 text-xs text-emerald-400">
-                        <span>Paystack Gateway Fee:</span>
-                        <span className="font-mono font-semibold">KES 0 (FREE)</span>
-                      </div>
-                      <div className="flex justify-between sm:justify-end gap-12 text-xs text-white/40 pb-2 border-b border-white/5">
-                        <span>Courier Dispatch fee:</span>
-                        <span className="font-mono font-semibold text-white">KES 0 (FREE)</span>
-                      </div>
+                     <div className="w-full sm:w-80 border-t border-white/5 pt-3 sm:border-0 sm:pt-0 font-sans text-white/80">
+                      <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-xs">
+                        <span className="text-white/40 text-left">Ledger Subtotal:</span>
+                        <span className="font-mono font-semibold text-white text-right">KES {activeOrder.totalAmount.toLocaleString()}</span>
 
-                      <div className="flex justify-between sm:justify-end gap-12 items-baseline text-sm font-bold text-white pt-1">
-                        <span>Billed Total amount:</span>
-                        <span className="font-sans font-black text-[#C5A059] text-base sm:text-lg">
+                        <span className="text-emerald-400 text-left">Paystack Gateway Fee:</span>
+                        <span className="font-mono font-semibold text-emerald-400 text-right">KES 0 (FREE)</span>
+
+                        <span className="text-white/40 text-left pb-2 border-b border-white/5">Courier Dispatch fee:</span>
+                        <span className="font-mono font-semibold text-white text-right pb-2 border-b border-white/5">KES 0 (FREE)</span>
+
+                        <span className="text-sm font-bold text-white text-left pt-2">Billed Total amount:</span>
+                        <span className="font-sans font-black text-[#C5A059] text-base sm:text-lg text-right pt-2">
                           KES {activeOrder.totalAmount.toLocaleString()}
                         </span>
                       </div>
@@ -2016,7 +2035,7 @@ export default function ClientDashboard() {
                       Shop 514, Nairobi CBD, Kenya
                     </p>
                     <p className="text-xs text-zinc-500 font-semibold mt-1">
-                      Support: info@techgadgetskenya.co.ke
+                      Support: support@techsokoni.com
                     </p>
                   </div>
 

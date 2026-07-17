@@ -6,6 +6,7 @@
 import React, { useState, useMemo } from "react";
 import { useStore } from "../StoreContext";
 import LazyImage from "./LazyImage";
+import { Helmet } from "./Helmet";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { 
   ArrowLeft, 
@@ -77,7 +78,7 @@ export default function ProductDetailsView() {
   const [selectedRatingFilter, setSelectedRatingFilter] = useState<number | null>(null);
 
   // Form states for Price alerts
-  const [priceAlertEmail, setPriceAlertEmail] = useState("whatsapp-only@techgadgetskenya.co.ke");
+  const [priceAlertEmail, setPriceAlertEmail] = useState("whatsapp-only@techsokoni.com");
   const [priceAlertWhatsapp, setPriceAlertWhatsapp] = useState("");
   const [priceAlertTarget, setPriceAlertTarget] = useState("");
   const [priceAlertSuccess, setPriceAlertSuccess] = useState(false);
@@ -90,7 +91,7 @@ export default function ProductDetailsView() {
     if (user?.email) {
       setPriceAlertEmail(user.email);
     } else {
-      setPriceAlertEmail("whatsapp-only@techgadgetskenya.co.ke");
+      setPriceAlertEmail("whatsapp-only@techsokoni.com");
     }
     if (user?.displayName) {
       setRevName(user.displayName);
@@ -100,7 +101,7 @@ export default function ProductDetailsView() {
   // Pre-filled WhatsApp and share links
   const handlePriceAlertSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const emailToUse = priceAlertEmail || user?.email || "whatsapp-only@techgadgetskenya.co.ke";
+    const emailToUse = priceAlertEmail || user?.email || "whatsapp-only@techsokoni.com";
     if (!product || !priceAlertWhatsapp || !priceAlertTarget) return;
     const targetPrice = parseFloat(priceAlertTarget);
     if (isNaN(targetPrice) || targetPrice <= 0) return;
@@ -544,6 +545,64 @@ export default function ProductDetailsView() {
 
   return (
     <div id="product-details-container" className="animate-fadeIn">
+      <Helmet 
+        title={`${product.name} | Tech Sokoni Kenya`}
+        description={product.description ? product.description.slice(0, 155) + "..." : `Buy ${product.name} online at Tech Sokoni Kenya. Genuine brand imports, local warranty, and 2-hour M-Pesa delivery within Nairobi.`}
+        keywords={`${product.name}, ${product.brand || "Tech Sokoni"}, laptop, specs, Tech Sokoni Kenya, Kenya electronics`}
+        image={product.image}
+        url={`https://techsokoni.com/product/${product.id}`}
+      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{
+        __html: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Product",
+          "name": product.name,
+          "image": product.image ? (product.image.startsWith("http") ? product.image : `https://techsokoni.com${product.image}`) : "https://techsokoni.com/logo.png",
+          "description": product.description || `Genuine ${product.name} with local warranty, available at Tech Sokoni Kenya.`,
+          "brand": {
+            "@type": "Brand",
+            "name": product.brand || "Tech Sokoni"
+          },
+          "sku": product.id,
+          "mpn": product.id,
+          "offers": {
+            "@type": "Offer",
+            "url": `https://techsokoni.com/product/${product.id}`,
+            "priceCurrency": "KES",
+            "price": currentPrice || product.price,
+            "priceValidUntil": "2027-12-31",
+            "itemCondition": isRefurbished ? "https://schema.org/RefurbishedCondition" : "https://schema.org/NewCondition",
+            "availability": currentStock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+            "seller": {
+              "@type": "Organization",
+              "name": "Tech Sokoni Kenya",
+              "url": "https://techsokoni.com"
+            }
+          },
+          "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": ratingAverage,
+            "reviewCount": displayedReviews.length || 1,
+            "bestRating": "5",
+            "worstRating": "1"
+          },
+          "review": displayedReviews.map((rev) => ({
+            "@type": "Review",
+            "author": {
+              "@type": "Person",
+              "name": rev.name || "Verified Buyer"
+            },
+            "datePublished": "2026-06-15",
+            "reviewBody": rev.text || "Highly recommended quality product.",
+            "reviewRating": {
+              "@type": "Rating",
+              "ratingValue": rev.rating || 5,
+              "bestRating": "5",
+              "worstRating": "1"
+            }
+          }))
+        })
+      }} />
       
       {/* Return to shop banner link */}
       <button

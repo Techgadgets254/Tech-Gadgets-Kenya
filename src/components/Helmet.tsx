@@ -4,37 +4,51 @@ interface HelmetProps {
   title: string;
   description?: string;
   keywords?: string;
+  image?: string;
+  url?: string;
 }
 
-export function Helmet({ title, description, keywords }: HelmetProps) {
+export function Helmet({ title, description, keywords, image, url }: HelmetProps) {
   useEffect(() => {
     // 1. Update Browser Dynamic Document Title
     document.title = title;
 
-    // 2. Dynamically Inject Meta Description tag for Search Engine crawlers
-    let metaDescription = document.querySelector('meta[name="description"]');
-    if (!metaDescription) {
-      metaDescription = document.createElement("meta");
-      metaDescription.setAttribute("name", "description");
-      document.head.appendChild(metaDescription);
-    }
-    if (description) {
-      metaDescription.setAttribute("content", description);
-    } else {
-      metaDescription.setAttribute("content", "Tech Sokoni Kenya provides premium laptops, desktops, and accessories along Kenyatta Avenue, Nairobi.");
+    const defaultDesc = "Tech Sokoni Kenya provides premium laptops, desktops, and accessories along Kenyatta Avenue, Nairobi.";
+    const activeDesc = description || defaultDesc;
+    const activeImage = image || "https://techsokoni.com/src/assets/images/tech_soko_logo_1783961449391.jpg";
+    const activeUrl = url || window.location.href;
+
+    // Helper helper to set or create meta property/name tags
+    const setMetaTag = (attributeName: "name" | "property", value: string, content: string) => {
+      let element = document.querySelector(`meta[${attributeName}="${value}"]`);
+      if (!element) {
+        element = document.createElement("meta");
+        element.setAttribute(attributeName, value);
+        document.head.appendChild(element);
+      }
+      element.setAttribute("content", content);
+    };
+
+    // 2. Standard Description and Keywords
+    setMetaTag("name", "description", activeDesc);
+    if (keywords) {
+      setMetaTag("name", "keywords", keywords);
     }
 
-    // 3. Optional SEO keywords tags
-    if (keywords) {
-      let metaKeywords = document.querySelector('meta[name="keywords"]');
-      if (!metaKeywords) {
-        metaKeywords = document.createElement("meta");
-        metaKeywords.setAttribute("name", "keywords");
-        document.head.appendChild(metaKeywords);
-      }
-      metaKeywords.setAttribute("content", keywords);
-    }
-  }, [title, description, keywords]);
+    // 3. OpenGraph tags
+    setMetaTag("property", "og:title", title);
+    setMetaTag("property", "og:description", activeDesc);
+    setMetaTag("property", "og:image", activeImage);
+    setMetaTag("property", "og:url", activeUrl);
+    setMetaTag("property", "og:type", "product");
+
+    // 4. Twitter Card tags
+    setMetaTag("name", "twitter:card", "summary_large_image");
+    setMetaTag("name", "twitter:title", title);
+    setMetaTag("name", "twitter:description", activeDesc);
+    setMetaTag("name", "twitter:image", activeImage);
+
+  }, [title, description, keywords, image, url]);
 
   return null;
 }

@@ -365,7 +365,7 @@ export default function AdminCredentialManager({ currentAdminEmail }: AdminCrede
                   required
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="name@techgadgetskenya.co.ke"
+                  placeholder="name@techsokoni.com"
                   className="w-full bg-white/[0.02] border border-white/10 focus:border-[#C5A059] focus:outline-none rounded-xl pl-11 pr-4 py-2.5 text-xs text-white font-mono placeholder:text-white/20 transition-all text-left"
                 />
               </div>
