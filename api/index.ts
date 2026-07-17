@@ -28,24 +28,52 @@ import { getFirestore as adminGetFirestore, Firestore as AdminFirestore } from "
 dotenv.config();
 
 // Load Firebase configuration safely without importing JSON via ES Modules
-let serverFirebaseConfig: any;
+let serverFirebaseConfig: any = null;
 try {
-  const configPath = path.resolve(process.cwd(), "firebase-applet-config.json");
-  serverFirebaseConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  const pathsToTry = [
+    path.resolve(process.cwd(), "firebase-applet-config.json"),
+    path.join(__dirname, "../firebase-applet-config.json"),
+    path.join(__dirname, "firebase-applet-config.json")
+  ];
+  
+  for (const p of pathsToTry) {
+    if (fs.existsSync(p)) {
+      serverFirebaseConfig = JSON.parse(fs.readFileSync(p, "utf8"));
+      console.log(`[Firebase Config] Successfully loaded config from ${p}`);
+      break;
+    }
+  }
 } catch (e) {
-  console.error("Failed to load /firebase-applet-config.json via fs.readFileSync:", e);
-  // Fallback to empty config to prevent crash
+  console.error("Failed to load /firebase-applet-config.json:", e);
+}
+
+// Fallback to fully-populated public config if the file is completely unreadable on Vercel
+if (!serverFirebaseConfig) {
+  console.log("[Firebase Config] Using static fallback configuration parameters.");
   serverFirebaseConfig = {
     projectId: "tech-gadgets-kenya",
-    firestoreDatabaseId: "(default)"
+    appId: "1:937704899601:web:f2ddecafdfe118daf89db0",
+    apiKey: "AIzaSyBqwGhkBL7VdFoSk72LnG7hRG848zUzoUs",
+    authDomain: "tech-gadgets-kenya.firebaseapp.com",
+    firestoreDatabaseId: "(default)",
+    storageBucket: "tech-gadgets-kenya.firebasestorage.app",
+    messagingSenderId: "937704899601",
+    measurementId: "G-VKLHREQ9PN"
   };
 }
 
 const app = express();
 
-// Initialize server-side Firebase Client SDK (kept for potential other references)
-const serverApp = serverInitApp(serverFirebaseConfig);
-const serverDb = serverGetFS(serverApp, serverFirebaseConfig.firestoreDatabaseId || "(default)");
+// Initialize server-side Firebase Client SDK inside a try-catch to guarantee zero crash during import/boot phase
+let serverApp: any;
+let serverDb: any;
+try {
+  serverApp = serverInitApp(serverFirebaseConfig);
+  serverDb = serverGetFS(serverApp, serverFirebaseConfig.firestoreDatabaseId || "(default)");
+  console.log("[Firebase Client] Initialized Client SDK fallback successfully.");
+} catch (clientInitErr: any) {
+  console.error("[Firebase Client] Critical initialization failure (unprevented):", clientInitErr);
+}
 
 // Initialize server-side Firebase Admin SDK
 let adminDb: AdminFirestore;
