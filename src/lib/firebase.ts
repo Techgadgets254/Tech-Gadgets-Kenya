@@ -5,13 +5,26 @@
 
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, setPersistence, browserLocalPersistence } from "firebase/auth";
-import { getFirestore, doc, getDocFromServer } from "firebase/firestore";
+import { getFirestore, enableIndexedDbPersistence, doc, getDocFromServer } from "firebase/firestore";
 
 import firebaseConfig from "../../firebase-applet-config.json";
 
 // Initialize Firebase modularly
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || "(default)"); /* CRITICAL: The app will break without this line */
+
+// Enable local offline persistent cache for Firestore
+try {
+  enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code === "failed-precondition") {
+      console.warn("[Firebase Offline] Multiple tabs open. Persistence disabled.");
+    } else if (err.code === "unimplemented") {
+      console.warn("[Firebase Offline] Browser doesn't support persistent cache.");
+    }
+  });
+} catch (e) {
+  console.error("[Firebase Offline] Error enabling Firestore persistent cache:", e);
+}
 export const auth = getAuth(app);
 
 // Explicitly set browser local persistence for resilient user authentication sessions

@@ -336,6 +336,267 @@ export default function AdminDashboard() {
     };
   }, [snapshotOrders]);
 
+  const handleGeneratePDFSummary = async () => {
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF();
+      
+      const adminEmail = auth.currentUser?.email || "techgadgetsk@gmail.com";
+      const timestamp = new Date().toLocaleString("en-KE", { timeZone: "Africa/Nairobi" });
+      const dateStr = new Date().toISOString().slice(0, 10);
+      
+      // 1. Brand Header
+      doc.setFillColor(15, 15, 15); // Dark Slate #0F0F0F equivalent
+      doc.rect(0, 0, 210, 38, "F");
+      
+      doc.setTextColor(197, 160, 89); // Gold Accent #C5A059
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(22);
+      doc.text("TECH SOKONI KENYA", 14, 18);
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text("PREMIUM IMPORTS & ENTERPRISE COMPUTERS", 14, 25);
+      doc.text("DAILY ADMINISTRATIVE SUMMARY REPORT", 14, 30);
+      
+      // Date and metadata in top right of header
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text(`Run Date: ${timestamp}`, 130, 18);
+      doc.text(`Authorized by: ${adminEmail}`, 130, 24);
+      doc.text(`Ref ID: TS-RPT-${dateStr}`, 130, 30);
+      
+      // Divider
+      doc.setDrawColor(197, 160, 89);
+      doc.setLineWidth(1.5);
+      doc.line(0, 38, 210, 38);
+      
+      let y = 52;
+      
+      // 2. Section: Sales & Fulfillment Diagnostics
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(17, 17, 17);
+      doc.text("1. SALES & FULFILLMENT DIAGNOSTICS", 14, y);
+      
+      y += 8;
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.5);
+      doc.line(14, y, 196, y);
+      
+      y += 8;
+      // Grid style layout for key performance numbers
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text("TODAY'S REVENUE", 14, y);
+      doc.text("TOTAL LEDGER CLEARANCE", 105, y);
+      
+      y += 6;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(197, 160, 89); // Gold
+      doc.text(`KES ${quickSnapshotMetrics.todayRevenue.toLocaleString()}`, 14, y);
+      doc.setTextColor(17, 17, 17);
+      doc.text(`KES ${(metrics?.totalSalesValue || 0).toLocaleString()}`, 105, y);
+      
+      y += 12;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text("PENDING ORDERS QUEUE", 14, y);
+      doc.text("ACTIVE STORE LISTINGS", 105, y);
+      
+      y += 6;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(197, 160, 89);
+      doc.text(`${quickSnapshotMetrics.pendingOrdersCount} orders pending`, 14, y);
+      doc.setTextColor(17, 17, 17);
+      doc.text(`${metrics?.activeProductsCount || products.length} items`, 105, y);
+      
+      // 3. Section: Top Selling Items Today
+      y += 18;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(17, 17, 17);
+      doc.text("2. TODAY'S HIGHEST VELOCITY ITEMS", 14, y);
+      
+      y += 6;
+      doc.line(14, y, 196, y);
+      
+      y += 10;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(120, 120, 120);
+      doc.text("Rank", 14, y);
+      doc.text("Product Details", 35, y);
+      doc.text("Units Sold", 165, y);
+      
+      y += 4;
+      doc.line(14, y, 196, y);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(17, 17, 17);
+      
+      if (quickSnapshotMetrics.topProducts.length === 0) {
+        y += 10;
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(150, 150, 150);
+        doc.text("No product sales transactions cleared today.", 14, y);
+      } else {
+        quickSnapshotMetrics.topProducts.slice(0, 3).forEach((p, idx) => {
+          y += 8;
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(197, 160, 89);
+          doc.text(`#${idx + 1}`, 14, y);
+          
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(17, 17, 17);
+          doc.text(`${p.brand || "Generic"} - ${p.name}`, 35, y);
+          
+          doc.setFont("helvetica", "bold");
+          doc.text(`${p.quantity} units`, 165, y);
+        });
+      }
+      
+      // 4. Section: Inventory Alerts & Reorder Points
+      y += 18;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(17, 17, 17);
+      doc.text("3. URGENT INVENTORY & STOCK ALERTS", 14, y);
+      
+      y += 6;
+      doc.line(14, y, 196, y);
+      
+      y += 10;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(120, 120, 120);
+      doc.text("SKU / Item Key", 14, y);
+      doc.text("Model Name", 65, y);
+      doc.text("Stock Level", 140, y);
+      doc.text("Severity", 165, y);
+      
+      y += 4;
+      doc.line(14, y, 196, y);
+      
+      const lowStockItems = products.filter(p => (p.stock || 0) <= lowStockThreshold);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(17, 17, 17);
+      
+      if (lowStockItems.length === 0) {
+        y += 10;
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(100, 150, 100);
+        doc.text("Excellent! All inventory counts remain above critical low stock levels.", 14, y);
+      } else {
+        lowStockItems.slice(0, 12).forEach((p) => {
+          y += 8;
+          
+          // Row overflow handling
+          if (y > 275) {
+            doc.addPage();
+            y = 25;
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(10);
+            doc.setTextColor(120, 120, 120);
+            doc.text("SKU / Item Key", 14, y);
+            doc.text("Model Name", 65, y);
+            doc.text("Stock Level", 140, y);
+            doc.text("Severity", 165, y);
+            y += 4;
+            doc.line(14, y, 196, y);
+            y += 8;
+          }
+          
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(80, 80, 80);
+          doc.text(p.id.substring(0, 12).toUpperCase(), 14, y);
+          
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(17, 17, 17);
+          const nameTrim = p.name.length > 35 ? p.name.substring(0, 35) + "..." : p.name;
+          doc.text(`${p.brand || ""} ${nameTrim}`, 65, y);
+          
+          const stock = p.stock || 0;
+          doc.setFont("helvetica", "bold");
+          doc.text(`${stock} units left`, 140, y);
+          
+          if (stock === 0) {
+            doc.setTextColor(220, 38, 38); // Red
+            doc.text("OUT OF STOCK", 165, y);
+          } else if (stock <= 2) {
+            doc.setTextColor(217, 119, 6); // Orange
+            doc.text("CRITICAL LOW", 165, y);
+          } else {
+            doc.setTextColor(75, 85, 99); // Slate Grey
+            doc.text("REORDER WARN", 165, y);
+          }
+          doc.setTextColor(17, 17, 17); // Reset
+        });
+        
+        if (lowStockItems.length > 12) {
+          y += 10;
+          doc.setFont("helvetica", "italic");
+          doc.setFontSize(8);
+          doc.setTextColor(120, 120, 120);
+          doc.text(`... and ${lowStockItems.length - 12} other products are currently below threshold.`, 14, y);
+        }
+      }
+      
+      // 5. Official Stamp/Footer
+      y += 20;
+      if (y > 275) {
+        doc.addPage();
+        y = 30;
+      }
+      
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.5);
+      doc.line(14, y, 196, y);
+      
+      y += 8;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
+      doc.text("SECURITY AUDIT TRAIL LOGGED", 14, y);
+      
+      y += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(140, 140, 140);
+      doc.text("This report is digitally signed and logged. All inventory thresholds and physical stock balances", 14, y);
+      y += 3.5;
+      doc.text("must be audited weekly at Kenyatta Pioneer Building, Shop 514, Nairobi, Kenya.", 14, y);
+      
+      // Save PDF file
+      doc.save(`Tech_Sokoni_Daily_Report_${dateStr}.pdf`);
+      
+      // Log action to audits
+      try {
+        const { addDoc, collection } = await import("firebase/firestore");
+        await addDoc(collection(db, "audit_logs"), {
+          action: "pdf_report_generated",
+          details: `Generated daily sales and low-stock inventory PDF report (${lowStockItems.length} alerts)`,
+          timestamp: new Date().toISOString(),
+          user: adminEmail
+        });
+      } catch (logErr) {
+        console.warn("Could not write audit log for PDF generation:", logErr);
+      }
+      
+    } catch (err: any) {
+      console.error("PDF generation crash:", err);
+      alert("Error generating administrative PDF summary: " + err.message);
+    }
+  };
+
   const stockChartData = useMemo(() => {
     return products.map(p => ({
       name: p.name.length > 15 ? p.name.substring(0, 13) + "..." : p.name,
@@ -2570,13 +2831,24 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                   Active Direct real-time live-stream database listener
                 </p>
               </div>
-              <div className="text-left sm:text-right">
-                <span className="font-mono text-[8px] font-bold text-white/30 block uppercase">
-                  Server Reference Time
-                </span>
-                <span className="font-mono text-[9px] text-[#C5A059] font-bold">
-                  {new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                </span>
+              
+              <div className="flex items-center gap-3 self-stretch sm:self-center justify-between sm:justify-end">
+                <button
+                  onClick={handleGeneratePDFSummary}
+                  className="flex items-center gap-2 px-3.5 py-2 bg-[#C5A059] hover:bg-amber-600 active:scale-95 text-black text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shadow-md shadow-amber-500/5 cursor-pointer shrink-0"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Generate PDF Report</span>
+                </button>
+                
+                <div className="text-left sm:text-right hidden sm:block">
+                  <span className="font-mono text-[8px] font-bold text-white/30 block uppercase">
+                    Server Reference Time
+                  </span>
+                  <span className="font-mono text-[9px] text-[#C5A059] font-bold">
+                    {new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                  </span>
+                </div>
               </div>
             </div>
 

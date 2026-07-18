@@ -149,15 +149,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     try {
       const cached = localStorage.getItem("tsk_products_cache");
       const cacheTime = localStorage.getItem("tsk_products_cache_time");
-      if (cached && cacheTime) {
-        const parsedTime = parseInt(cacheTime, 10);
-        // 5 minutes in milliseconds
-        if (Date.now() - parsedTime < 5 * 60 * 1000) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            console.log("Loaded products from client-side cache");
-            return parsed;
-          }
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          console.log("Loaded products from client-side cache (progressive rendering & offline support)");
+          return parsed;
         }
       }
     } catch (e) {

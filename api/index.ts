@@ -481,9 +481,8 @@ app.get(["/google-merchant-feed.xml", "/api/google-merchant-feed.xml"], async (r
   try {
     const products = await fetchProductsHelper();
 
-    const host = req.get("host") || "techsokoni.com";
-    const protocol = req.headers["x-forwarded-proto"] === "https" || req.secure ? "https" : "http";
-    const baseUrl = `${protocol}://${host}`;
+    // Forced verified domain for Merchant Center to completely bypass container/preview relative URL mismatch errors
+    const baseUrl = "https://techsokoni.com";
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
     xml += `<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">\n`;
@@ -498,7 +497,9 @@ app.get(["/google-merchant-feed.xml", "/api/google-merchant-feed.xml"], async (r
                             prod.name?.toLowerCase().includes("refurbished");
       
       const condition = isRefurbished ? "refurbished" : "new";
-      const availability = (prod.stock && prod.stock > 0) ? "in_stock" : "out_of_stock";
+      
+      // Google Merchant Center strictly requires spaces in availability ('in stock' vs 'in_stock')
+      const availability = (prod.stock && prod.stock > 0) ? "in stock" : "out of stock";
       const priceVal = `${prod.price || 0} KES`;
       const descriptionText = prod.description || `Buy ${prod.name} by ${prod.brand || "Tech Sokoni Kenya"} online at the best price in Kenya.`;
       
@@ -508,6 +509,23 @@ app.get(["/google-merchant-feed.xml", "/api/google-merchant-feed.xml"], async (r
       } else if (!imageLink) {
         imageLink = `${baseUrl}/src/assets/images/tech_soko_logo_1783961449391.jpg`;
       }
+
+      // Map categories to standard Google Product Categories for highest compliance
+      let googleProductCategory = "Electronics > Computers";
+      const lowerCat = (prod.category || "").toLowerCase();
+      if (lowerCat.includes("laptop")) {
+        googleProductCategory = "Electronics > Computers > Laptops";
+      } else if (lowerCat.includes("phone")) {
+        googleProductCategory = "Electronics > Communications > Telephony > Mobile Phones";
+      } else if (lowerCat.includes("printer")) {
+        googleProductCategory = "Electronics > Computers > Computer Accessories > Printers, Scanners & Fax Machines > Printers";
+      } else if (lowerCat.includes("accessory")) {
+        googleProductCategory = "Electronics > Computer Components";
+      } else if (lowerCat.includes("desktop") || lowerCat.includes("all-in-one") || lowerCat.includes("aio")) {
+        googleProductCategory = "Electronics > Computers > Desktop Computers";
+      }
+
+      const mpn = prod.sku || prod.id;
 
       xml += `    <item>\n`;
       xml += `      <g:id><![CDATA[${prod.id}]]></g:id>\n`;
@@ -519,6 +537,9 @@ app.get(["/google-merchant-feed.xml", "/api/google-merchant-feed.xml"], async (r
       xml += `      <g:brand><![CDATA[${prod.brand || "Generic"}]]></g:brand>\n`;
       xml += `      <g:availability>${availability}</g:availability>\n`;
       xml += `      <g:condition>${condition}</g:condition>\n`;
+      xml += `      <g:mpn><![CDATA[${mpn}]]></g:mpn>\n`;
+      xml += `      <g:google_product_category><![CDATA[${googleProductCategory}]]></g:google_product_category>\n`;
+      xml += `      <g:identifier_exists>false</g:identifier_exists>\n`; // Avoids rejection due to missing GTIN barcodes for enterprise/refurbished computers
       xml += `    </item>\n`;
     }
 
