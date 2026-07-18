@@ -114,6 +114,8 @@ export default function CheckoutView() {
   const [selectedCounty, setSelectedCounty] = useState(KENYAN_COUNTIES[0]);
   const [deliveryDetails, setDeliveryDetails] = useState("");
   const [billingPhone, setBillingPhone] = useState("");
+  const [isGuest, setIsGuest] = useState(false);
+  const [guestEmail, setGuestEmail] = useState("");
 
   // Payment Selection: "paystack" or "mpesa_qr"
   const [paymentMethod, setPaymentMethod] = useState<"paystack" | "mpesa_qr">("paystack");
@@ -454,10 +456,15 @@ export default function CheckoutView() {
   // Validate mobile formats & card details
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
+    if (!user && !isGuest) {
       setIsAuthModalOpen(true);
       setAuthModalMode("login");
-      alert("Please log in or sign up to finalize your payment and place your order.");
+      alert("Please log in or select 'Proceed as Guest' to finalize your payment and place your order.");
+      return;
+    }
+
+    if (isGuest && !guestEmail) {
+      alert("Please enter a valid email address to proceed with Guest Checkout.");
       return;
     }
 
@@ -467,6 +474,7 @@ export default function CheckoutView() {
     }
 
     const safaricomCheck = getSafaricomValidation(customerPhone);
+    const activeEmail = user ? (user.email || "") : guestEmail;
 
     try {
       if (isNairobi) {
@@ -487,7 +495,7 @@ export default function CheckoutView() {
           const amount = Math.max(0, getCartTotal() + deliveryFee - discount);
           const orderObj = await createCheckoutOrder({
             customerName,
-            customerEmail: user.email || "",
+            customerEmail: activeEmail,
             customerPhone: safaricomCheck.apiFormatted, // standardized format
             shippingAddress: shippingFullAddress,
             mpesaPhone: safaricomCheck.apiFormatted,
@@ -532,7 +540,7 @@ export default function CheckoutView() {
 
           const orderObj = await createCheckoutOrder({
             customerName,
-            customerEmail: user.email || "",
+            customerEmail: activeEmail,
             customerPhone,
             shippingAddress: shippingFullAddress,
             mpesaPhone: customerPhone, // Stores customer billing contact to satisfy Firestore layout
@@ -554,7 +562,7 @@ export default function CheckoutView() {
 
           // Open our high-integrity PaymentHandler modal
           setActivePaymentOrderId(orderObj.id);
-          setActivePaymentEmail(user.email || "techgadgetsk@gmail.com");
+          setActivePaymentEmail(activeEmail || "techgadgetsk@gmail.com");
           setActivePaymentAmount(orderObj.totalAmount);
           setIsPaymentHandlerOpen(true);
         }
@@ -570,7 +578,7 @@ export default function CheckoutView() {
         
         const orderObj = await createCheckoutOrder({
           customerName,
-          customerEmail: user.email || "",
+          customerEmail: activeEmail,
           customerPhone,
           shippingAddress: shippingFullAddress,
           mpesaPhone: "PAY-ON-DELIVERY",
@@ -1133,8 +1141,38 @@ export default function CheckoutView() {
             {/* Guest Checkout notice or Auth status */}
             <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 shadow-xs animate-fadeIn">
               {!user && (
-                <div className="bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/20 rounded-2xl p-4 mb-5 text-left text-xs leading-relaxed font-sans">
-                  <strong>Guest Checkout Active:</strong> You are currently placing an order as a guest. You will be prompted to sign in with Google to finalize your payment, secure your digital receipts, and track dispatch logs in real-time.
+                <div className="bg-zinc-900 border border-white/5 rounded-2xl p-4 mb-5 text-left font-sans space-y-3">
+                  <p className="text-white text-xs font-semibold">How would you like to check out?</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsGuest(false);
+                        setIsAuthModalOpen(true);
+                        setAuthModalMode("login");
+                      }}
+                      className={`text-left p-3 rounded-xl border text-xs transition-all cursor-pointer ${
+                        !isGuest
+                          ? "bg-[#C5A059]/10 border-[#C5A059] text-white"
+                          : "bg-white/5 border-white/10 text-white/60 hover:border-white/20"
+                      }`}
+                    >
+                      <strong className="block text-white">Sign In with Google</strong>
+                      <span className="text-[10px] text-white/50 block mt-0.5">Track orders & secure past receipts.</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsGuest(true)}
+                      className={`text-left p-3 rounded-xl border text-xs transition-all cursor-pointer ${
+                        isGuest
+                          ? "bg-[#C5A059]/10 border-[#C5A059] text-white"
+                          : "bg-white/5 border-white/10 text-white/60 hover:border-white/20"
+                      }`}
+                    >
+                      <strong className="block text-white">Proceed as Guest</strong>
+                      <span className="text-[10px] text-white/50 block mt-0.5">No login or account registration required.</span>
+                    </button>
+                  </div>
                 </div>
               )}
               <h2 className="font-sans font-semibold text-lg text-white pb-3 border-b border-white/10 mb-5 flex items-center gap-2">
@@ -1211,6 +1249,23 @@ export default function CheckoutView() {
                       })()}
                     </div>
                   </div>
+
+                  {isGuest && (
+                    <div className="bg-zinc-900/40 p-4 border border-white/5 rounded-2xl animate-fadeIn space-y-1">
+                      <label className="font-mono text-[10px] font-bold text-[#C5A059] block uppercase tracking-wider">GUEST EMAIL ADDRESS</label>
+                      <input
+                        type="email"
+                        required={isGuest}
+                        value={guestEmail}
+                        onChange={(e) => setGuestEmail(e.target.value)}
+                        className="w-full bg-white/[0.03] border border-white/10 text-xs py-2.5 px-3 rounded-lg focus:outline-hidden focus:border-[#C5A059] text-white font-sans h-[38px]"
+                        placeholder="your.email@example.com"
+                      />
+                      <span className="text-[9.5px] text-white/40 block pt-1 font-sans">
+                        Provide your primary email address to receive secure digital receipts, real-time logistics dispatch logs, and to automatically log history under this email.
+                      </span>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>

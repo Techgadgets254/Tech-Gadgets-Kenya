@@ -82,6 +82,21 @@ try {
 
 // Initialize server-side Firebase Admin SDK
 let adminDb: AdminFirestore;
+let isAdminDbAuthorized = false;
+
+async function checkAdminDbAuth() {
+  if (adminDb) {
+    try {
+      await adminDb.collection("products").limit(1).get();
+      isAdminDbAuthorized = true;
+      console.log("[Firebase Admin] Checked Admin SDK authorization: Success.");
+    } catch (err: any) {
+      isAdminDbAuthorized = false;
+      console.log("[Firebase Admin] Checked Admin SDK authorization: Bypassed/Restricted. Fallbacks will be used.");
+    }
+  }
+}
+
 try {
   const adminApps = getAdminApps();
   if (adminApps.length === 0) {
@@ -91,6 +106,7 @@ try {
   }
   adminDb = adminGetFirestore();
   console.log("[Firebase Admin] Initialized Admin SDK successfully for project:", serverFirebaseConfig.projectId);
+  checkAdminDbAuth();
 } catch (e) {
   console.error("[Firebase Admin] Error initializing Admin SDK:", e);
 }
@@ -341,7 +357,7 @@ async function fetchProductsHelper(): Promise<any[]> {
   
   // Strategy 1: Firebase Admin SDK (Standard GCP container direct auth)
   try {
-    if (adminDb) {
+    if (adminDb && isAdminDbAuthorized) {
       console.log("[fetchProductsHelper] Fetching products via Firebase Admin SDK...");
       const snap = await adminDb.collection("products").get();
       snap.forEach(doc => {
@@ -349,9 +365,16 @@ async function fetchProductsHelper(): Promise<any[]> {
       });
       console.log(`[fetchProductsHelper] Successfully fetched ${products.length} products via Admin SDK.`);
       return products;
+    } else {
+      console.log("[fetchProductsHelper] Bypassing Admin SDK Strategy 1 (permission restricted or not validated yet). Trying REST API fallback...");
     }
   } catch (adminErr: any) {
-    console.warn("[fetchProductsHelper] Admin SDK read failed (common in non-GCP hosting like Vercel). Trying REST API fallback...", adminErr.message || adminErr);
+    const isPermissionError = adminErr?.message?.includes("PERMISSION_DENIED") || adminErr?.message?.includes("insufficient permissions") || String(adminErr).includes("PERMISSION_DENIED");
+    if (isPermissionError) {
+      console.log("[fetchProductsHelper] Admin SDK permission restricted. Trying REST API fallback...");
+    } else {
+      console.warn("[fetchProductsHelper] Admin SDK read failed. Trying REST API fallback...", adminErr.message || adminErr);
+    }
   }
 
   // Strategy 2: Firebase REST API (100% reliable, zero-credentials, bypasses gRPC/Websocket serverless hangs)
@@ -1765,7 +1788,7 @@ app.get("/api/merchant-sync/sitemap-status", async (req, res) => {
       // Fallback generator test to confirm that Firestore products are fetchable
       try {
         const products: any[] = [];
-        if (adminDb) {
+        if (adminDb && isAdminDbAuthorized) {
           const snap = await adminDb.collection("products").limit(1).get();
           snap.forEach(d => products.push(d.id));
         } else {
@@ -1804,7 +1827,7 @@ app.get("/api/merchant-sync/logs", async (req, res) => {
     let querySnapshot: any;
 
     try {
-      if (adminDb) {
+      if (adminDb && isAdminDbAuthorized) {
         querySnapshot = await adminDb.collection("merchant_sync_logs")
           .orderBy("timestamp", "desc")
           .limit(5)
@@ -1813,17 +1836,21 @@ app.get("/api/merchant-sync/logs", async (req, res) => {
           logs.push({ id: doc.id, ...doc.data() });
         });
       } else {
-        throw new Error("Admin SDK not initialized");
+        throw new Error("Admin SDK bypassed (unauthorized or not verified yet)");
       }
     } catch (dbErr: any) {
-      console.warn("[Merchant Logs] Admin SDK read failed, using Client SDK serverDb:", dbErr.message || dbErr);
-      const logsRef = serverCollection(serverDb, "merchant_sync_logs");
-      const snap = await serverGetDocs(logsRef);
-      snap.forEach((doc: any) => {
-        logs.push({ id: doc.id, ...doc.data() });
-      });
-      logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      logs = logs.slice(0, 5);
+      console.log("[Merchant Logs] Admin SDK bypassed/read failed, trying Client SDK serverDb fallback...");
+      try {
+        const logsRef = serverCollection(serverDb, "merchant_sync_logs");
+        const snap = await serverGetDocs(logsRef);
+        snap.forEach((doc: any) => {
+          logs.push({ id: doc.id, ...doc.data() });
+        });
+        logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        logs = logs.slice(0, 5);
+      } catch (clientErr: any) {
+        console.log("[Merchant Logs] Client SDK fallback read also failed (unauthenticated). logs will auto-seed defaults.");
+      }
     }
 
     // Auto-seed realistic logs if empty

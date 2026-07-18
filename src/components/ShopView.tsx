@@ -315,6 +315,8 @@ export default function ShopView() {
   const [selectedMainCategory, setSelectedMainCategory] = useState<string>("All");
   const [selectedCondition, setSelectedCondition] = useState<"All" | "New" | "Refurbished">("All");
   const [selectedBrand, setSelectedBrand] = useState<string>("All");
+  const [minPrice, setMinPrice] = useState<number | "">("");
+  const [maxPrice, setMaxPrice] = useState<number | "">("");
   const [sortBy, setSortBy] = useState<string>("default");
   const [onlyShowWishlist, setOnlyShowWishlist] = useState<boolean>(false);
   const [gridDensity, setGridDensity] = useState<"comfortable" | "compact">("compact");
@@ -423,7 +425,7 @@ export default function ShopView() {
   // Reset currentPage to 1 when filters or search change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedMainCategory, selectedCondition, selectedBrand, sortBy, onlyShowWishlist]);
+  }, [searchQuery, selectedMainCategory, selectedCondition, selectedBrand, sortBy, onlyShowWishlist, minPrice, maxPrice]);
 
   // Quick Buy interactive modal configurations
   const [quickBuyProduct, setQuickBuyProduct] = useState<Product | null>(null);
@@ -686,6 +688,8 @@ export default function ShopView() {
     setSelectedMainCategory("All");
     setSelectedCondition("All");
     setSelectedBrand("All");
+    setMinPrice("");
+    setMaxPrice("");
     setSortBy("default");
     setSearchQuery("");
     setOnlyShowWishlist(false);
@@ -715,6 +719,14 @@ export default function ShopView() {
       result = result.filter(p => normalizeBrandName(p.brand) === selectedBrand);
     }
 
+    // Price Range Filter
+    if (minPrice !== "") {
+      result = result.filter(p => Number(p.price) >= Number(minPrice));
+    }
+    if (maxPrice !== "") {
+      result = result.filter(p => Number(p.price) <= Number(maxPrice));
+    }
+
     // Wishlist Filter
     if (onlyShowWishlist) {
       result = result.filter(p => wishlist.includes(p.id));
@@ -738,7 +750,7 @@ export default function ShopView() {
     }
 
     return result;
-  }, [products, searchQuery, selectedMainCategory, selectedCondition, selectedBrand, sortBy, onlyShowWishlist, wishlist]);
+  }, [products, searchQuery, selectedMainCategory, selectedCondition, selectedBrand, minPrice, maxPrice, sortBy, onlyShowWishlist, wishlist]);
 
   const ITEMS_PER_PAGE = 12;
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
@@ -991,6 +1003,47 @@ export default function ShopView() {
               </div>
             </div>
 
+            {/* Price Range Filter */}
+            <div className="mb-5 border-t border-white/5 pt-5">
+              <span className="font-mono text-xs font-bold text-white/30 block tracking-wider uppercase mb-3">
+                PRICE RANGE (KES)
+              </span>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono text-[9px] text-white/30">MIN</span>
+                  <input
+                    type="number"
+                    value={minPrice}
+                    onChange={(e) => setMinPrice(e.target.value === "" ? "" : Number(e.target.value))}
+                    placeholder="0"
+                    className="w-full bg-white/[0.03] border border-white/10 text-xs py-2 pl-9 pr-2 rounded-lg focus:outline-hidden focus:border-[#C5A059] text-white font-mono h-[38px]"
+                  />
+                </div>
+                <div className="relative flex-1">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono text-[9px] text-white/30">MAX</span>
+                  <input
+                    type="number"
+                    value={maxPrice}
+                    onChange={(e) => setMaxPrice(e.target.value === "" ? "" : Number(e.target.value))}
+                    placeholder="250k"
+                    className="w-full bg-white/[0.03] border border-white/10 text-xs py-2 pl-9 pr-2 rounded-lg focus:outline-hidden focus:border-[#C5A059] text-white font-mono h-[38px]"
+                  />
+                </div>
+              </div>
+              {(minPrice !== "" || maxPrice !== "") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMinPrice("");
+                    setMaxPrice("");
+                  }}
+                  className="mt-2 text-[10px] font-mono text-[#C5A059] hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <X className="w-3 h-3" /> Clear Price Filter
+                </button>
+              )}
+            </div>
+
             {/* Sorting Filter Selector */}
             <div className="border-t border-white/5 pt-5">
               <span className="font-mono text-xs font-bold text-white/30 block tracking-wider uppercase mb-3 font-medium animate-pulse">
@@ -1054,7 +1107,7 @@ export default function ShopView() {
                   <select
                     value={selectedBrand}
                     onChange={(e) => setSelectedBrand(e.target.value)}
-                    className="bg-white/[0.03] border border-white/10 text-xs py-2 pl-3 pr-8 rounded-lg focus:outline-hidden focus:border-[#C5A059] text-white font-sans cursor-pointer appearance-none w-full sm:w-40"
+                    className="bg-white/[0.03] border border-white/10 text-xs py-2 pl-3 pr-8 rounded-lg focus:outline-hidden focus:border-[#C5A059] text-white font-sans cursor-pointer appearance-none w-full sm:w-40 h-[38px]"
                   >
                     {brands.map(brand => (
                       <option key={brand} value={brand} className="bg-[#0F0F0F] text-white">
@@ -1065,6 +1118,39 @@ export default function ShopView() {
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/40">
                     <ArrowUpDown className="w-3 h-3" />
                   </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1 w-full sm:w-auto">
+                <label className="text-[10px] font-mono font-bold text-white/40 uppercase tracking-wider">Price Range (KES)</label>
+                <div className="flex items-center gap-1.5 bg-[#0F0F0F] border border-white/10 rounded-lg p-1 h-[38px] w-full sm:w-48">
+                  <input
+                    type="number"
+                    value={minPrice}
+                    onChange={(e) => setMinPrice(e.target.value === "" ? "" : Number(e.target.value))}
+                    placeholder="Min"
+                    className="w-full bg-transparent text-xs py-1 px-1 focus:outline-hidden text-white font-mono text-center"
+                  />
+                  <span className="text-white/20 font-mono text-[9px]">-</span>
+                  <input
+                    type="number"
+                    value={maxPrice}
+                    onChange={(e) => setMaxPrice(e.target.value === "" ? "" : Number(e.target.value))}
+                    placeholder="Max"
+                    className="w-full bg-transparent text-xs py-1 px-1 focus:outline-hidden text-white font-mono text-center"
+                  />
+                  {(minPrice !== "" || maxPrice !== "") && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMinPrice("");
+                        setMaxPrice("");
+                      }}
+                      className="text-white/40 hover:text-white p-1"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

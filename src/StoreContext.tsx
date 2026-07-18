@@ -24,7 +24,9 @@ import {
   query,
   where,
   limit,
-  orderBy
+  orderBy,
+  documentId,
+  or
 } from "firebase/firestore";
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from "./firebase";
 import { Product, Order, OrderItem, UserProfile, Affiliate, ProductReview, TransactionFeedback, CompanyProfile, CartToast } from "./types";
@@ -774,25 +776,50 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, [products]);
 
-  // 3. Load Orders Sync with Real-time Snapshots (if signed in)
+  // 3. Load Orders Sync with Real-time Snapshots (if signed in or guest with local orders)
   useEffect(() => {
-    if (!user) {
-      setOrders([]);
-      prevStatusesRef.current = {};
-      isFirstLoadRef.current = true;
-      return;
-    }
+    let targetRef: any = null;
+    let guestOrderIds: string[] = [];
+    let guestEmail = "";
 
-    const userIsAdmin = 
-      user.email === "techgadgetsk@gmail.com" || 
-      userProfile?.role === "admin" ||
-      userProfile?.["admin-claims"] === true ||
-      userProfile?.["admin-claims"] === "admin";
-    
-    // Non-admin customer accounts must only retrieve their own orders to conform with security rules
-    const targetRef = userIsAdmin
-      ? collection(db, "orders")
-      : query(collection(db, "orders"), where("userId", "==", user.uid));
+    try {
+      const savedIds = localStorage.getItem("tgk_guest_order_ids");
+      if (savedIds) {
+        guestOrderIds = JSON.parse(savedIds);
+      }
+      guestEmail = localStorage.getItem("tgk_guest_email") || "";
+    } catch (e) {}
+
+    if (!user) {
+      if (guestOrderIds.length === 0 && !guestEmail) {
+        setOrders([]);
+        prevStatusesRef.current = {};
+        isFirstLoadRef.current = true;
+        return;
+      }
+
+      if (guestOrderIds.length > 0 && guestEmail) {
+        targetRef = query(
+          collection(db, "orders"),
+          or(where(documentId(), "in", guestOrderIds), where("customerEmail", "==", guestEmail))
+        );
+      } else if (guestOrderIds.length > 0) {
+        targetRef = query(collection(db, "orders"), where(documentId(), "in", guestOrderIds));
+      } else {
+        targetRef = query(collection(db, "orders"), where("customerEmail", "==", guestEmail));
+      }
+    } else {
+      const userIsAdmin = 
+        user.email === "techgadgetsk@gmail.com" || 
+        userProfile?.role === "admin" ||
+        userProfile?.["admin-claims"] === true ||
+        userProfile?.["admin-claims"] === "admin";
+      
+      // Non-admin customer accounts must only retrieve their own orders or matching their verified email to conform with security rules
+      targetRef = userIsAdmin
+        ? collection(db, "orders")
+        : query(collection(db, "orders"), or(where("userId", "==", user.uid), where("customerEmail", "==", user.email)));
+    }
 
     const unsubscribe = onSnapshot(targetRef, (snapshot) => {
       const allOrders: Order[] = [];
@@ -1007,8 +1034,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     referralCode?: string;
     paymentProvider?: string;
   }) => {
-    if (!user) {
-      alert("Please log in to place an order");
+    if (!user && !details.customerEmail) {
+      alert("Please provide an email address for Guest Checkout");
       return null;
     }
 
@@ -1027,8 +1054,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       };
     });
 
+    const targetUserId = user 
+      ? user.uid 
+      : "cust_guest_" + Math.random().toString(36).substring(2, 11);
+
     const orderData: Omit<Order, "id"> = {
-      userId: user.uid,
+      userId: targetUserId,
       customerName: details.customerName,
       customerEmail: details.customerEmail,
       customerPhone: details.customerPhone,
@@ -1046,6 +1077,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const docRef = await addDoc(collection(db, "orders"), orderData);
+      
+      // If guest checkout, save details to localStorage
+      if (!user) {
+        try {
+          const savedIds = localStorage.getItem("tgk_guest_order_ids");
+          const idsList = savedIds ? JSON.parse(savedIds) : [];
+          idsList.push(docRef.id);
+          localStorage.setItem("tgk_guest_order_ids", JSON.stringify(idsList));
+          
+          if (details.customerEmail) {
+            localStorage.setItem("tgk_guest_email", details.customerEmail);
+          }
+        } catch (e) {
+          console.error("Failed to save guest order to localStorage:", e);
+        }
+      }
       
       // Update local product inventory stock for realistic ecommerce behavior!
       try {

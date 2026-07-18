@@ -1464,7 +1464,7 @@ export default function ClientDashboard() {
 
                 {/* VISIBLE INVOICE DOCK IN BOX (Targeted for standard PDF output scale) */}
                 <div 
-                  id="print-invoice-area" 
+                  id="print-invoice-area-disabled" 
                   className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 sm:p-10 shadow-2xl font-sans text-white max-w-3xl mx-auto"
                 >
                   {/* Tax Invoice Header */}
@@ -2019,7 +2019,7 @@ export default function ClientDashboard() {
               </div>
 
               {/* Printable Invoice Page (White Paper Aesthetic) */}
-              <div className="p-6 sm:p-10 bg-white text-zinc-900 overflow-y-auto max-h-[70vh] font-sans">
+              <div id="print-invoice-area" className="p-6 sm:p-10 bg-white text-zinc-900 overflow-y-auto max-h-[70vh] font-sans">
                 {/* Invoice Sheet Header */}
                 <div className="flex flex-col sm:flex-row justify-between items-start gap-6 border-b-2 border-zinc-200 pb-6">
                   {/* Brand info */}
@@ -2180,23 +2180,34 @@ export default function ClientDashboard() {
               </div>
 
               {/* Modal Footer Controls */}
-              <div className="bg-[#0F0F0F] px-6 py-4 border-t border-white/5 flex flex-col sm:flex-row justify-between gap-4">
+              <div className="bg-[#0F0F0F] px-6 py-4 border-t border-white/5 flex flex-col sm:flex-row gap-4 items-center justify-between">
                 <button
                   onClick={() => setIsPreviewModalOpen(false)}
-                  className="bg-white/5 hover:bg-white/10 text-white font-sans text-xs font-semibold py-2.5 px-4 rounded-xl transition-all border border-white/10 cursor-pointer"
+                  className="bg-white/5 hover:bg-white/10 text-white font-sans text-xs font-semibold py-2.5 px-4 rounded-xl transition-all border border-white/10 cursor-pointer w-full sm:w-auto text-center"
                 >
                   Close Preview
                 </button>
-                <button
-                  onClick={() => {
-                    handleDownloadInvoicePDF(previewOrder);
-                    setIsPreviewModalOpen(false);
-                  }}
-                  className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-black font-sans text-xs font-bold py-2.5 px-5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Download className="w-4 h-4 text-black" />
-                  <span>Confirm & Download PDF Invoice</span>
-                </button>
+                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                  <button
+                    onClick={() => {
+                      window.print();
+                    }}
+                    className="bg-emerald-500 hover:bg-emerald-600 text-black font-sans text-xs font-bold py-2.5 px-5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4 text-black" />
+                    <span>Confirm & Print Invoice</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleDownloadInvoicePDF(previewOrder);
+                      setIsPreviewModalOpen(false);
+                    }}
+                    className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-black font-sans text-xs font-bold py-2.5 px-5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Download className="w-4 h-4 text-black" />
+                    <span>Download PDF Invoice</span>
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>
