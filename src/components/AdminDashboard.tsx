@@ -55,7 +55,7 @@ import AuditLogTable from "./AuditLogTable";
 import MetadataEditor from "./MetadataEditor";
 import { useAdminStore } from "./AdminStore";
 import { collection, getDocs, onSnapshot, addDoc, setDoc, deleteDoc, doc, query, orderBy, limit } from "firebase/firestore";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, ComposedChart, Area } from "recharts";
 
 function QRScannerModal({ isOpen, onClose, onScanSuccess }: { isOpen: boolean; onClose: () => void; onScanSuccess: (text: string) => void }) {
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
@@ -724,8 +724,127 @@ export default function AdminDashboard() {
     });
   }, [orders, orderSortField, orderSortDirection, orderSearchQuery, orderStatusFilter]);
 
-  // Active sub-view ("overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "flash_offers")
-  const [activeSubTab, setActiveSubTab] = useState<"overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "flash_offers">("overview");
+  // Active sub-view ("overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "flash_offers" | "diagnostics")
+  const [activeSubTab, setActiveSubTab] = useState<"overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "flash_offers" | "diagnostics">("overview");
+
+  // System Diagnostics state variables
+  const [diagnosticsRecipientEmail, setDiagnosticsRecipientEmail] = useState("techgadgetsk@gmail.com");
+  const [testingDiagnosticsSmtp, setTestingDiagnosticsSmtp] = useState(false);
+  const [diagnosticsSmtpResult, setDiagnosticsSmtpResult] = useState<any>(null);
+  const [diagnosticsSmtpConfig, setDiagnosticsSmtpConfig] = useState<any>(null);
+  const [loadingDiagnosticsSmtpConfig, setLoadingDiagnosticsSmtpConfig] = useState(false);
+
+  const [diagnosticsSyncLogs, setDiagnosticsSyncLogs] = useState<any[]>([]);
+  const [loadingDiagnosticsSyncLogs, setLoadingDiagnosticsSyncLogs] = useState(false);
+  const [triggeringDiagnosticsSync, setTriggeringDiagnosticsSync] = useState(false);
+
+  const [diagnosticsSitemap, setDiagnosticsSitemap] = useState<any>({ status: "loading", message: "Initial status..." });
+  const [loadingDiagnosticsSitemap, setLoadingDiagnosticsSitemap] = useState(false);
+
+  // Fetch functions for System Diagnostics
+  const fetchDiagnosticsSmtpConfig = async () => {
+    try {
+      setLoadingDiagnosticsSmtpConfig(true);
+      const res = await fetch("/api/email/smtp-status");
+      if (res.ok) {
+        const data = await res.json();
+        setDiagnosticsSmtpConfig(data);
+      }
+    } catch (err) {
+      console.error("Failed to query SMTP state:", err);
+    } finally {
+      setLoadingDiagnosticsSmtpConfig(false);
+    }
+  };
+
+  const fetchDiagnosticsSyncLogs = async () => {
+    try {
+      setLoadingDiagnosticsSyncLogs(true);
+      const res = await fetch("/api/merchant-sync/logs");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.logs) {
+          setDiagnosticsSyncLogs(data.logs);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to query Merchant logs:", err);
+    } finally {
+      setLoadingDiagnosticsSyncLogs(false);
+    }
+  };
+
+  const fetchDiagnosticsSitemapStatus = async () => {
+    try {
+      setLoadingDiagnosticsSitemap(true);
+      const res = await fetch("/api/merchant-sync/sitemap-status");
+      if (res.ok) {
+        const data = await res.json();
+        setDiagnosticsSitemap(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch sitemap status:", err);
+    } finally {
+      setLoadingDiagnosticsSitemap(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeSubTab === "diagnostics") {
+      fetchDiagnosticsSmtpConfig();
+      fetchDiagnosticsSyncLogs();
+      fetchDiagnosticsSitemapStatus();
+    }
+  }, [activeSubTab]);
+
+  const handleDiagnosticsTestSmtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTestingDiagnosticsSmtp(true);
+    setDiagnosticsSmtpResult(null);
+    try {
+      const res = await fetch("/api/email/test-smtp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientEmail: diagnosticsRecipientEmail })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDiagnosticsSmtpResult(data);
+      } else {
+        setDiagnosticsSmtpResult({
+          success: false,
+          message: "Internal Server Error or route failure.",
+          details: `HTTP status: ${res.status}`
+        });
+      }
+    } catch (err: any) {
+      setDiagnosticsSmtpResult({
+        success: false,
+        message: "Failed to communicate with SMTP verification backend.",
+        details: err.message || String(err)
+      });
+    } finally {
+      setTestingDiagnosticsSmtp(false);
+      fetchDiagnosticsSmtpConfig();
+    }
+  };
+
+  const handleDiagnosticsTriggerSync = async () => {
+    setTriggeringDiagnosticsSync(true);
+    try {
+      const res = await fetch("/api/merchant-sync/trigger", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.log) {
+          await fetchDiagnosticsSyncLogs();
+        }
+      }
+    } catch (err) {
+      console.error("Failed to trigger manual diagnostics sync:", err);
+    } finally {
+      setTriggeringDiagnosticsSync(false);
+    }
+  };
 
   // Secure Audit Logs tracking state
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
@@ -2295,6 +2414,34 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
     }));
   }, [orders]);
 
+  const dailySalesTrendsData = useMemo(() => {
+    const days: { [dateStr: string]: { revenue: number; orderCount: number } } = {};
+    const now = new Date();
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const dateKey = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      days[dateKey] = { revenue: 0, orderCount: 0 };
+    }
+
+    orders.forEach((or) => {
+      if (or.paymentStatus === "Paid" && or.createdAt) {
+        const orderDate = new Date(or.createdAt);
+        const dateKey = orderDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        if (days[dateKey] !== undefined) {
+          days[dateKey].revenue += or.totalAmount || 0;
+          days[dateKey].orderCount += 1;
+        }
+      }
+    });
+
+    return Object.keys(days).map((date) => ({
+      formattedDate: date,
+      revenue: days[date].revenue,
+      orderCount: days[date].orderCount,
+      averageValue: days[date].orderCount > 0 ? Math.round(days[date].revenue / days[date].orderCount) : 0
+    }));
+  }, [orders]);
+
   const performanceAnalyticsData = useMemo(() => {
     const days: { [dateStr: string]: { date: string; unitsSold: number; turnoverRate: number } } = {};
     const now = new Date();
@@ -2711,6 +2858,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
             { id: "audit_logs", label: "System Activity" },
             { id: "auth_audit", label: "Security Auth Log" },
             { id: "seo_settings", label: "SEO Settings" },
+            { id: "diagnostics", label: "System Diagnostics" },
             { id: "trash", label: `Trash Bin (${trashItems.length})` }
           ].map(tab => (
             <button
@@ -2931,6 +3079,121 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+
+          {/* DAILY SALES TRENDS DASHBOARD (RECHARTS) */}
+          <div className="bg-[#0F0F0F] border border-white/10 p-6 rounded-3xl shadow-lg animate-fadeIn space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/10 pb-4">
+              <div>
+                <h3 className="text-white font-semibold text-base font-sans flex items-center gap-2">
+                  <ShoppingCart className="w-5 h-5 text-[#C5A059]" />
+                  <span>30-Day Sales & Transactions Velocity Dashboard</span>
+                </h3>
+                <p className="text-white/40 text-xs mt-1">
+                  Dynamic visual telemetry tracking transaction counts (sales trends) paired with daily outbound revenue.
+                </p>
+              </div>
+
+              {/* Quick stats on the right */}
+              <div className="flex flex-wrap gap-4 font-sans">
+                <div className="bg-[#0A0A0A] border border-white/5 px-4 py-2 rounded-2xl">
+                  <span className="text-[9px] text-white/40 font-mono block uppercase">TOTAL 30D ORDERS</span>
+                  <span className="text-white text-md font-black font-mono">
+                    {dailySalesTrendsData.reduce((acc, curr) => acc + curr.orderCount, 0)} Invoices
+                  </span>
+                </div>
+                <div className="bg-[#0A0A0A] border border-white/5 px-4 py-2 rounded-2xl">
+                  <span className="text-[9px] text-[#C5A059] font-mono block uppercase">AVERAGE BASKET (AOV)</span>
+                  <span className="text-[#C5A059] text-md font-black font-mono">
+                    KES {(() => {
+                      const totalRev = dailySalesTrendsData.reduce((acc, curr) => acc + curr.revenue, 0);
+                      const totalCount = dailySalesTrendsData.reduce((acc, curr) => acc + curr.orderCount, 0);
+                      return totalCount > 0 ? Math.round(totalRev / totalCount).toLocaleString() : 0;
+                    })()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Dual axis chart */}
+            <div className="w-full h-80 pt-2 font-mono">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                <ComposedChart data={dailySalesTrendsData} margin={{ top: 15, right: 10, left: -20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+                  <XAxis 
+                    dataKey="formattedDate" 
+                    stroke="#555" 
+                    fontSize={9} 
+                    tickLine={false} 
+                  />
+                  <YAxis 
+                    yAxisId="left"
+                    stroke="#555" 
+                    fontSize={9} 
+                    tickLine={false} 
+                    tickFormatter={(val) => `KES ${val >= 1000 ? (val / 1000).toFixed(0) + 'k' : val}`}
+                  />
+                  <YAxis 
+                    yAxisId="right"
+                    orientation="right"
+                    stroke="#C5A059" 
+                    fontSize={9} 
+                    tickLine={false} 
+                    allowDecimals={false}
+                    tickFormatter={(val) => `${val} tx`}
+                  />
+                  <Tooltip 
+                    content={({ active, payload, label }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-[#0F0F0F] border border-white/10 p-3.5 rounded-xl shadow-xl text-xs space-y-1 font-sans text-left">
+                            <p className="font-bold text-white mb-1.5 border-b border-white/5 pb-1 font-mono">{label}</p>
+                            <p className="text-[#C5A059] font-bold">
+                              Revenue: KES {data.revenue.toLocaleString()}
+                            </p>
+                            <p className="text-emerald-400 font-bold">
+                              Orders: {data.orderCount} transaction{data.orderCount !== 1 ? "s" : ""}
+                            </p>
+                            <p className="text-white/50 text-[10px] font-mono">
+                              Avg Basket: KES {data.averageValue.toLocaleString()}
+                            </p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  {/* Revenue Area */}
+                  <Area 
+                    yAxisId="left"
+                    type="monotone" 
+                    dataKey="revenue" 
+                    fill="url(#colorRevenueDashboard)" 
+                    stroke="#C5A059" 
+                    strokeWidth={2}
+                    name="Daily Revenue"
+                  />
+                  {/* Order Count Bar */}
+                  <Bar 
+                    yAxisId="right"
+                    dataKey="orderCount" 
+                    fill="#10B981" 
+                    fillOpacity={0.75} 
+                    radius={[2, 2, 0, 0]} 
+                    maxBarSize={16}
+                    name="Transactions Count"
+                  />
+                  {/* Color definition */}
+                  <defs>
+                    <linearGradient id="colorRevenueDashboard" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#C5A059" stopOpacity={0.15}/>
+                      <stop offset="95%" stopColor="#C5A059" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                </ComposedChart>
+              </ResponsiveContainer>
             </div>
           </div>
 
@@ -5820,6 +6083,351 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
       {activeSubTab === "seo_settings" && (
         <div id="admin-seo-settings-tab" className="space-y-6 animate-fadeIn">
           <MetadataEditor />
+        </div>
+      )}
+
+      {activeSubTab === "diagnostics" && (
+        <div id="admin-diagnostics-tab" className="space-y-8 animate-fadeIn text-[#E0E0E0] font-sans">
+          {/* Header Description */}
+          <div className="bg-[#0F0F0F] border border-white/10 p-6 rounded-3xl relative overflow-hidden shadow-2xl">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#C5A059]/5 rounded-full blur-3xl -z-10" />
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h3 className="font-sans font-bold text-lg text-white flex items-center gap-2">
+                  <span className="bg-[#C5A059]/10 text-[#C5A059] p-1.5 rounded-xl text-xs">
+                    <Activity className="w-4 h-4" />
+                  </span>
+                  System Diagnostics & Integration Hub
+                </h3>
+                <p className="text-white/40 text-[11px] mt-1 font-sans">
+                  Real-time troubleshooting tools for verifying SMTP transactional email gateways and Google Merchant Center API updates.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    fetchDiagnosticsSmtpConfig();
+                    fetchDiagnosticsSyncLogs();
+                    fetchDiagnosticsSitemapStatus();
+                  }}
+                  className="px-3.5 py-2 bg-white/5 hover:bg-white/10 text-white border border-white/10 hover:border-white/20 transition-all rounded-xl text-xs font-semibold flex items-center gap-2 cursor-pointer"
+                  title="Force Refresh Metrics"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Refresh Console</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            {/* SMTP DIAGNOSTICS COLUMN */}
+            <div className="lg:col-span-6 space-y-6">
+              <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 relative shadow-xl flex flex-col h-full justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-4 border-b border-white/10 pb-4">
+                    <span className="bg-[#C5A059]/10 text-[#C5A059] p-1.5 rounded-xl text-xs">
+                      <Mail className="w-4 h-4" />
+                    </span>
+                    <div>
+                      <h4 className="font-bold text-sm text-white font-sans">1. SMTP Gateway Connection Test</h4>
+                      <p className="text-[10px] text-white/40">Verify Zoho/Gmail outbound transactional mail performance.</p>
+                    </div>
+                  </div>
+
+                  {/* Active config read-only status */}
+                  <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-4 mb-4 space-y-2.5">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-white/40 font-mono">SMTP_HOST</span>
+                      <span className="text-white font-mono font-medium">{diagnosticsSmtpConfig?.host || "Loading..."}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-white/40 font-mono">SMTP_PORT</span>
+                      <span className="text-white font-mono font-medium">{diagnosticsSmtpConfig?.port || "Loading..."}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-white/40 font-mono">SMTP_USER</span>
+                      <span className="text-white font-mono font-medium truncate max-w-[200px]" title={diagnosticsSmtpConfig?.user}>
+                        {diagnosticsSmtpConfig?.user || "Loading..."}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-white/40 font-mono">SMTP_PASS</span>
+                      <span className="text-[#C5A059] font-mono font-bold tracking-widest text-[10px]">••••••••••••••</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs pt-1.5 border-t border-white/5">
+                      <span className="text-white/40 font-mono">Gateway Status</span>
+                      {diagnosticsSmtpConfig?.isConfigured ? (
+                        <span className="inline-flex bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-mono">
+                          ACTIVE CONFIG
+                        </span>
+                      ) : (
+                        <span className="inline-flex bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded text-[10px] font-mono">
+                          INCOMPLETE
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Test Form */}
+                  <form onSubmit={handleDiagnosticsTestSmtp} className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-mono text-white/50 uppercase tracking-wider block">
+                        Test Recipient Address
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="email"
+                          required
+                          placeholder="e.g. support@techsokoni.com"
+                          value={diagnosticsRecipientEmail}
+                          onChange={(e) => setDiagnosticsRecipientEmail(e.target.value)}
+                          className="flex-1 bg-white/[0.02] border border-white/10 rounded-xl px-4 py-3 font-sans text-xs text-white placeholder-white/20 focus:border-[#C5A059] focus:outline-none transition-all"
+                        />
+                        <button
+                          type="submit"
+                          disabled={testingDiagnosticsSmtp || loadingDiagnosticsSmtpConfig}
+                          className="px-5 py-3 bg-[#C5A059] hover:bg-amber-600 disabled:opacity-40 text-black text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-lg shadow-amber-500/5 shrink-0"
+                        >
+                          {testingDiagnosticsSmtp ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>TESTING...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Send className="w-4 h-4" />
+                              <span>SEND TEST</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+
+                  {/* Terminal-like output */}
+                  {diagnosticsSmtpResult && (
+                    <div className="mt-4 animate-fadeIn font-mono text-[11px] leading-relaxed">
+                      <span className="text-white/40 block mb-1 uppercase text-[9px] tracking-wider">Gateway Response Output</span>
+                      <div className={`p-4 rounded-2xl border ${
+                        diagnosticsSmtpResult.success 
+                          ? "bg-emerald-500/[0.02] border-emerald-500/20 text-emerald-400" 
+                          : "bg-red-500/[0.02] border-red-500/20 text-red-400"
+                      }`}>
+                        <div className="flex items-center gap-2 font-bold mb-2 text-xs">
+                          {diagnosticsSmtpResult.success ? (
+                            <span className="inline-block bg-emerald-500 text-black font-black text-[9px] px-1.5 py-0.5 rounded">SUCCESS</span>
+                          ) : (
+                            <span className="inline-block bg-red-500 text-white font-black text-[9px] px-1.5 py-0.5 rounded">FAILED</span>
+                          )}
+                          <span>{diagnosticsSmtpResult.message}</span>
+                        </div>
+                        <p className="text-white/80 text-xs font-sans whitespace-pre-wrap leading-relaxed">
+                          {diagnosticsSmtpResult.details}
+                        </p>
+                        {diagnosticsSmtpResult.help && (
+                          <div className="mt-3 pt-3 border-t border-white/5 text-white/70 font-sans text-[11px] space-y-1 bg-black/25 p-3 rounded-xl">
+                            <span className="font-bold text-[#C5A059] text-xs block mb-1">Troubleshooting Resolution Advice:</span>
+                            <div className="whitespace-pre-line text-white/80 leading-relaxed font-mono text-[10px]">
+                              {diagnosticsSmtpResult.help}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Zoho & Gmail help guidelines */}
+                <div className="mt-6 bg-amber-500/[0.02] border border-amber-500/15 rounded-2xl p-4 text-[11px] leading-relaxed">
+                  <h5 className="font-bold text-amber-400 uppercase tracking-wide text-[9px] mb-2 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    SMTP Security & App Password Resolution
+                  </h5>
+                  <ul className="space-y-2 text-white/60 pl-4 list-disc font-sans">
+                    <li>
+                      <strong className="text-white">535 Authentication Failed:</strong> If 2FA is enabled on Zoho or Gmail, your regular password is blocked. You must generate an <span className="text-[#C5A059] font-bold">App-Specific Password</span> (accounts.zoho.com &rarr; Security &rarr; App Passwords) and save it in your settings.
+                    </li>
+                    <li>
+                      <strong className="text-white">Strict Sender Check:</strong> Zoho strictly forbids spoofing. The SMTP login user email address must match the sender's display address exactly or Zoho will return "Relaying disallowed".
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* GOOGLE MERCHANT CENTER DEBUGGER COLUMN */}
+            <div className="lg:col-span-6 space-y-6">
+              <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 relative shadow-xl flex flex-col h-full justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-4 border-b border-white/10 pb-4">
+                    <span className="bg-[#C5A059]/10 text-[#C5A059] p-1.5 rounded-xl text-xs">
+                      <Database className="w-4 h-4" />
+                    </span>
+                    <div>
+                      <h4 className="font-bold text-sm text-white font-sans">2. Merchant Center API Debugger</h4>
+                      <p className="text-[10px] text-white/40">Audit live product validation logs and errors returned by Google Content API.</p>
+                    </div>
+                  </div>
+
+                  {/* Sitemap diagnostic snippet */}
+                  <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-4 mb-4 flex justify-between items-center text-xs">
+                    <div className="space-y-0.5">
+                      <span className="text-white/40 font-mono block">SITEMAP FILE STATE</span>
+                      <span className="text-white font-mono font-semibold">/sitemap.xml</span>
+                    </div>
+                    {diagnosticsSitemap?.exists ? (
+                      <span className="inline-flex bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-mono">
+                        ✓ VERIFIED STATIC FILE
+                      </span>
+                    ) : (
+                      <span className="inline-flex bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded text-[10px] font-mono">
+                        ⚠️ MISSING PUBLIC FILE
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-[10px] font-mono text-white/40 uppercase tracking-wider">Sync Operations Log History</span>
+                    <button
+                      onClick={handleDiagnosticsTriggerSync}
+                      disabled={triggeringDiagnosticsSync}
+                      className="px-3 py-1.5 bg-[#C5A059]/10 hover:bg-[#C5A059]/20 border border-[#C5A059]/30 text-[#C5A059] rounded-lg text-[10px] font-bold tracking-wide flex items-center gap-1.5 transition-all cursor-pointer select-none uppercase font-mono disabled:opacity-40"
+                    >
+                      {triggeringDiagnosticsSync ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>Syncing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-3 h-3" />
+                          <span>Trigger Test Sync</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Sync logs terminal block */}
+                  {loadingDiagnosticsSyncLogs ? (
+                    <div className="py-8 text-center text-white/30 font-sans italic text-xs flex justify-center items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-[#C5A059]" />
+                      <span>Fetching Google Content API sync telemetry...</span>
+                    </div>
+                  ) : diagnosticsSyncLogs.length === 0 ? (
+                    <div className="py-8 text-center text-white/30 font-sans italic text-xs bg-white/[0.01] border border-white/5 rounded-2xl">
+                      No Google Merchant Center sync log files recorded in Firestore.
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+                      {diagnosticsSyncLogs.slice(0, 4).map((log, index) => {
+                        const dateStr = new Date(log.timestamp).toLocaleString();
+                        const isSuccess = log.success;
+                        const errorCount = log.errorCount || (log.errors ? log.errors.length : 0);
+                        const totalProducts = log.totalProducts || 0;
+
+                        return (
+                          <div key={log.id || index} className="bg-white/[0.01] border border-white/5 rounded-2xl p-4 space-y-3">
+                            <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                              <div className="space-y-0.5">
+                                <span className="font-mono font-bold text-[10px] text-white block">
+                                  Sync Attempt #{diagnosticsSyncLogs.length - index}
+                                </span>
+                                <span className="text-[9px] text-white/40 block font-mono">{dateStr}</span>
+                              </div>
+                              {isSuccess && errorCount === 0 ? (
+                                <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-bold font-mono px-2 py-0.5 rounded">
+                                  PASSED
+                                </span>
+                              ) : errorCount > 0 ? (
+                                <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] font-bold font-mono px-2 py-0.5 rounded">
+                                  {errorCount} {errorCount === 1 ? "ERROR" : "ERRORS"}
+                                </span>
+                              ) : (
+                                <span className="bg-red-500/10 text-red-400 border border-red-500/20 text-[9px] font-bold font-mono px-2 py-0.5 rounded">
+                                  CRITICAL FAILED
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex justify-between items-center text-[10px] font-mono text-white/60">
+                              <span>Total synced products: {totalProducts}</span>
+                              <span>Method: {log.trigger === "manual" ? "MANUAL DIAGNOSTIC" : "AUTOMATED CRON"}</span>
+                            </div>
+
+                            {/* Errors terminal interface */}
+                            {log.errors && log.errors.length > 0 && (
+                              <div className="bg-black/45 border border-white/10 rounded-xl p-3 font-mono text-[10px] text-red-400 space-y-2 leading-relaxed max-h-40 overflow-y-auto">
+                                <span className="text-white/40 font-bold uppercase text-[8px] tracking-wide block border-b border-white/10 pb-1.5 mb-1.5">
+                                  Google Content API Handshake Error Logs:
+                                </span>
+                                {log.errors.map((err: any, errIdx: number) => {
+                                  // Analyze common error to provide customized resolution advice
+                                  let helpTip = "";
+                                  const msg = (err.message || "").toLowerCase();
+                                  if (msg.includes("brand")) {
+                                    helpTip = "💡 Fix: Edit this product in Inventory and specify the exact Brand/Manufacturer.";
+                                  } else if (msg.includes("image_link") || msg.includes("image link")) {
+                                    helpTip = "💡 Fix: Ensure the product image is a valid absolute URL (e.g. starting with https://).";
+                                  } else if (msg.includes("price") || msg.includes("value")) {
+                                    helpTip = "💡 Fix: Price is missing or uses an invalid format. Set a positive numeric price.";
+                                  } else if (msg.includes("description")) {
+                                    helpTip = "💡 Fix: Description is empty. Provide a clear product description for Google Shopping.";
+                                  }
+
+                                  return (
+                                    <div key={errIdx} className="space-y-1 border-b border-white/5 pb-2 last:border-0 last:pb-0">
+                                      <div className="flex items-start gap-1">
+                                        <span className="text-red-500 font-bold">●</span>
+                                        <div className="flex-1">
+                                          <span className="font-bold text-white block">
+                                            {err.productSku ? `SKU ${err.productSku}: ` : ""}
+                                            {err.productName || "Product Sync Reject"}
+                                          </span>
+                                          <span className="text-red-400/90 whitespace-pre-wrap">{err.message}</span>
+                                        </div>
+                                      </div>
+                                      {helpTip && (
+                                        <span className="text-amber-400/95 pl-4 block font-sans font-medium text-[9px] italic">
+                                          {helpTip}
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {!isSuccess && !log.errors && (
+                              <div className="bg-red-950/15 border border-red-500/20 rounded-xl p-3 font-mono text-[10px] text-red-400">
+                                <strong>System Error Details:</strong> {log.details || "API Connection handshake failed with Google Content server. Check credentials."}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Common GMC validation resolution guide */}
+                <div className="mt-6 bg-[#C5A059]/[0.02] border border-[#C5A059]/15 rounded-2xl p-4 text-[11px] leading-relaxed">
+                  <h5 className="font-bold text-[#C5A059] uppercase tracking-wide text-[9px] mb-2 flex items-center gap-1.5">
+                    <Database className="w-3.5 h-3.5" />
+                    Google Merchant Center Validation Guide
+                  </h5>
+                  <ul className="space-y-2 text-white/60 pl-4 list-disc font-sans">
+                    <li>
+                      <strong className="text-white">Absolute URLs:</strong> Google Merchant demands absolute, crawlable links. The sitemap and sync generator both map links starting with <code className="bg-white/5 px-1 rounded text-[#C5A059]">https://techsokoni.com/product/...</code>.
+                    </li>
+                    <li>
+                      <strong className="text-white">Required Fields:</strong> Items lacking a brand, title, correct description, or containing relative image links are rejected at the API handshake level before reaching your feed sitemap processing.
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
