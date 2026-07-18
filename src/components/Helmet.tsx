@@ -34,13 +34,23 @@ export function Helmet({ title, description, keywords, image, url, product }: He
   }, []);
 
   useEffect(() => {
-    // 1. Update Browser Dynamic Document Title
-    document.title = title;
-
     const defaultDesc = "Tech Sokoni Kenya provides premium laptops, desktops, and accessories along Kenyatta Avenue, Nairobi.";
-    const activeDesc = description || defaultDesc;
-    const activeImage = image || "https://techsokoni.com/src/assets/images/tech_soko_logo_1783961449391.jpg";
-    const activeUrl = url || window.location.href;
+    
+    // Dynamically derive attributes based on product data if present
+    const activeTitle = product ? `${product.name} | Tech Sokoni Kenya` : title;
+    const activeDesc = product?.description || description || defaultDesc;
+    
+    let productImgUrl = "";
+    if (product?.image) {
+      productImgUrl = product.image.startsWith("http") 
+        ? product.image 
+        : `https://techsokoni.com${product.image.startsWith("/") ? "" : "/"}${product.image}`;
+    }
+    const activeImage = productImgUrl || image || "https://techsokoni.com/src/assets/images/tech_soko_logo_1783961449391.jpg";
+    const activeUrl = product ? `https://techsokoni.com/product/${product.id}` : (url || window.location.href);
+
+    // 1. Update Browser Dynamic Document Title
+    document.title = activeTitle;
 
     // Helper helper to set or create meta property/name tags
     const setMetaTag = (attributeName: "name" | "property", value: string, content: string) => {
@@ -64,7 +74,7 @@ export function Helmet({ title, description, keywords, image, url, product }: He
     }
 
     // 3. OpenGraph tags
-    setMetaTag("property", "og:title", title);
+    setMetaTag("property", "og:title", activeTitle);
     setMetaTag("property", "og:description", activeDesc);
     setMetaTag("property", "og:image", activeImage);
     setMetaTag("property", "og:url", activeUrl);
@@ -72,7 +82,7 @@ export function Helmet({ title, description, keywords, image, url, product }: He
 
     // 4. Twitter Card tags
     setMetaTag("name", "twitter:card", "summary_large_image");
-    setMetaTag("name", "twitter:title", title);
+    setMetaTag("name", "twitter:title", activeTitle);
     setMetaTag("name", "twitter:description", activeDesc);
     setMetaTag("name", "twitter:image", activeImage);
 

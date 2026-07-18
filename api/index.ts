@@ -462,6 +462,16 @@ app.get(["/sitemap.xml", "/api/sitemap.xml"], async (req, res) => {
     res.status(200).send(xml);
   } catch (err: any) {
     console.error("Sitemap generation failure:", err);
+    try {
+      const staticPath = path.join(process.cwd(), "public", "sitemap.xml");
+      if (fs.existsSync(staticPath)) {
+        console.log("[Sitemap Engine] Successfully served static sitemap.xml fallback from public folder");
+        res.header("Content-Type", "application/xml");
+        return res.status(200).send(fs.readFileSync(staticPath, "utf8"));
+      }
+    } catch (fallbackErr: any) {
+      console.error("[Sitemap Engine] Failed to serve static sitemap.xml fallback:", fallbackErr.message);
+    }
     res.status(500).send(`<?xml version="1.0" encoding="UTF-8"?><error>${err.message || "Failed to generate sitemap"}</error>`);
   }
 });

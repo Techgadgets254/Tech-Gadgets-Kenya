@@ -1142,7 +1142,25 @@ export default function AdminDashboard() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
-  const [csvUploadState, setCsvUploadState] = useState({ loading: false, successMsg: "", err: "" });
+  const [csvUploadState, setCsvUploadState] = useState<{
+    loading: boolean;
+    progress: number;
+    successMsg: string;
+    err: string;
+    logs: {
+      row: number;
+      itemName?: string;
+      sku?: string;
+      status: "success" | "skipped" | "failed";
+      message: string;
+    }[];
+  }>({
+    loading: false,
+    progress: 0,
+    successMsg: "",
+    err: "",
+    logs: []
+  });
 
   const [aiGeneratingDescription, setAiGeneratingDescription] = useState(false);
   const [aiError, setAiError] = useState("");
@@ -1601,31 +1619,65 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setCsvUploadState({ loading: true, successMsg: "", err: "" });
+    setCsvUploadState({ loading: true, progress: 0, successMsg: "", err: "", logs: [] });
     const reader = new FileReader();
     reader.onload = async () => {
       try {
         const text = reader.result as string;
-        const insertedCount = await importProductsCSV(text);
+        const result = await importProductsCSV(text, (progress) => {
+          setCsvUploadState(prev => ({ ...prev, progress }));
+        });
+
+        if (result.error) {
+          setCsvUploadState({
+            loading: false,
+            progress: 100,
+            successMsg: "",
+            err: result.error,
+            logs: result.logs || []
+          });
+          alert(`CSV Import Failed: ` + result.error);
+          return;
+        }
+
+        const insertedCount = result.addedCount;
         await logAdminAction("bulk_import", `Bulk ingested and live-synchronized ${insertedCount} catalog records from CSV document`);
+        
+        // Find if there were any individual row failures
+        const failedRows = result.logs.filter(l => l.status === "failed");
+        let successMsg = `Successfully imported ${insertedCount} custom products bulk into live databases!`;
+        let errStr = "";
+        if (failedRows.length > 0) {
+          errStr = `CSV completed with ${failedRows.length} row validation failures. Review the Upload Status log table below for details.`;
+        }
+
         setCsvUploadState({
           loading: false,
-          successMsg: `Successfully imported ${insertedCount} custom products bulk into live databases!`,
-          err: ""
+          progress: 100,
+          successMsg,
+          err: errStr,
+          logs: result.logs || []
         });
-        alert(`Bulk Import Complete: ${insertedCount} items parsed and synchronized!`);
+
+        if (failedRows.length > 0) {
+          alert(`Bulk Import Finished with Warnings: ${insertedCount} successful, ${failedRows.length} failed. Check the status table.`);
+        } else {
+          alert(`Bulk Import Complete: All ${insertedCount} items parsed and synchronized!`);
+        }
       } catch (err: any) {
         console.error(err);
         setCsvUploadState({
           loading: false,
+          progress: 0,
           successMsg: "",
-          err: err.message || "Failed to parse inventory. Check row dimensions and column matching."
+          err: err.message || "Failed to parse inventory. Check row dimensions and column matching.",
+          logs: []
         });
         alert(`CSV Import Failed: ` + (err.message || "Error reading rows."));
       }
     };
     reader.onerror = () => {
-      setCsvUploadState({ loading: false, successMsg: "", err: "File read error on local device." });
+      setCsvUploadState({ loading: false, progress: 0, successMsg: "", err: "File read error on local device.", logs: [] });
     };
     reader.readAsText(file);
     e.target.value = ""; // Clear
@@ -3948,6 +4000,90 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
               {csvUploadState.err && (
                 <div className="bg-red-500/15 border border-red-500/30 text-red-400 p-3.5 rounded-xl text-xs">
                   ⚠️ {csvUploadState.err}
+                </div>
+              )}
+
+              {/* CSV Upload Progress Bar */}
+              {csvUploadState.loading && (
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-2">
+                  <div className="flex items-center justify-between text-xs text-white/75 font-sans">
+                    <span className="flex items-center gap-1.5 font-semibold text-[#C5A059]">
+                      <svg className="animate-spin h-3.5 w-3.5 text-[#C5A059]" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Ingesting CSV file rows...
+                    </span>
+                    <span className="font-mono text-[#C5A059] font-bold">{csvUploadState.progress}%</span>
+                  </div>
+                  <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden border border-white/5">
+                    <div 
+                      className="bg-[#C5A059] h-full rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(197,160,89,0.5)]" 
+                      style={{ width: `${csvUploadState.progress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* CSV Upload Status Logs Table */}
+              {csvUploadState.logs && csvUploadState.logs.length > 0 && (
+                <div className="bg-[#1C1C1E] border border-white/10 rounded-2xl p-4 font-sans overflow-hidden">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-xs font-bold text-white tracking-wider uppercase flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#C5A059] animate-pulse" />
+                      CSV Ingestion & Validation Logs
+                    </h4>
+                    <button 
+                      type="button"
+                      onClick={() => setCsvUploadState(prev => ({ ...prev, logs: [] }))}
+                      className="text-[10px] text-white/50 hover:text-white hover:underline cursor-pointer"
+                    >
+                      Clear Logs
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto max-h-[250px] overflow-y-auto custom-scrollbar border border-white/5 rounded-xl">
+                    <table className="w-full text-left border-collapse text-[11px]">
+                      <thead>
+                        <tr className="bg-white/5 text-white/60 uppercase text-[10px] tracking-wider border-b border-white/15">
+                          <th className="py-2.5 px-3 font-semibold text-center w-14">Row</th>
+                          <th className="py-2.5 px-3 font-semibold">Item Name</th>
+                          <th className="py-2.5 px-3 font-semibold w-24">SKU Code</th>
+                          <th className="py-2.5 px-3 font-semibold w-20 text-center">Status</th>
+                          <th className="py-2.5 px-3 font-semibold">Message / Error Reason</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {csvUploadState.logs.map((log, index) => (
+                          <tr 
+                            key={index} 
+                            className={`hover:bg-white/5 transition-all ${
+                              log.status === "failed" ? "bg-red-500/5 text-red-200" : "text-white/80"
+                            }`}
+                          >
+                            <td className="py-2 px-3 font-mono text-center text-white/40">{log.row}</td>
+                            <td className="py-2 px-3 font-medium truncate max-w-[150px]" title={log.itemName}>
+                              {log.itemName || <span className="text-white/30 italic">N/A</span>}
+                            </td>
+                            <td className="py-2 px-3 font-mono truncate max-w-[100px]" title={log.sku}>
+                              {log.sku || <span className="text-white/20 italic">-</span>}
+                            </td>
+                            <td className="py-2 px-3 text-center">
+                              <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                                log.status === "success" 
+                                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
+                                  : "bg-red-500/15 text-red-400 border border-red-500/35"
+                              }`}>
+                                {log.status}
+                              </span>
+                            </td>
+                            <td className={`py-2 px-3 truncate max-w-[250px] font-sans ${log.status === "failed" ? "text-red-400 font-medium" : "text-white/50"}`} title={log.message}>
+                              {log.message}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
 

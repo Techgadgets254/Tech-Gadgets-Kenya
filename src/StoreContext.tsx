@@ -122,7 +122,7 @@ interface StoreContextType {
   theme: "light" | "dark";
   toggleTheme: () => void;
   submitProductReview: (productId: string, rating: number, comment: string, name: string) => Promise<void>;
-  importProductsCSV: (csvContent: string) => Promise<{ addedCount: number; error?: string }>;
+  importProductsCSV: (csvContent: string, onProgress?: (progress: number) => void) => Promise<{ addedCount: number; logs: any[]; error?: string }>;
   registerPriceAlert: (productId: string, productName: string, email: string, whatsapp: string, targetPrice: number, currentPrice: number) => Promise<boolean>;
   productsLoading: boolean;
   productsLimit: number;
@@ -1382,11 +1382,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   // CSV Bulk Ingestion Support
-  const importProductsCSV = async (csvContent: string): Promise<{ addedCount: number; error?: string }> => {
+  const importProductsCSV = async (
+    csvContent: string,
+    onProgress?: (progress: number) => void
+  ): Promise<{ addedCount: number; logs: any[]; error?: string }> => {
+    const logs: { row: number; itemName?: string; sku?: string; status: "success" | "skipped" | "failed"; message: string }[] = [];
     try {
       const lines = csvContent.split(/\r?\n/);
       if (lines.length < 2) {
-        return { addedCount: 0, error: "Empty CSV file or header-only content provided." };
+        return { addedCount: 0, logs, error: "Empty CSV file or header-only content provided." };
       }
 
       const parseCSVLine = (text: string): string[] => {
@@ -1419,24 +1423,89 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const idxDescription = getIndex("description");
       const idxImage = getIndex("image");
       const idxTags = getIndex("tags");
+      const idxSku = getIndex("sku");
 
       if (idxName === -1 || idxBrand === -1 || idxCategory === -1 || idxPrice === -1) {
+        const missingFields = [];
+        if (idxName === -1) missingFields.push("name");
+        if (idxBrand === -1) missingFields.push("brand");
+        if (idxCategory === -1) missingFields.push("category");
+        if (idxPrice === -1) missingFields.push("price");
         return { 
           addedCount: 0, 
-          error: "Required columns are missing. CSV headers must include 'name', 'brand', 'category', and 'price'." 
+          logs,
+          error: `Required columns are missing. CSV headers must include 'name', 'brand', 'category', and 'price'. Missing: ${missingFields.join(", ")}` 
         };
       }
 
       let added = 0;
+      const totalRows = lines.length - 1;
+
       for (let i = 1; i < lines.length; i++) {
+        if (onProgress) {
+          onProgress(Math.round((i / totalRows) * 100));
+        }
+
         const line = lines[i];
         if (!line.trim()) continue;
 
         const row = parseCSVLine(line);
-        if (row.length < 4) continue;
+        
+        // 1. Validate Row Dimension
+        if (row.length < Math.max(idxName, idxBrand, idxCategory, idxPrice) + 1) {
+          logs.push({
+            row: i,
+            itemName: "N/A",
+            status: "failed",
+            message: `Row contains too few columns (parsed columns: ${row.length}).`
+          });
+          continue;
+        }
 
         const name = row[idxName];
-        if (!name) continue;
+        const rawPrice = idxPrice !== -1 ? row[idxPrice] : "";
+        const sku = idxSku !== -1 ? row[idxSku] : "";
+
+        // 2. Validate Required Name Field
+        if (!name) {
+          logs.push({
+            row: i,
+            itemName: "N/A",
+            sku: sku || undefined,
+            status: "failed",
+            message: "Missing Name field"
+          });
+          continue;
+        }
+
+        // 3. Validate Required/Valid Price Field
+        const priceStr = rawPrice.replace(/[^0-9.]/g, "");
+        const price = parseFloat(priceStr);
+        if (!rawPrice || isNaN(price) || price <= 0) {
+          logs.push({
+            row: i,
+            itemName: name,
+            sku: sku || undefined,
+            status: "failed",
+            message: "Missing Price field"
+          });
+          continue;
+        }
+
+        // 4. Validate SKU Format if present
+        if (sku) {
+          const skuRegex = /^[A-Za-z0-9\-_]{3,30}$/;
+          if (!skuRegex.test(sku)) {
+            logs.push({
+              row: i,
+              itemName: name,
+              sku: sku,
+              status: "failed",
+              message: "Invalid SKU format"
+            });
+            continue;
+          }
+        }
 
         const brand = row[idxBrand] || "Generic";
         const rawCategory = row[idxCategory] || "Laptops";
@@ -1448,7 +1517,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         else if (valCat.includes("access")) category = "Accessories";
         else if (valCat.includes("one") || valCat.includes("aio") || valCat.includes("computer")) category = "All-in-One PCs";
 
-        const price = parseFloat(row[idxPrice].replace(/[^0-9.]/g, "")) || 0;
         const stock = idxStock !== -1 ? parseInt(row[idxStock].replace(/[^0-9]/g, "")) || 0 : 5;
         const description = idxDescription !== -1 ? row[idxDescription] || "Enterprise hardware from direct distributor." : "Premium Tech Hardware.";
         const image = idxImage !== -1 && row[idxImage] ? row[idxImage] : "https://images.unsplash.com/photo-1531297484001-80022131f5a1?auto=format&fit=crop&q=80&w=700";
@@ -1465,20 +1533,42 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           description,
           image,
           tags,
+          sku: sku || undefined,
           specifications: {
             "Origin Info": "Imported Business Stock",
             "Manufacturer Warranty": "12 Months Kenya Service"
           }
         };
 
-        await addProduct(productData);
-        added++;
+        try {
+          await addProduct(productData);
+          added++;
+          logs.push({
+            row: i,
+            itemName: name,
+            sku: sku || undefined,
+            status: "success",
+            message: `Successfully imported product: '${name}'`
+          });
+        } catch (dbErr: any) {
+          console.error(`Error adding product on row ${i}:`, dbErr);
+          logs.push({
+            row: i,
+            itemName: name,
+            sku: sku || undefined,
+            status: "failed",
+            message: `Database upload failure: ${dbErr.message || dbErr}`
+          });
+        }
       }
 
-      return { addedCount: added };
+      if (onProgress) {
+        onProgress(100);
+      }
+      return { addedCount: added, logs };
     } catch (e: any) {
       console.error("Error importing CSV:", e);
-      return { addedCount: 0, error: e.message || "An error occurred during CSV ingestion." };
+      return { addedCount: 0, logs, error: e.message || "An error occurred during CSV ingestion." };
     }
   };
 
