@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import nodemailer from "nodemailer";
 import { sendReceiptEmail, sendRestockAlertEmail } from "./emailService";
 import { initializeApp as serverInitApp } from "firebase/app";
@@ -30,10 +31,14 @@ dotenv.config();
 // Load Firebase configuration safely without importing JSON via ES Modules
 let serverFirebaseConfig: any = null;
 try {
+  const resolvedDirname = typeof __dirname !== "undefined"
+    ? __dirname
+    : path.dirname(fileURLToPath(import.meta.url));
+
   const pathsToTry = [
     path.resolve(process.cwd(), "firebase-applet-config.json"),
-    path.join(__dirname, "../firebase-applet-config.json"),
-    path.join(__dirname, "firebase-applet-config.json")
+    path.join(resolvedDirname, "../firebase-applet-config.json"),
+    path.join(resolvedDirname, "firebase-applet-config.json")
   ];
   
   for (const p of pathsToTry) {
