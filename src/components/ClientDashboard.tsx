@@ -1994,16 +1994,16 @@ export default function ClientDashboard() {
       {/* Invoice Preview Modal */}
       <AnimatePresence>
         {isPreviewModalOpen && previewOrder && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto no-print">
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto no-print">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ type: "spring", stiffness: 100, damping: 20 }}
-              className="bg-zinc-950 border border-white/10 rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl my-8 text-left"
+              className="bg-zinc-950 border border-white/10 rounded-3xl max-w-3xl w-full flex flex-col max-h-[90vh] sm:max-h-[85vh] overflow-hidden shadow-2xl text-left"
             >
               {/* Modal Header */}
-              <div className="bg-[#0F0F0F] px-6 py-4 border-b border-white/5 flex justify-between items-center">
+              <div className="bg-[#0F0F0F] px-6 py-4 border-b border-white/5 flex justify-between items-center shrink-0">
                 <div className="flex items-center gap-2">
                   <FileText className="w-5 h-5 text-[#C5A059]" />
                   <span className="font-sans font-extrabold text-sm text-white tracking-wider uppercase">
@@ -2019,7 +2019,7 @@ export default function ClientDashboard() {
               </div>
 
               {/* Printable Invoice Page (White Paper Aesthetic) */}
-              <div id="print-invoice-area" className="p-6 sm:p-10 bg-white text-zinc-900 overflow-y-auto max-h-[70vh] font-sans">
+              <div id="print-invoice-area" className="p-4 sm:p-8 md:p-10 bg-white text-zinc-900 overflow-y-auto flex-1 font-sans">
                 {/* Invoice Sheet Header */}
                 <div className="flex flex-col sm:flex-row justify-between items-start gap-6 border-b-2 border-zinc-200 pb-6">
                   {/* Brand info */}
@@ -2180,7 +2180,7 @@ export default function ClientDashboard() {
               </div>
 
               {/* Modal Footer Controls */}
-              <div className="bg-[#0F0F0F] px-6 py-4 border-t border-white/5 flex flex-col sm:flex-row gap-4 items-center justify-between">
+              <div className="bg-[#0F0F0F] px-6 py-4 border-t border-white/5 flex flex-col sm:flex-row gap-4 items-center justify-between shrink-0">
                 <button
                   onClick={() => setIsPreviewModalOpen(false)}
                   className="bg-white/5 hover:bg-white/10 text-white font-sans text-xs font-semibold py-2.5 px-4 rounded-xl transition-all border border-white/10 cursor-pointer w-full sm:w-auto text-center"

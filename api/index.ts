@@ -23,8 +23,6 @@ import {
   signInWithEmailAndPassword as serverSignIn,
   createUserWithEmailAndPassword as serverCreateUser
 } from "firebase/auth";
-import { initializeApp as adminInitApp, getApps as getAdminApps } from "firebase-admin/app";
-import { getFirestore as adminGetFirestore, Firestore as AdminFirestore } from "firebase-admin/firestore";
 
 dotenv.config();
 
@@ -81,7 +79,7 @@ try {
 }
 
 // Initialize server-side Firebase Admin SDK
-let adminDb: AdminFirestore;
+let adminDb: any = null;
 let isAdminDbAuthorized = false;
 
 async function checkAdminDbAuth() {
@@ -97,19 +95,26 @@ async function checkAdminDbAuth() {
   }
 }
 
-try {
-  const adminApps = getAdminApps();
-  if (adminApps.length === 0) {
-    adminInitApp({
-      projectId: serverFirebaseConfig.projectId
-    });
+async function initAdminSDK() {
+  try {
+    const { initializeApp: adminInitApp, getApps: getAdminApps } = await import("firebase-admin/app");
+    const { getFirestore: adminGetFirestore } = await import("firebase-admin/firestore");
+
+    const adminApps = getAdminApps();
+    if (adminApps.length === 0) {
+      adminInitApp({
+        projectId: serverFirebaseConfig.projectId
+      });
+    }
+    adminDb = adminGetFirestore();
+    console.log("[Firebase Admin] Initialized Admin SDK successfully for project:", serverFirebaseConfig.projectId);
+    await checkAdminDbAuth();
+  } catch (e) {
+    console.warn("[Firebase Admin] Bypassed or failed initializing Admin SDK (common in non-GCP serverless hosting):", e);
   }
-  adminDb = adminGetFirestore();
-  console.log("[Firebase Admin] Initialized Admin SDK successfully for project:", serverFirebaseConfig.projectId);
-  checkAdminDbAuth();
-} catch (e) {
-  console.error("[Firebase Admin] Error initializing Admin SDK:", e);
 }
+
+initAdminSDK();
 
 app.use(express.json());
 
