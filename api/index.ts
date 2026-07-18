@@ -6,7 +6,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import nodemailer from "nodemailer";
-import { sendReceiptEmail, sendRestockAlertEmail } from "./emailService";
+import { sendReceiptEmail, sendRestockAlertEmail } from "./emailService.ts";
 import { initializeApp as serverInitApp } from "firebase/app";
 import { 
   getFirestore as serverGetFS, 
