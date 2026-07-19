@@ -3,11 +3,11 @@
   "rewrites": [
     {
       "source": "/sitemap.xml",
-      "destination": "/api/index"
+      "destination": "/api/index/sitemap.xml"
     },
     {
       "source": "/google-merchant-feed.xml",
-      "destination": "/api/index"
+      "destination": "/api/index/google-merchant-feed.xml"
     },
     {
       "source": "/api/:path*",

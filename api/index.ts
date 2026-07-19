@@ -350,20 +350,40 @@ async function checkAdminDbAuth() {
 
 async function initAdminSDK() {
   try {
-    const { initializeApp: adminInitApp, getApps: getAdminApps } = await import("firebase-admin/app");
+    const hasServiceAccount = !!(process.env.FIREBASE_SERVICE_ACCOUNT || process.env.GOOGLE_APPLICATION_CREDENTIALS);
+    const isGoogleCloud = !!(process.env.K_SERVICE || process.env.GOOGLE_CLOUD_PROJECT || process.env.GAE_SERVICE);
+
+    if (!hasServiceAccount && !isGoogleCloud) {
+      console.log("[Firebase Admin] No service account or Google Cloud environment detected. Bypassing Admin SDK initialization to prevent credentials lookup failure on non-GCP platform.");
+      return;
+    }
+
+    const { initializeApp: adminInitApp, getApps: getAdminApps, cert: adminCert } = await import("firebase-admin/app");
     const { getFirestore: adminGetFirestore } = await import("firebase-admin/firestore");
 
     const adminApps = getAdminApps();
     if (adminApps.length === 0) {
-      adminInitApp({
+      const config: any = {
         projectId: serverFirebaseConfig.projectId
-      });
+      };
+
+      if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+        try {
+          const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+          config.credential = adminCert(serviceAccount);
+          console.log("[Firebase Admin] Parsed FIREBASE_SERVICE_ACCOUNT successfully for explicit authorization.");
+        } catch (parseErr: any) {
+          console.error("[Firebase Admin] Failed to parse FIREBASE_SERVICE_ACCOUNT JSON string:", parseErr.message || parseErr);
+        }
+      }
+
+      adminInitApp(config);
     }
     adminDb = adminGetFirestore();
     console.log("[Firebase Admin] Initialized Admin SDK successfully for project:", serverFirebaseConfig.projectId);
     await checkAdminDbAuth();
-  } catch (e) {
-    console.warn("[Firebase Admin] Bypassed or failed initializing Admin SDK (common in non-GCP serverless hosting):", e);
+  } catch (e: any) {
+    console.warn("[Firebase Admin] Bypassed or failed initializing Admin SDK:", e.message || e);
   }
 }
 
@@ -705,7 +725,7 @@ async function fetchProductsHelper(): Promise<any[]> {
 }
 
 // Dynamic XML Sitemap Generator for Google Search Console
-app.get(["/sitemap.xml", "/api/sitemap.xml"], async (req, res) => {
+app.get(["/sitemap.xml", "/api/sitemap.xml", "/api/index/sitemap.xml"], async (req, res) => {
   try {
     const products = await fetchProductsHelper();
 
@@ -763,7 +783,7 @@ app.get(["/sitemap.xml", "/api/sitemap.xml"], async (req, res) => {
 });
 
 // Dynamic XML Product Feed for Google Merchant Center
-app.get(["/google-merchant-feed.xml", "/api/google-merchant-feed.xml"], async (req, res) => {
+app.get(["/google-merchant-feed.xml", "/api/google-merchant-feed.xml", "/api/index/google-merchant-feed.xml"], async (req, res) => {
   try {
     const products = await fetchProductsHelper();
 
@@ -1040,6 +1060,10 @@ async function authenticateServerAsAdmin() {
 
 // Ensure default admin exists on server launch
 async function ensureDefaultAdmin() {
+  if (!adminDb || !isAdminDbAuthorized) {
+    console.log("[Admin Setup] Admin SDK is bypassed, restricted, or not authenticated. Skipping default admin seeding.");
+    return;
+  }
   try {
     const adminRef = adminDb.collection("admin_accounts").doc("techgadgetsk@gmail.com");
     const adminSnap = await adminRef.get();
@@ -1081,28 +1105,35 @@ app.post("/api/admin/login", async (req, res) => {
     let isValid = false;
 
     try {
-      const adminRef = adminDb.collection("admin_accounts").doc(sanitizedUsername);
-      const adminSnap = await adminRef.get();
+      if (adminDb && isAdminDbAuthorized) {
+        const adminRef = adminDb.collection("admin_accounts").doc(sanitizedUsername);
+        const adminSnap = await adminRef.get();
 
-      if (adminSnap.exists) {
-        const data = adminSnap.data();
-        if (data && data.password === password) {
+        if (adminSnap.exists) {
+          const data = adminSnap.data();
+          if (data && data.password === password) {
+            isValid = true;
+          }
+        } else if (sanitizedUsername === "techgadgetsk@gmail.com" && password === "admin123") {
           isValid = true;
+          try {
+            await adminRef.set({
+              username: sanitizedUsername,
+              password: "admin123",
+              createdAt: new Date().toISOString()
+            });
+          } catch (writeErr) {
+            console.warn("[Admin Setup Warning] Could not write seeded admin to Firestore:", writeErr);
+          }
         }
-      } else if (sanitizedUsername === "techgadgetsk@gmail.com" && password === "admin123") {
-        isValid = true;
-        try {
-          await adminRef.set({
-            username: sanitizedUsername,
-            password: "admin123",
-            createdAt: new Date().toISOString()
-          });
-        } catch (writeErr) {
-          console.warn("[Admin Setup Warning] Could not write seeded admin to Firestore:", writeErr);
+      } else {
+        console.log("[Admin Login Info] Admin SDK is bypassed, restricted, or not authenticated. Using secure local fallback credentials check.");
+        if (sanitizedUsername === "techgadgetsk@gmail.com" && password === "admin123") {
+          isValid = true;
         }
       }
     } catch (dbErr: any) {
-      if (dbErr.message && (dbErr.message.includes("PERMISSION_DENIED") || dbErr.message.includes("insufficient permissions"))) {
+      if (dbErr.message && (dbErr.message.includes("PERMISSION_DENIED") || dbErr.message.includes("insufficient permissions") || dbErr.message.includes("credentials"))) {
         console.log("[Admin Login Info] Firestore permission restricted on backend. Using secure local fallback credentials check.");
         if (sanitizedUsername === "techgadgetsk@gmail.com" && password === "admin123") {
           isValid = true;
@@ -1113,7 +1144,7 @@ app.post("/api/admin/login", async (req, res) => {
     }
 
     if (isValid) {
-      if (firebaseUid) {
+      if (firebaseUid && adminDb && isAdminDbAuthorized) {
         try {
           // Promote logged-in client account to admin role dynamically in Firestore
           const userRef = adminDb.collection("users").doc(firebaseUid);
@@ -1127,6 +1158,8 @@ app.post("/api/admin/login", async (req, res) => {
         } catch (promoteErr: any) {
           console.warn("[Admin Promotion Info] Could not promote Firebase Auth user to admin on server:", promoteErr.message || promoteErr);
         }
+      } else if (firebaseUid) {
+        console.log("[Admin Promotion] Admin SDK not authorized. Dynamic client session promotion skipped.");
       }
 
       return res.json({
@@ -1971,6 +2004,11 @@ Return a strictly valid JSON array of objects, with no markdown styling asterisk
 
 // Create Global Error Utility for logging module loading, server exceptions, and routes failures
 async function logToFirestoreErrorStore(errorType: string, message: string, stack: string | null, details: any = {}) {
+  // Prevent feedback loop: only log to Firestore if adminDb is fully authorized and available
+  if (!adminDb || !isAdminDbAuthorized) {
+    console.warn(`[Error Store] Skipping Firestore logging for '${errorType}' as Admin SDK is bypassed, restricted, or not authenticated: ${message}`);
+    return;
+  }
   try {
     const errorLogsRef = adminDb.collection("error-log");
     await errorLogsRef.add({
@@ -1989,10 +2027,15 @@ async function logToFirestoreErrorStore(errorType: string, message: string, stac
 // Global process listeners to capture startup / module-loading path resolution issues
 process.on("uncaughtException", (err: any) => {
   console.error("CRITICAL UNCAUGHT EXCEPTION:", err);
+  const errMsg = err?.message || String(err);
+  if (errMsg.includes("Could not load the default credentials") || errMsg.includes("credentials")) {
+    console.warn("[uncaughtException] Google Auth Credentials error detected. Bypassing Firestore logging to avoid loop.");
+    return;
+  }
   const isModuleNotFound = err?.code === "ERR_MODULE_NOT_FOUND" || err?.message?.includes("Cannot find module");
   logToFirestoreErrorStore(
     isModuleNotFound ? "MODULE_NOT_FOUND" : "UNCAUGHT_EXCEPTION",
-    err?.message || String(err),
+    errMsg,
     err?.stack || null,
     { code: err?.code }
   );
@@ -2000,9 +2043,14 @@ process.on("uncaughtException", (err: any) => {
 
 process.on("unhandledRejection", (reason: any) => {
   console.error("CRITICAL UNHANDLED REJECTION:", reason);
+  const errMsg = reason?.message || String(reason);
+  if (errMsg.includes("Could not load the default credentials") || errMsg.includes("credentials")) {
+    console.warn("[unhandledRejection] Google Auth Credentials error detected. Bypassing Firestore logging to avoid loop.");
+    return;
+  }
   logToFirestoreErrorStore(
     "UNHANDLED_REJECTION",
-    reason?.message || String(reason),
+    errMsg,
     reason?.stack || null
   );
 });
