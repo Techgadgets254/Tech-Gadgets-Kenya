@@ -417,7 +417,12 @@ export default function AdminDashboard() {
       doc.text(`${metrics?.activeProductsCount || products.length} items`, 105, y);
       
       // 3. Section: Top Selling Items Today
-      y += 18;
+      if (y > 220) {
+        doc.addPage();
+        y = 25;
+      } else {
+        y += 18;
+      }
       doc.setFont("helvetica", "bold");
       doc.setFontSize(14);
       doc.setTextColor(17, 17, 17);
@@ -455,7 +460,11 @@ export default function AdminDashboard() {
           
           doc.setFont("helvetica", "normal");
           doc.setTextColor(17, 17, 17);
-          doc.text(`${p.brand || "Generic"} - ${p.name}`, 35, y);
+          
+          // Truncate product name to avoid overlapping with "Units Sold" at 165
+          const fullName = `${p.brand || "Generic"} - ${p.name}`;
+          const pNameTrim = fullName.length > 55 ? fullName.substring(0, 52) + "..." : fullName;
+          doc.text(pNameTrim, 35, y);
           
           doc.setFont("helvetica", "bold");
           doc.text(`${p.quantity} units`, 165, y);
@@ -463,7 +472,12 @@ export default function AdminDashboard() {
       }
       
       // 4. Section: Inventory Alerts & Reorder Points
-      y += 18;
+      if (y > 220) {
+        doc.addPage();
+        y = 25;
+      } else {
+        y += 18;
+      }
       doc.setFont("helvetica", "bold");
       doc.setFontSize(14);
       doc.setTextColor(17, 17, 17);
@@ -551,10 +565,11 @@ export default function AdminDashboard() {
       }
       
       // 5. Official Stamp/Footer
-      y += 20;
-      if (y > 275) {
+      if (y > 240) {
         doc.addPage();
-        y = 30;
+        y = 25;
+      } else {
+        y += 20;
       }
       
       doc.setDrawColor(220, 220, 220);

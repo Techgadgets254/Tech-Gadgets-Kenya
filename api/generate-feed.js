@@ -97,6 +97,41 @@ async function fetchProducts() {
   return products;
 }
 
+function cleanTitle(title) {
+  if (!title) return "";
+  let text = String(title).replace(/<\/?[^>]+(>|$)/g, " ");
+  text = text.replace(/\s+/g, " ").trim();
+  if (text.length > 150) {
+    text = text.substring(0, 147) + "...";
+  }
+  return text;
+}
+
+function cleanDescription(htmlOrText, prodName, prodBrand) {
+  let text = htmlOrText || "";
+  // Strip HTML
+  text = text.replace(/<\/?[^>]+(>|$)/g, " ");
+  // Unescape standard entity sequences
+  text = text
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+  // Normalize spacing
+  text = text.replace(/\s+/g, " ").trim();
+  
+  if (!text) {
+    text = `Buy ${prodName || "gadget"} by ${prodBrand || "Tech Sokoni Kenya"} online at the best price in Kenya.`;
+  }
+  
+  if (text.length > 1000) {
+    text = text.substring(0, 997) + "...";
+  }
+  return text;
+}
+
 export default async function handler(req, res) {
   try {
     const products = await fetchProducts();
@@ -122,9 +157,14 @@ export default async function handler(req, res) {
       const finalPrice = Math.round(Number(cleanPriceStr) || 0);
       const priceVal = `${finalPrice} KES`;
       
-      const descriptionText = prod.description || `Buy ${prod.name} by ${prod.brand || "Tech Sokoni Kenya"} online at the best price in Kenya.`;
+      const titleText = cleanTitle(prod.name);
+      const descriptionText = cleanDescription(prod.description, prod.name, prod.brand);
       
       let imageLink = prod.image || (prod.images && prod.images[0]) || "";
+      if (imageLink && imageLink.startsWith("data:")) {
+        imageLink = ""; // Drop huge base64 strings to keep the feed size small
+      }
+
       if (imageLink && !imageLink.startsWith("http")) {
         imageLink = `${baseUrl}${imageLink.startsWith("/") ? "" : "/"}${imageLink}`;
       } else if (!imageLink) {
@@ -149,7 +189,7 @@ export default async function handler(req, res) {
 
       xml += `    <item>\n`;
       xml += `      <g:id><![CDATA[${prod.id}]]></g:id>\n`;
-      xml += `      <title><![CDATA[${prod.name}]]></title>\n`;
+      xml += `      <title><![CDATA[${titleText}]]></title>\n`;
       xml += `      <description><![CDATA[${descriptionText}]]></description>\n`;
       xml += `      <link><![CDATA[${baseUrl}/product/${prod.id}]]></link>\n`;
       xml += `      <g:image_link><![CDATA[${imageLink}]]></g:image_link>\n`;

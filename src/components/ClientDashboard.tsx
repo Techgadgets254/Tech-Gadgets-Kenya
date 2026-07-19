@@ -4,6 +4,7 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useStore } from "../StoreContext";
 import { 
   ShoppingBag, 
@@ -1993,7 +1994,7 @@ export default function ClientDashboard() {
 
       {/* Invoice Preview Modal */}
       <AnimatePresence>
-        {isPreviewModalOpen && previewOrder && (
+        {isPreviewModalOpen && previewOrder && typeof document !== "undefined" && createPortal(
           <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[9999] flex items-center justify-center p-2 sm:p-4 overflow-hidden no-print">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -2210,7 +2211,8 @@ export default function ClientDashboard() {
                 </div>
               </div>
             </motion.div>
-          </div>
+          </div>,
+          document.body
         )}
       </AnimatePresence>
 
