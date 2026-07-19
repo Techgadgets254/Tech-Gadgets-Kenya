@@ -1994,13 +1994,13 @@ export default function ClientDashboard() {
       {/* Invoice Preview Modal */}
       <AnimatePresence>
         {isPreviewModalOpen && previewOrder && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto no-print">
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[9999] flex items-center justify-center p-2 sm:p-4 overflow-hidden no-print">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ type: "spring", stiffness: 100, damping: 20 }}
-              className="bg-zinc-950 border border-white/10 rounded-3xl max-w-3xl w-full flex flex-col max-h-[90vh] sm:max-h-[85vh] overflow-hidden shadow-2xl text-left"
+              className="bg-zinc-950 border border-white/10 rounded-3xl max-w-3xl w-full flex flex-col max-h-[95vh] sm:max-h-[90vh] overflow-hidden shadow-2xl text-left"
             >
               {/* Modal Header */}
               <div className="bg-[#0F0F0F] px-6 py-4 border-b border-white/5 flex justify-between items-center shrink-0">
