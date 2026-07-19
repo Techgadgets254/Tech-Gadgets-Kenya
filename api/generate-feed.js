@@ -33,13 +33,30 @@ try {
 async function fetchProducts() {
   const products = [];
 
-  // Strategy 1: Admin SDK
+  // Strategy 1: Admin SDK (Paginated and Batched)
   if (adminDb && isAdminDbAuthorized) {
     try {
-      const snap = await adminDb.collection("products").get();
-      snap.forEach(doc => {
-        products.push({ id: doc.id, ...doc.data() });
-      });
+      let lastDoc = null;
+      let hasMore = true;
+      const batchSize = 200;
+      while (hasMore) {
+        let query = adminDb.collection("products").limit(batchSize);
+        if (lastDoc) {
+          query = query.startAfter(lastDoc);
+        }
+        const snap = await query.get();
+        if (snap.empty) {
+          hasMore = false;
+        } else {
+          snap.forEach(doc => {
+            products.push({ id: doc.id, ...doc.data() });
+          });
+          lastDoc = snap.docs[snap.docs.length - 1];
+          if (snap.docs.length < batchSize) {
+            hasMore = false;
+          }
+        }
+      }
       if (products.length > 0) {
         return products;
       }
@@ -48,12 +65,43 @@ async function fetchProducts() {
     }
   }
 
-  // Strategy 2: REST API (High performance, zero credentials needed)
+  // Strategy 2: REST API (Paginated and Batched)
   try {
     const projectId = "tech-gadgets-kenya";
-    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/products?pageSize=1000`;
-    const response = await fetch(url);
-    if (response.ok) {
+    let pageToken = "";
+    let hasMore = true;
+    const batchSize = 300;
+
+    const parseVal = (value) => {
+      if (!value) return null;
+      if ('stringValue' in value) return value.stringValue;
+      if ('integerValue' in value) return parseInt(value.integerValue, 10);
+      if ('doubleValue' in value) return parseFloat(value.doubleValue);
+      if ('booleanValue' in value) return value.booleanValue;
+      if ('arrayValue' in value) {
+        return (value.arrayValue.values || []).map((v) => parseVal(v));
+      }
+      if ('mapValue' in value) {
+        const obj = {};
+        const subFields = value.mapValue.fields || {};
+        for (const k of Object.keys(subFields)) {
+          obj[k] = parseVal(subFields[k]);
+        }
+        return obj;
+      }
+      if ('timestampValue' in value) return value.timestampValue;
+      return null;
+    };
+
+    while (hasMore) {
+      let url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/products?pageSize=${batchSize}`;
+      if (pageToken) {
+        url += `&pageToken=${pageToken}`;
+      }
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`REST API HTTP error status: ${response.status}`);
+      }
       const data = await response.json();
       if (data.documents && Array.isArray(data.documents)) {
         for (const doc of data.documents) {
@@ -61,33 +109,16 @@ async function fetchProducts() {
           const fields = doc.fields || {};
           const prod = { id };
 
-          const parseVal = (value) => {
-            if (!value) return null;
-            if ('stringValue' in value) return value.stringValue;
-            if ('integerValue' in value) return parseInt(value.integerValue, 10);
-            if ('doubleValue' in value) return parseFloat(value.doubleValue);
-            if ('booleanValue' in value) return value.booleanValue;
-            if ('arrayValue' in value) {
-              return (value.arrayValue.values || []).map((v) => parseVal(v));
-            }
-            if ('mapValue' in value) {
-              const obj = {};
-              const subFields = value.mapValue.fields || {};
-              for (const k of Object.keys(subFields)) {
-                obj[k] = parseVal(subFields[k]);
-              }
-              return obj;
-            }
-            if ('timestampValue' in value) return value.timestampValue;
-            return null;
-          };
-
           for (const k of Object.keys(fields)) {
             prod[k] = parseVal(fields[k]);
           }
           products.push(prod);
         }
-        return products;
+      }
+      if (data.nextPageToken) {
+        pageToken = data.nextPageToken;
+      } else {
+        hasMore = false;
       }
     }
   } catch (err) {
@@ -190,16 +221,11 @@ export default async function handler(req, res) {
       xml += `    <item>\n`;
       xml += `      <g:id><![CDATA[${prod.id}]]></g:id>\n`;
       xml += `      <title><![CDATA[${titleText}]]></title>\n`;
-      xml += `      <description><![CDATA[${descriptionText}]]></description>\n`;
       xml += `      <link><![CDATA[${baseUrl}/product/${prod.id}]]></link>\n`;
       xml += `      <g:image_link><![CDATA[${imageLink}]]></g:image_link>\n`;
       xml += `      <g:price>${priceVal}</g:price>\n`;
       xml += `      <g:brand><![CDATA[${prod.brand || "Generic"}]]></g:brand>\n`;
       xml += `      <g:availability>${availability}</g:availability>\n`;
-      xml += `      <g:condition>${condition}</g:condition>\n`;
-      xml += `      <g:mpn><![CDATA[${mpn}]]></g:mpn>\n`;
-      xml += `      <g:google_product_category><![CDATA[${googleProductCategory}]]></g:google_product_category>\n`;
-      xml += `      <g:identifier_exists>false</g:identifier_exists>\n`;
       xml += `    </item>\n`;
     }
 

@@ -2977,7 +2977,11 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
           </div>
 
           {/* QUICK SNAPSHOT WIDGET (REAL-TIME ON_SNAPSHOT SYNCED) */}
-          <div className="bg-black/40 border border-[#C5A059]/30 rounded-3xl p-6 shadow-xl relative overflow-hidden backdrop-blur-md">
+          <div 
+            id="report-admin-quick-report" 
+            className="block bg-black/40 border border-[#C5A059]/30 rounded-3xl p-6 shadow-xl relative overflow-hidden backdrop-blur-md mb-6 z-10"
+            style={{ display: "block", marginBottom: "24px", zIndex: 10, position: "relative" }}
+          >
             <div className="absolute top-0 right-0 p-4 opacity-[0.02] pointer-events-none">
               <Sparkles className="w-48 h-48 text-[#C5A059]" />
             </div>

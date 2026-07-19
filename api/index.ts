@@ -633,14 +633,31 @@ Sitemap: https://techsokoni.com/sitemap.xml
 async function fetchProductsHelper(): Promise<any[]> {
   const products: any[] = [];
   
-  // Strategy 1: Firebase Admin SDK (Standard GCP container direct auth)
+  // Strategy 1: Firebase Admin SDK (Standard GCP container direct auth, Paginated and Batched)
   try {
     if (adminDb && isAdminDbAuthorized) {
-      console.log("[fetchProductsHelper] Fetching products via Firebase Admin SDK...");
-      const snap = await adminDb.collection("products").get();
-      snap.forEach(doc => {
-        products.push({ id: doc.id, ...doc.data() });
-      });
+      console.log("[fetchProductsHelper] Fetching products via Firebase Admin SDK (Paginated)...");
+      let lastDoc: any = null;
+      let hasMore = true;
+      const batchSize = 200;
+      while (hasMore) {
+        let query: any = adminDb.collection("products").limit(batchSize);
+        if (lastDoc) {
+          query = query.startAfter(lastDoc);
+        }
+        const snap = await query.get();
+        if (snap.empty) {
+          hasMore = false;
+        } else {
+          snap.forEach((doc: any) => {
+            products.push({ id: doc.id, ...doc.data() });
+          });
+          lastDoc = snap.docs[snap.docs.length - 1];
+          if (snap.docs.length < batchSize) {
+            hasMore = false;
+          }
+        }
+      }
       console.log(`[fetchProductsHelper] Successfully fetched ${products.length} products via Admin SDK.`);
       return products;
     } else {
@@ -655,53 +672,66 @@ async function fetchProductsHelper(): Promise<any[]> {
     }
   }
 
-  // Strategy 2: Firebase REST API (100% reliable, zero-credentials, bypasses gRPC/Websocket serverless hangs)
+  // Strategy 2: Firebase REST API (100% reliable, zero-credentials, Paginated and Batched)
   try {
-    console.log("[fetchProductsHelper] Fetching products via Public Firestore REST API...");
+    console.log("[fetchProductsHelper] Fetching products via Public Firestore REST API (Paginated)...");
     const projectId = "tech-gadgets-kenya";
-    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/products?pageSize=1000`;
+    let pageToken = "";
+    let hasMore = true;
+    const batchSize = 300;
     
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`REST API HTTP error status: ${response.status}`);
-    }
-    const data = await response.json();
-    if (data.documents && Array.isArray(data.documents)) {
-      for (const doc of data.documents) {
-        const id = doc.name.split("/").pop();
-        const fields = doc.fields || {};
-        const prod: any = { id };
-        
-        // Helper to parse complex Firestore REST API value types
-        const parseVal = (value: any): any => {
-          if (!value) return null;
-          if ('stringValue' in value) return value.stringValue;
-          if ('integerValue' in value) return parseInt(value.integerValue, 10);
-          if ('doubleValue' in value) return parseFloat(value.doubleValue);
-          if ('booleanValue' in value) return value.booleanValue;
-          if ('arrayValue' in value) {
-            return (value.arrayValue.values || []).map((v: any) => parseVal(v));
-          }
-          if ('mapValue' in value) {
-            const obj: any = {};
-            const subFields = value.mapValue.fields || {};
-            for (const k of Object.keys(subFields)) {
-              obj[k] = parseVal(subFields[k]);
-            }
-            return obj;
-          }
-          if ('timestampValue' in value) return value.timestampValue;
-          return null;
-        };
-
-        for (const k of Object.keys(fields)) {
-          prod[k] = parseVal(fields[k]);
-        }
-        products.push(prod);
+    // Helper to parse complex Firestore REST API value types
+    const parseVal = (value: any): any => {
+      if (!value) return null;
+      if ('stringValue' in value) return value.stringValue;
+      if ('integerValue' in value) return parseInt(value.integerValue, 10);
+      if ('doubleValue' in value) return parseFloat(value.doubleValue);
+      if ('booleanValue' in value) return value.booleanValue;
+      if ('arrayValue' in value) {
+        return (value.arrayValue.values || []).map((v: any) => parseVal(v));
       }
-      console.log(`[fetchProductsHelper] Successfully fetched ${products.length} products via Firestore REST API.`);
-      return products;
+      if ('mapValue' in value) {
+        const obj: any = {};
+        const subFields = value.mapValue.fields || {};
+        for (const k of Object.keys(subFields)) {
+          obj[k] = parseVal(subFields[k]);
+        }
+        return obj;
+      }
+      if ('timestampValue' in value) return value.timestampValue;
+      return null;
+    };
+
+    while (hasMore) {
+      let url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/products?pageSize=${batchSize}`;
+      if (pageToken) {
+        url += `&pageToken=${pageToken}`;
+      }
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`REST API HTTP error status: ${response.status}`);
+      }
+      const data = await response.json();
+      if (data.documents && Array.isArray(data.documents)) {
+        for (const doc of data.documents) {
+          const id = doc.name.split("/").pop();
+          const fields = doc.fields || {};
+          const prod: any = { id };
+          
+          for (const k of Object.keys(fields)) {
+            prod[k] = parseVal(fields[k]);
+          }
+          products.push(prod);
+        }
+      }
+      if (data.nextPageToken) {
+        pageToken = data.nextPageToken;
+      } else {
+        hasMore = false;
+      }
     }
+    console.log(`[fetchProductsHelper] Successfully fetched ${products.length} products via Firestore REST API.`);
+    return products;
   } catch (restErr: any) {
     console.error("[fetchProductsHelper] Firestore REST API failed:", restErr.message || restErr);
   }
@@ -882,16 +912,11 @@ app.get(["/google-merchant-feed.xml", "/api/google-merchant-feed.xml", "/api/ind
       xml += `    <item>\n`;
       xml += `      <g:id><![CDATA[${prod.id}]]></g:id>\n`;
       xml += `      <title><![CDATA[${titleText}]]></title>\n`;
-      xml += `      <description><![CDATA[${descriptionText}]]></description>\n`;
       xml += `      <link><![CDATA[${baseUrl}/product/${prod.id}]]></link>\n`;
       xml += `      <g:image_link><![CDATA[${imageLink}]]></g:image_link>\n`;
       xml += `      <g:price>${priceVal}</g:price>\n`;
       xml += `      <g:brand><![CDATA[${prod.brand || "Generic"}]]></g:brand>\n`;
       xml += `      <g:availability>${availability}</g:availability>\n`;
-      xml += `      <g:condition>${condition}</g:condition>\n`;
-      xml += `      <g:mpn><![CDATA[${mpn}]]></g:mpn>\n`;
-      xml += `      <g:google_product_category><![CDATA[${googleProductCategory}]]></g:google_product_category>\n`;
-      xml += `      <g:identifier_exists>false</g:identifier_exists>\n`; // Avoids rejection due to missing GTIN barcodes for enterprise/refurbished computers
       xml += `    </item>\n`;
     }
 
