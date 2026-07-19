@@ -843,8 +843,8 @@ app.get(["/google-merchant-feed.xml", "/api/google-merchant-feed.xml", "/api/ind
       xml += `      <g:id><![CDATA[${prod.id}]]></g:id>\n`;
       xml += `      <title><![CDATA[${prod.name}]]></title>\n`;
       xml += `      <description><![CDATA[${descriptionText}]]></description>\n`;
-      xml += `      <link>${baseUrl}/product/${prod.id}</link>\n`;
-      xml += `      <g:image_link>${imageLink}</g:image_link>\n`;
+      xml += `      <link><![CDATA[${baseUrl}/product/${prod.id}]]></link>\n`;
+      xml += `      <g:image_link><![CDATA[${imageLink}]]></g:image_link>\n`;
       xml += `      <g:price>${priceVal}</g:price>\n`;
       xml += `      <g:brand><![CDATA[${prod.brand || "Generic"}]]></g:brand>\n`;
       xml += `      <g:availability>${availability}</g:availability>\n`;

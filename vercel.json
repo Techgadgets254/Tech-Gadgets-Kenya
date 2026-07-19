@@ -7,7 +7,7 @@
     },
     {
       "source": "/google-merchant-feed.xml",
-      "destination": "/api/index/google-merchant-feed.xml"
+      "destination": "/api/generate-feed"
     },
     {
       "source": "/api/:path*",
