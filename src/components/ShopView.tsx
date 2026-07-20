@@ -1210,7 +1210,7 @@ export default function ShopView() {
           
           {productsLoading && products.length === 0 ? (
             <div>
-              <div className="flex justify-between items-center mb-4 text-[10px] font-mono text-white/30 font-bold tracking-wider">
+              <div className="flex justify-between items-center mb-4 text-[10px] font-mono text-white/30 font-bold tracking-wider animate-pulse">
                 <span>INDEX LIVE REVEALS: RETRIEVING COGNITIVE BATCH...</span>
                 <span>FETCHING SECURE STOCKS</span>
               </div>
@@ -1218,17 +1218,69 @@ export default function ShopView() {
                 ? "grid grid-cols-1 sm:grid-cols-2 gap-6"
                 : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
               }>
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div key={i} className="bg-[#0F0F0F] border border-white/5 rounded-2xl p-4 animate-pulse space-y-4">
-                    <div className="w-full h-44 bg-white/5 rounded-xl animate-pulse"></div>
-                    <div className="h-3.5 bg-white/5 rounded w-1/4 animate-pulse"></div>
-                    <div className="h-4.5 bg-white/5 rounded w-3/4 animate-pulse"></div>
-                    <div className="h-3 bg-white/5 rounded w-1/2 animate-pulse"></div>
-                    <div className="pt-4 border-t border-white/5 space-y-3 animate-pulse col-span-1">
-                      <div className="h-3 bg-white/5 rounded w-2/3 animate-pulse"></div>
-                      <div className="flex justify-between items-center pt-2">
-                        <div className="h-5 bg-white/5 rounded w-1/3 animate-pulse"></div>
-                        <div className="h-8 bg-white/5 rounded-xl w-1/3 animate-pulse"></div>
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                  <div key={i} className="bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden flex flex-col h-full shadow-lg animate-pulse">
+                    {/* Top image area */}
+                    <div className="relative h-44 sm:h-48 bg-[#1A1A1A] flex items-center justify-center">
+                      {/* Fake brand badge top left */}
+                      <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
+                        <div className="h-4 w-16 bg-white/5 rounded-md"></div>
+                      </div>
+                      {/* Fake wishlist/compare buttons top right */}
+                      <div className="absolute top-2.5 right-2.5 flex gap-1.5">
+                        <div className="h-7 w-7 bg-white/5 rounded-lg"></div>
+                        <div className="h-7 w-7 bg-white/5 rounded-lg"></div>
+                      </div>
+                      {/* Fake center image icon placeholder */}
+                      <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
+                        <div className="w-5 h-5 bg-white/10 rounded-sm"></div>
+                      </div>
+                    </div>
+
+                    {/* Info Panel */}
+                    <div className="p-4 flex-1 flex flex-col justify-between space-y-4">
+                      <div>
+                        {/* Category + Stars rating row */}
+                        <div className="flex justify-between items-center">
+                          <div className="h-3 w-16 bg-white/5 rounded"></div>
+                          <div className="flex items-center gap-1.5">
+                            <div className="h-3 w-3 bg-white/5 rounded-full"></div>
+                            <div className="h-3 w-8 bg-white/5 rounded"></div>
+                          </div>
+                        </div>
+
+                        {/* Title (2 lines) */}
+                        <div className="mt-2.5 space-y-2">
+                          <div className="h-4 bg-white/10 rounded w-full"></div>
+                          <div className="h-4 bg-white/10 rounded w-2/3"></div>
+                        </div>
+
+                        {/* Tag pills skeleton */}
+                        <div className="flex flex-wrap gap-1 mt-3">
+                          <div className="h-4 w-16 bg-white/5 rounded-md border border-white/5"></div>
+                          <div className="h-4 w-12 bg-white/5 rounded-md border border-[#C5A059]/10"></div>
+                        </div>
+
+                        {/* Description (3 lines) */}
+                        <div className="mt-3.5 space-y-1.5">
+                          <div className="h-3 bg-white/5 rounded w-full"></div>
+                          <div className="h-3 bg-white/5 rounded w-11/12"></div>
+                          <div className="h-3 bg-white/5 rounded w-3/4"></div>
+                        </div>
+                      </div>
+
+                      {/* Technical specifications separator and trigger */}
+                      <div className="pt-3 border-t border-white/5">
+                        <div className="h-3 bg-white/5 rounded w-1/2 mb-3"></div>
+
+                        {/* Bottom Row: Price and Add To Bag Button */}
+                        <div className="flex items-center justify-between gap-2 pt-1">
+                          <div className="space-y-1">
+                            <div className="h-2.5 bg-white/5 rounded w-10"></div>
+                            <div className="h-5 bg-white/10 rounded w-20"></div>
+                          </div>
+                          <div className="h-8 bg-white/10 rounded-xl w-24"></div>
+                        </div>
                       </div>
                     </div>
                   </div>

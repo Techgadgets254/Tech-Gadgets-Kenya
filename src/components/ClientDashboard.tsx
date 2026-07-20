@@ -1370,97 +1370,136 @@ export default function ClientDashboard() {
                   </div>
                 )}
 
-                {/* Visual Order Progress Tracking Bar */}
-                <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 no-print">
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="font-mono text-[10px] text-white/40 uppercase tracking-widest block">Live Status Tracking</span>
-                    <span className="font-mono text-[10px] bg-[#C5A059]/10 text-[#C5A059] px-2.5 py-1 rounded-md uppercase font-bold tracking-wider">
-                      Current Status: {activeOrder.shippingStatus || "Processing"}
+                {/* Visual Order Progress Tracking Timeline */}
+                <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 sm:p-8 no-print shadow-xl">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-6 pb-4 border-b border-white/5">
+                    <div>
+                      <span className="font-mono text-[10px] text-white/40 uppercase tracking-widest block">Live Status tracking timeline</span>
+                      <h3 className="font-sans font-bold text-lg text-white mt-1">Real-Time Dispatch Journey</h3>
+                    </div>
+                    <span className={`font-mono text-xs px-3 py-1 rounded-md uppercase font-bold tracking-wider ${
+                      activeOrder.shippingStatus?.toLowerCase() === "cancelled"
+                        ? "bg-red-500/10 text-red-400 border border-red-500/20"
+                        : activeOrder.shippingStatus?.toLowerCase() === "delivered"
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                        : "bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/20"
+                    }`}>
+                      Current Stage: {activeOrder.shippingStatus || "Processing"}
                     </span>
                   </div>
 
-                  {/* Horizontal progress indicators */}
-                  <div className="relative mt-8 mb-4">
-                    {/* Background line */}
-                    <div className="absolute top-1/2 left-0 right-0 h-1 bg-white/5 -translate-y-1/2 rounded-full" />
-                    
-                    {/* Active filled line with Framer Motion layout transition */}
-                    <motion.div 
-                      layout
-                      className="absolute top-1/2 left-0 h-1 bg-gradient-to-r from-[#C5A059] to-emerald-500 -translate-y-1/2 rounded-full"
-                      initial={false}
-                      animate={{ 
-                        width: `${
-                          activeOrder.shippingStatus?.toLowerCase() === "cancelled" 
-                            ? 100 
-                            : ((getStepNumber(activeOrder.shippingStatus) - 1) / 3) * 100
-                        }%` 
-                      }}
-                      transition={{ type: "spring", stiffness: 70, damping: 15 }}
-                    />
+                  {activeOrder.shippingStatus?.toLowerCase() === "cancelled" ? (
+                    <div className="bg-red-950/20 border border-red-500/25 rounded-2xl p-4 flex gap-3 text-left">
+                      <XCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="text-sm font-semibold text-white">Order Cancelled</h4>
+                        <p className="text-xs text-white/60 mt-1 leading-relaxed">This consignment transaction has been terminated or recalled. Refund allocations have been initiated for your account. Contact support for fast inquiries.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative pl-6 sm:pl-8 space-y-8 text-left">
+                      {/* Vertical line connector */}
+                      <div className="absolute left-[13px] sm:left-[17px] top-3 bottom-3 w-0.5 bg-white/5" />
 
-                    {/* Step Dots with Framer Motion layout transitions */}
-                    <div className="relative flex justify-between">
-                      {["Processing", "Shipped", "Out for Delivery", "Delivered"].map((stepLabel, idx) => {
-                        const stepNum = idx + 1;
-                        const currentStep = getStepNumber(activeOrder.shippingStatus);
-                        const isCompleted = currentStep >= stepNum;
-                        const isActive = currentStep === stepNum;
-                        const isCancelled = activeOrder.shippingStatus?.toLowerCase() === "cancelled";
+                      {[
+                        {
+                          key: "received",
+                          title: "Order Received",
+                          time: "Instant",
+                          icon: Clock,
+                          description: "Your hardware order has been successfully logged and queued in our fulfillment system.",
+                          check: (status: string) => true
+                        },
+                        {
+                          key: "processing",
+                          title: "Processing & Configuration",
+                          time: "1-2 Hours",
+                          icon: Package,
+                          description: "Our configuration laboratory is cleaning, testing, and preparing secure packaging.",
+                          check: (status: string) => {
+                            const s = (status || "").toLowerCase();
+                            return s !== "pending" && s !== "received";
+                          }
+                        },
+                        {
+                          key: "dispatched",
+                          title: "Dispatched",
+                          time: "Within 2 Hours",
+                          icon: Truck,
+                          description: "Handed over to courier service for dispatch / local Nairobi delivery dispatch.",
+                          check: (status: string) => {
+                            const s = (status || "").toLowerCase();
+                            return s === "shipped" || s === "out for delivery" || s === "out_for_delivery" || s === "delivered";
+                          }
+                        },
+                        {
+                          key: "delivered",
+                          title: "Delivered",
+                          time: "Completed",
+                          icon: CheckCircle,
+                          description: "Product hand-delivered and receipt signed off by the client.",
+                          check: (status: string) => {
+                            const s = (status || "").toLowerCase();
+                            return s === "delivered";
+                          }
+                        }
+                      ].map((step, idx, arr) => {
+                        const statusStr = activeOrder.shippingStatus || "Processing";
+                        const isCompleted = step.check(statusStr);
+                        
+                        // Active check: it is the first step in the list that is not completed, or we are at the last completed step
+                        const currentStepIndex = arr.findIndex(s => !s.check(statusStr));
+                        const isActive = currentStepIndex === idx || (currentStepIndex === -1 && idx === arr.length - 1);
+
+                        const StepIcon = step.icon;
 
                         return (
-                          <div key={stepLabel} className="flex flex-col items-center relative">
-                            {/* Dot container */}
-                            <motion.div 
-                              layout
-                              initial={false}
-                              animate={{
-                                scale: isActive && !isCancelled ? 1.15 : 1,
-                                borderColor: isCancelled ? "#ef4444" : isCompleted ? "#10b981" : "rgba(255,255,255,0.1)",
-                                backgroundColor: isCancelled ? "rgba(127,29,29,0.8)" : isCompleted ? "#000000" : "#000000"
-                              }}
-                              transition={{ type: "spring", stiffness: 100, damping: 15 }}
-                              className={`w-7 h-7 rounded-full flex items-center justify-center border-2 z-10 ${
-                                isCancelled
-                                  ? "text-red-400"
-                                  : isCompleted
-                                  ? "text-emerald-400"
-                                  : "text-white/20"
-                              } ${isActive && !isCancelled ? "ring-4 ring-[#C5A059]/20" : ""}`}
-                            >
-                              {isCancelled ? (
-                                <XCircle className="w-3.5 h-3.5" />
-                              ) : isCompleted ? (
-                                <CheckCircle className="w-3.5 h-3.5" />
-                              ) : (
-                                <span className="text-[10px] font-mono font-bold">{stepNum}</span>
-                              )}
-                            </motion.div>
-
-                            {/* Label */}
-                            <div className="absolute top-8 text-center w-24">
-                              <p className={`text-[10px] font-sans font-bold transition-colors duration-300 ${
-                                isCancelled
-                                  ? "text-red-400"
+                          <div key={step.key} className="relative flex gap-4 sm:gap-6 items-start">
+                            {/* Visual circle node */}
+                            <div className="relative shrink-0 z-10">
+                              <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center border transition-all duration-500 ${
+                                isCompleted
+                                  ? "bg-black border-emerald-500 text-emerald-400 shadow-md shadow-emerald-500/10"
                                   : isActive
-                                  ? "text-[#C5A059]"
-                                  : isCompleted
-                                  ? "text-white"
-                                  : "text-white/30"
+                                  ? "bg-black border-[#C5A059] text-[#C5A059] ring-4 ring-[#C5A059]/15 shadow-md shadow-[#C5A059]/10"
+                                  : "bg-black border-white/10 text-white/20"
                               }`}>
-                                {stepLabel}
-                              </p>
-                              {isActive && !isCancelled && (
-                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#C5A059] animate-pulse mt-0.5" />
+                                <StepIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                              </div>
+                              {isActive && (
+                                <span className="absolute -inset-0.5 rounded-full border border-[#C5A059] animate-ping opacity-30" />
                               )}
+                            </div>
+
+                            {/* Text Description Block */}
+                            <div className="flex-1 space-y-1">
+                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1">
+                                <h4 className={`text-sm font-semibold transition-colors duration-300 ${
+                                  isCompleted ? "text-white" : isActive ? "text-[#C5A059]" : "text-white/30"
+                                }`}>
+                                  {step.title}
+                                </h4>
+                                <span className={`text-[9px] font-mono font-bold tracking-wider px-2 py-0.5 rounded-md ${
+                                  isCompleted
+                                    ? "bg-emerald-500/10 text-emerald-400"
+                                    : isActive
+                                    ? "bg-[#C5A059]/10 text-[#C5A059] animate-pulse"
+                                    : "bg-white/5 text-white/20"
+                                }`}>
+                                  {step.time}
+                                </span>
+                              </div>
+                              <p className={`text-xs leading-relaxed transition-colors duration-300 ${
+                                isCompleted || isActive ? "text-white/60" : "text-white/20"
+                              }`}>
+                                {step.description}
+                              </p>
                             </div>
                           </div>
                         );
                       })}
                     </div>
-                  </div>
-                  {/* Spacing for labels */}
-                  <div className="h-6" />
+                  )}
                 </div>
 
                 {/* VISIBLE INVOICE DOCK IN BOX (Targeted for standard PDF output scale) */}
@@ -1999,7 +2038,6 @@ export default function ClientDashboard() {
             <div 
               id="client-dashboard-print-area-parent" 
               className="fixed inset-0 bg-black/80 backdrop-blur-md z-[9999] flex items-center justify-center p-2 sm:p-4 overflow-hidden no-print"
-              style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}
             >
               <motion.div
                 id="client-dashboard-print-area"
@@ -2008,7 +2046,7 @@ export default function ClientDashboard() {
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
                 transition={{ type: "spring", stiffness: 100, damping: 20 }}
                 className="bg-zinc-950 border border-white/10 rounded-3xl max-w-3xl w-full flex flex-col max-h-[95vh] sm:max-h-[90vh] overflow-hidden shadow-2xl text-left"
-                style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, margin: "auto", display: "flex", flexDirection: "column" }}
+                style={{ display: "flex", flexDirection: "column" }}
               >
               {/* Modal Header */}
               <div className="bg-[#0F0F0F] px-6 py-4 border-b border-white/5 flex justify-between items-center shrink-0">
@@ -2228,14 +2266,13 @@ export default function ClientDashboard() {
       {typeof document !== "undefined" && createPortal(
         <AnimatePresence>
           {isFeedbackModalOpen && feedbackOrderId && (
-            <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[9999] flex items-center justify-center p-4 overflow-y-auto no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}>
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[9999] flex items-center justify-center p-4 overflow-y-auto no-print">
               <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
                 transition={{ type: "spring", stiffness: 100, damping: 20 }}
                 className="bg-zinc-950 border border-white/10 rounded-3xl max-w-md w-full overflow-hidden shadow-2xl p-6 text-left"
-                style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, margin: "auto", display: "flex", flexDirection: "column", height: "fit-content" }}
               >
               <div className="flex justify-between items-center mb-4 pb-3 border-b border-white/5">
                 <div className="flex items-center gap-2">

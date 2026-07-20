@@ -258,7 +258,7 @@ export default function CheckoutView() {
   }, [paymentSuccess, generatedOrderId, sentEmailOrderIds, currentCreatedOrder, orders]);
 
   useEffect(() => {
-    if (paymentSuccess) {
+    if (paymentSuccess && generatedOrderId) {
       setRedirectCount(6);
       const timer = setInterval(() => {
         setRedirectCount((prev) => {
@@ -275,6 +275,58 @@ export default function CheckoutView() {
       return () => clearInterval(timer);
     }
   }, [paymentSuccess, generatedOrderId, setInvoiceOrderId, setActiveView]);
+
+  // Google Customer Reviews Opt-In Script Injection
+  useEffect(() => {
+    if (paymentSuccess && generatedOrderId) {
+      console.log("[CheckoutView] Loading Google Customer Reviews script for order:", generatedOrderId);
+      
+      const script = document.createElement("script");
+      script.src = "https://apis.google.com/js/platform.js?onload=renderOptIn";
+      script.async = true;
+      script.defer = true;
+      
+      // Calculate estimated delivery date: today + 3 days in YYYY-MM-DD
+      const date = new Date();
+      date.setDate(date.getDate() + 3);
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, "0");
+      const dd = String(date.getDate()).padStart(2, "0");
+      const estimatedDeliveryDate = `${yyyy}-${mm}-${dd}`;
+
+      // Declare renderOptIn on window
+      (window as any).renderOptIn = function() {
+        if ((window as any).gapi) {
+          console.log("[CheckoutView] Rendering Google Customer Reviews Opt-In");
+          (window as any).gapi.load('surveyoptin', function() {
+            try {
+              (window as any).gapi.surveyoptin.render({
+                "merchant_id": 5826398436,
+                "order_id": generatedOrderId,
+                "email": activePaymentEmail || "techgadgetsk@gmail.com",
+                "delivery_country": "KE",
+                "estimated_delivery_date": estimatedDeliveryDate,
+                "products": cart.map(item => ({ "gtin": item.product.id || "GTIN" }))
+              });
+            } catch (err) {
+              console.error("[CheckoutView] Google SurveyOptIn render error:", err);
+            }
+          });
+        } else {
+          console.error("[CheckoutView] gapi not found on window object");
+        }
+      };
+
+      document.body.appendChild(script);
+
+      return () => {
+        try {
+          document.body.removeChild(script);
+        } catch (e) {}
+        delete (window as any).renderOptIn;
+      };
+    }
+  }, [paymentSuccess, generatedOrderId, activePaymentEmail, cart]);
 
   useEffect(() => {
     if (showMpesaConfetti) {

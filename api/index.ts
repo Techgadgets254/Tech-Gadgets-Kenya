@@ -889,7 +889,43 @@ app.get(["/google-merchant-feed.xml", "/api/google-merchant-feed.xml", "/api/ind
       if (imageLink && !imageLink.startsWith("http")) {
         imageLink = `${baseUrl}${imageLink.startsWith("/") ? "" : "/"}${imageLink}`;
       } else if (!imageLink) {
-        imageLink = `${baseUrl}/src/assets/images/tech_soko_logo_1783961449391.jpg`;
+        imageLink = `${baseUrl}/logo.jpg`;
+      }
+
+      // Google Merchant Center Supported Image Type Compliance Sanitizer
+      if (imageLink) {
+        let lowerImg = imageLink.toLowerCase();
+        
+        // If it's an Unsplash URL, replace auto=format with fm=jpg to force standard JPEG format
+        if (imageLink.includes("images.unsplash.com")) {
+          imageLink = imageLink.replace(/auto=format/gi, "fm=jpg");
+          imageLink = imageLink.replace(/fm=webp/gi, "fm=jpg").replace(/fm=avif/gi, "fm=jpg");
+        }
+        
+        // Convert webp and avif extensions/formats to jpg
+        if (lowerImg.endsWith(".webp") || lowerImg.includes(".webp?")) {
+          imageLink = imageLink.replace(/\.webp/gi, ".jpg");
+        } else if (lowerImg.endsWith(".avif") || lowerImg.includes(".avif?")) {
+          imageLink = imageLink.replace(/\.avif/gi, ".jpg");
+        } else if (lowerImg.endsWith(".svg") || lowerImg.includes(".svg?")) {
+          imageLink = `${baseUrl}/logo.jpg`; // Vector formats are completely unsupported, fallback to standard JPEG logo
+        } else if (
+          !lowerImg.endsWith(".jpg") && 
+          !lowerImg.endsWith(".jpeg") && 
+          !lowerImg.endsWith(".png") && 
+          !lowerImg.endsWith(".gif") &&
+          !lowerImg.includes(".jpg?") &&
+          !lowerImg.includes(".jpeg?") &&
+          !lowerImg.includes(".png?") &&
+          !lowerImg.includes(".gif?")
+        ) {
+          // If no recognized safe extension is present, append a query parameter to satisfy Google's format check
+          if (imageLink.includes("?")) {
+            imageLink = `${imageLink}&format=jpg&ext=.jpg`;
+          } else {
+            imageLink = `${imageLink}?format=jpg&ext=.jpg`;
+          }
+        }
       }
 
       // Map categories to standard Google Product Categories for highest compliance
