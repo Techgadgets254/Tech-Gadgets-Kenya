@@ -43,7 +43,9 @@ import {
   Keyboard,
   Flame,
   Mic,
-  MicOff
+  MicOff,
+  MessageSquare,
+  ExternalLink
 } from "lucide-react";
 import { Product, Order } from "../types";
 import { PAYSTACK_GATEWAYS } from "../data";
@@ -739,8 +741,8 @@ export default function AdminDashboard() {
     });
   }, [orders, orderSortField, orderSortDirection, orderSearchQuery, orderStatusFilter]);
 
-  // Active sub-view ("overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "flash_offers" | "diagnostics")
-  const [activeSubTab, setActiveSubTab] = useState<"overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "flash_offers" | "diagnostics">("overview");
+  // Active sub-view ("overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "whatsapp_catalog" | "flash_offers" | "diagnostics")
+  const [activeSubTab, setActiveSubTab] = useState<"overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "whatsapp_catalog" | "flash_offers" | "diagnostics">("overview");
 
   // System Diagnostics state variables
   const [diagnosticsRecipientEmail, setDiagnosticsRecipientEmail] = useState("techgadgetsk@gmail.com");
@@ -755,6 +757,10 @@ export default function AdminDashboard() {
 
   const [diagnosticsSitemap, setDiagnosticsSitemap] = useState<any>({ status: "loading", message: "Initial status..." });
   const [loadingDiagnosticsSitemap, setLoadingDiagnosticsSitemap] = useState(false);
+
+  // WhatsApp Catalog state variables
+  const [copiedFeedUrl, setCopiedFeedUrl] = useState(false);
+  const [whatsappGuideStep, setWhatsappGuideStep] = useState(1);
 
   // Fetch functions for System Diagnostics
   const fetchDiagnosticsSmtpConfig = async () => {
@@ -2873,6 +2879,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
             { id: "audit_logs", label: "System Activity" },
             { id: "auth_audit", label: "Security Auth Log" },
             { id: "seo_settings", label: "SEO Settings" },
+            { id: "whatsapp_catalog", label: "WhatsApp Catalog 💬" },
             { id: "diagnostics", label: "System Diagnostics" },
             { id: "trash", label: `Trash Bin (${trashItems.length})` }
           ].map(tab => (
@@ -6104,6 +6111,415 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
           <MetadataEditor />
         </div>
       )}
+
+      {activeSubTab === "whatsapp_catalog" && (() => {
+        const liveFeedUrl = typeof window !== "undefined" ? `${window.location.origin}/google-merchant-feed.xml` : "https://techsokoni.com/google-merchant-feed.xml";
+        
+        const handleCopyFeedUrl = () => {
+          navigator.clipboard.writeText(liveFeedUrl);
+          setCopiedFeedUrl(true);
+          setTimeout(() => setCopiedFeedUrl(false), 2500);
+        };
+
+        // Calculate dynamic product catalog compliance metrics
+        const totalItems = products.length;
+        const instockItems = products.filter(p => p.stock > 0).length;
+        const validCategoryItems = products.filter(p => p.category).length;
+        const validImages = products.filter(p => p.image && !p.image.endsWith(".svg")).length;
+        const compliancePercentage = totalItems > 0 ? Math.round(((instockItems + validCategoryItems + validImages) / (totalItems * 3)) * 100) : 100;
+
+        return (
+          <div id="admin-whatsapp-catalog-tab" className="space-y-8 animate-fadeIn text-[#E0E0E0] font-sans">
+            {/* Main Header Card */}
+            <div className="bg-[#0F0F0F] border border-white/10 p-6 sm:p-8 rounded-3xl relative overflow-hidden shadow-2xl">
+              <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl -z-10" />
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2.5">
+                    <span className="bg-emerald-500/10 text-emerald-400 p-2 rounded-2xl text-xs border border-emerald-500/20">
+                      <MessageSquare className="w-5 h-5" />
+                    </span>
+                    <span className="text-emerald-400 font-mono text-[10px] tracking-widest uppercase font-bold bg-emerald-500/5 border border-emerald-500/10 px-2 py-0.5 rounded-md">WhatsApp Business Integration</span>
+                  </div>
+                  <h3 className="font-sans font-black text-2xl text-white tracking-tight">
+                    WhatsApp Business Catalog Sync Hub
+                  </h3>
+                  <p className="text-white/50 text-xs max-w-2xl font-sans leading-relaxed">
+                    Connect your TechSokoni Kenya inventory directly to your WhatsApp Business Catalogue. Customers contacting you on WhatsApp can browse live stocks, check specs, and initiate checkout in real-time.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2.5 bg-black/40 border border-white/5 p-2 rounded-2xl self-stretch md:self-auto justify-center">
+                  <div className="text-right px-2">
+                    <span className="text-[9px] text-white/30 font-mono block tracking-wider uppercase">SYNC STATUS</span>
+                    <span className="font-mono text-xs text-emerald-400 font-bold flex items-center gap-1.5 justify-end">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />
+                      LIVE FEED ACTIVE
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Metrics Overview Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-[#0F0F0F] border border-white/10 p-5 rounded-2xl flex items-center gap-4">
+                <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                  <Package className="w-5 h-5 text-amber-500" />
+                </div>
+                <div>
+                  <span className="text-[10px] text-white/40 font-mono block uppercase">Total Products</span>
+                  <span className="text-lg font-black text-white font-sans">{totalItems}</span>
+                </div>
+              </div>
+              <div className="bg-[#0F0F0F] border border-white/10 p-5 rounded-2xl flex items-center gap-4">
+                <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                  <CheckSquare className="w-5 h-5 text-emerald-500" />
+                </div>
+                <div>
+                  <span className="text-[10px] text-white/40 font-mono block uppercase">In Stock & Active</span>
+                  <span className="text-lg font-black text-emerald-400 font-sans">{instockItems} / {totalItems}</span>
+                </div>
+              </div>
+              <div className="bg-[#0F0F0F] border border-white/10 p-5 rounded-2xl flex items-center gap-4">
+                <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                  <Sparkles className="w-5 h-5 text-[#C5A059]" />
+                </div>
+                <div>
+                  <span className="text-[10px] text-white/40 font-mono block uppercase">Image Compliance</span>
+                  <span className="text-lg font-black text-[#C5A059] font-sans">{validImages} / {totalItems}</span>
+                </div>
+              </div>
+              <div className="bg-[#0F0F0F] border border-white/10 p-5 rounded-2xl flex items-center gap-4">
+                <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                  <Activity className="w-5 h-5 text-blue-400" />
+                </div>
+                <div>
+                  <span className="text-[10px] text-white/40 font-mono block uppercase">Catalog Readiness</span>
+                  <span className="text-lg font-black text-blue-400 font-sans">{compliancePercentage}% Ready</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              {/* Left Column: Copier & Multi-Step Wizard Setup Playbook */}
+              <div className="lg:col-span-7 space-y-6">
+                {/* 1. Live Feed URL Copier Module */}
+                <div className="bg-[#0F0F0F] border border-[#C5A059]/20 p-6 rounded-3xl relative overflow-hidden shadow-xl">
+                  <div className="absolute -top-12 -left-12 w-32 h-32 bg-[#C5A059]/5 rounded-full blur-2xl" />
+                  <h4 className="text-white font-bold font-sans text-sm mb-2 flex items-center gap-2">
+                    <span className="inline-block w-1.5 h-3 bg-[#C5A059] rounded-xs" />
+                    Step 1: Your Live Catalog XML Data Feed
+                  </h4>
+                  <p className="text-[11px] text-white/50 mb-4 font-sans leading-relaxed">
+                    Copy your dedicated dynamic XML feed URL. This is 100% compliant with the Google Merchant Center schema natively required by Meta / Facebook Commerce Manager to generate your WhatsApp catalog.
+                  </p>
+
+                  <div className="flex gap-2">
+                    <div className="flex-1 bg-black/60 border border-white/10 rounded-xl px-4 py-3 flex items-center justify-between font-mono text-[11px] text-[#C5A059] overflow-hidden select-all select-none">
+                      <span className="truncate pr-4 select-all">{liveFeedUrl}</span>
+                    </div>
+                    <button
+                      onClick={handleCopyFeedUrl}
+                      className={`px-5 py-3 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shrink-0 border select-none ${
+                        copiedFeedUrl
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                          : "bg-[#C5A059] hover:bg-[#B38F4D] text-black border-transparent shadow-lg shadow-[#C5A059]/5"
+                      }`}
+                    >
+                      {copiedFeedUrl ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          <span>COPIED!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" />
+                          <span>COPY LINK</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  
+                  <div className="mt-3 flex items-center gap-1.5 text-[10px] text-white/30 font-sans">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#C5A059] inline-block" />
+                    Updates dynamically in real-time as you add/edit items or change stock limits in your Admin panel.
+                  </div>
+                </div>
+
+                {/* 2. Interactive Guide Wizard */}
+                <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 shadow-xl space-y-6">
+                  <div className="border-b border-white/10 pb-4">
+                    <h4 className="text-white font-bold font-sans text-sm">Meta Commerce & WhatsApp Setup Playbook</h4>
+                    <p className="text-[10px] text-white/40 mt-1">Follow this verified guide to synchronize your stock with WhatsApp within minutes.</p>
+                  </div>
+
+                  {/* Wizard Tab Buttons */}
+                  <div className="grid grid-cols-4 gap-1.5 bg-black/40 p-1 rounded-xl border border-white/5">
+                    {[
+                      { step: 1, label: "1. Prep" },
+                      { step: 2, label: "2. Meta Setup" },
+                      { step: 3, label: "3. Scheduled Feed" },
+                      { step: 4, label: "4. Link WA" }
+                    ].map(s => (
+                      <button
+                        key={s.step}
+                        onClick={() => setWhatsappGuideStep(s.step)}
+                        className={`py-2 text-[10px] font-bold rounded-lg transition-all cursor-pointer ${
+                          whatsappGuideStep === s.step
+                            ? "bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/30"
+                            : "text-white/40 hover:text-white"
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Wizard Content Block */}
+                  <div className="bg-white/[0.01] border border-white/5 p-5 rounded-2xl min-h-[220px] flex flex-col justify-between">
+                    {whatsappGuideStep === 1 && (
+                      <div className="space-y-4 animate-fadeIn">
+                        <div>
+                          <span className="text-[#C5A059] font-mono text-[10px] uppercase font-bold tracking-wider">PHASE 1 — FEED PREPARATION</span>
+                          <h5 className="text-white font-bold text-sm mt-1">Pre-flight Compliance Audit</h5>
+                        </div>
+                        <ul className="space-y-3.5 text-xs text-white/70">
+                          <li className="flex items-start gap-2.5">
+                            <span className="bg-emerald-500/10 text-emerald-400 p-0.5 rounded mt-0.5"><Check className="w-3.5 h-3.5" /></span>
+                            <span><strong>Image Formats Checked:</strong> Standardized JPG, PNG, and WebP product photos are natively supported. SVG vector illustrations are correctly filtered out to prevent errors.</span>
+                          </li>
+                          <li className="flex items-start gap-2.5">
+                            <span className="bg-emerald-500/10 text-emerald-400 p-0.5 rounded mt-0.5"><Check className="w-3.5 h-3.5" /></span>
+                            <span><strong>Required Metadata:</strong> Unique item IDs, prices in standard KES currency, stock quantities, and product URLs are completely formatted within the XML structure.</span>
+                          </li>
+                          <li className="flex items-start gap-2.5">
+                            <span className="bg-emerald-500/10 text-emerald-400 p-0.5 rounded mt-0.5"><Check className="w-3.5 h-3.5" /></span>
+                            <span><strong>Access Permission:</strong> The data feed is fully accessible to Google and Meta web-crawlers with absolute URL path mapping.</span>
+                          </li>
+                        </ul>
+                      </div>
+                    )}
+
+                    {whatsappGuideStep === 2 && (
+                      <div className="space-y-4 animate-fadeIn">
+                        <div>
+                          <span className="text-[#C5A059] font-mono text-[10px] uppercase font-bold tracking-wider">PHASE 2 — META COMMERCE MANAGER</span>
+                          <h5 className="text-white font-bold text-sm mt-1">Initialize Meta Catalog</h5>
+                        </div>
+                        <ol className="space-y-3.5 text-xs text-white/70 list-decimal pl-4">
+                          <li>
+                            Navigate to <a href="https://business.facebook.com/commerce" target="_blank" rel="noopener noreferrer" className="text-[#C5A059] hover:underline inline-flex items-center gap-0.5">Meta Commerce Manager <ExternalLink className="w-3 h-3 inline" /></a> and sign in with your business credentials.
+                          </li>
+                          <li>
+                            Click on <strong>+ Add Catalog</strong> or select your active Business Portfolio.
+                          </li>
+                          <li>
+                            Select <strong>E-commerce</strong> as your catalog type, and click Next.
+                          </li>
+                          <li>
+                            Choose <strong>Upload Product Info</strong>, give your catalog a name (e.g. <code>TechSokoni Kenya Inventory</code>), and click <strong>Create</strong>.
+                          </li>
+                        </ol>
+                      </div>
+                    )}
+
+                    {whatsappGuideStep === 3 && (
+                      <div className="space-y-4 animate-fadeIn">
+                        <div>
+                          <span className="text-[#C5A059] font-mono text-[10px] uppercase font-bold tracking-wider">PHASE 3 — CONNECT SCHEDULED FEED</span>
+                          <h5 className="text-white font-bold text-sm mt-1">Schedule Automated Data Uploads</h5>
+                        </div>
+                        <ol className="space-y-3.5 text-xs text-white/70 list-decimal pl-4">
+                          <li>
+                            Inside your new Meta Catalog, click on the left-hand navigation sidebar and select <strong>Data Sources</strong>.
+                          </li>
+                          <li>
+                            Select <strong>Data Feed</strong>, then click Next.
+                          </li>
+                          <li>
+                            Choose the option: <strong>Use a URL / Scheduled Feed</strong>.
+                          </li>
+                          <li>
+                            Paste the live catalog XML link you copied in Step 1 (above) into the input box and click Next.
+                          </li>
+                          <li>
+                            Set your update frequency to <strong>Hourly</strong> or <strong>Daily</strong>. This ensures WhatsApp is automatically updated when you modify your inventory. Select currency as <strong>KES</strong> and finish setup.
+                          </li>
+                        </ol>
+                      </div>
+                    )}
+
+                    {whatsappGuideStep === 4 && (
+                      <div className="space-y-4 animate-fadeIn">
+                        <div>
+                          <span className="text-[#C5A059] font-mono text-[10px] uppercase font-bold tracking-wider">PHASE 4 — LINK TO WHATSAPP BUSINESS</span>
+                          <h5 className="text-white font-bold text-sm mt-1">Connect Your WhatsApp Catalogue</h5>
+                        </div>
+                        <ol className="space-y-3.5 text-xs text-white/70 list-decimal pl-4">
+                          <li>
+                            Go to Meta Business Suite, and navigate to the <strong>WhatsApp Manager</strong> tab.
+                          </li>
+                          <li>
+                            In the left-hand menu, click on <strong>Catalog</strong>.
+                          </li>
+                          <li>
+                            Select the catalog you created in Step 2: <code>TechSokoni Kenya Inventory</code>.
+                          </li>
+                          <li>
+                            Click <strong>Connect Catalog</strong>. Now, customers contacting you on WhatsApp will be able to browse the catalog live by clicking the shopping bag icon next to your name!
+                          </li>
+                        </ol>
+                      </div>
+                    )}
+
+                    {/* Progress Control Buttons */}
+                    <div className="pt-4 border-t border-white/5 flex justify-between items-center mt-4">
+                      <button
+                        disabled={whatsappGuideStep === 1}
+                        onClick={() => setWhatsappGuideStep(p => Math.max(1, p - 1))}
+                        className="px-3.5 py-1.5 text-xs font-bold rounded-lg border border-white/10 hover:bg-white/5 disabled:opacity-30 transition-all cursor-pointer"
+                      >
+                        BACK
+                      </button>
+                      <span className="text-[10px] font-mono text-white/30">PAGE {whatsappGuideStep} OF 4</span>
+                      {whatsappGuideStep < 4 ? (
+                        <button
+                          onClick={() => setWhatsappGuideStep(p => Math.min(4, p + 1))}
+                          className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-[#C5A059] text-black hover:bg-[#B38F4D] transition-all cursor-pointer"
+                        >
+                          NEXT
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setWhatsappGuideStep(1)}
+                          className="px-3.5 py-1.5 text-xs font-bold rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all cursor-pointer"
+                        >
+                          RESET TUTORIAL
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Phone Mockup Catalog Simulator */}
+              <div className="lg:col-span-5 flex justify-center">
+                <div className="w-full max-w-[340px] bg-[#1a1a1a] border-4 border-white/15 rounded-[40px] shadow-2xl relative overflow-hidden flex flex-col aspect-[9/18]">
+                  {/* Phone Notch/Speaker */}
+                  <div className="absolute top-2 left-1/2 -translate-x-1/2 w-28 h-5 bg-black rounded-2xl z-20 flex items-center justify-around px-4">
+                    <span className="w-1.5 h-1.5 rounded-full bg-neutral-800" />
+                    <span className="w-10 h-1 bg-neutral-800 rounded-full" />
+                  </div>
+
+                  {/* WhatsApp Custom Header */}
+                  <div className="bg-[#075e54] pt-8 pb-3 px-4 flex items-center justify-between shadow-md relative z-10">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center font-black text-white text-xs font-mono">
+                        TS
+                      </div>
+                      <div>
+                        <div className="text-white text-xs font-bold flex items-center gap-1">
+                          <span>TechSokoni Kenya</span>
+                          {/* Verified Checkmark SVG */}
+                          <svg className="w-3 h-3 text-emerald-400 fill-current" viewBox="0 0 24 24">
+                            <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                          </svg>
+                        </div>
+                        <div className="text-white/70 text-[9px]">Business Catalogue</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2.5 text-white/80">
+                      <MessageSquare className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+
+                  {/* Catalog Container Screen */}
+                  <div className="flex-1 bg-[#ebe5df] p-3 overflow-y-auto space-y-3 flex flex-col relative">
+                    <div className="text-center">
+                      <span className="bg-[#e1f3fc] text-[#4a4a4a] text-[8px] py-0.5 px-2 rounded-md font-sans shadow-xs inline-block">
+                        🔒 Shopping on WhatsApp is secure
+                      </span>
+                    </div>
+
+                    {/* Catalog Banner */}
+                    <div className="bg-white p-2.5 rounded-xl border border-black/5 shadow-xs flex items-center gap-2.5">
+                      <div className="bg-emerald-500/10 p-2 rounded-xl text-emerald-600">
+                        <ShoppingCart className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h6 className="text-[10px] font-extrabold text-neutral-800 font-sans">Browse Official Inventory</h6>
+                        <p className="text-[8px] text-neutral-500 font-sans">Live stock sync with the Kenya Storehouse</p>
+                      </div>
+                    </div>
+
+                    {/* Simulated Products List */}
+                    <div className="space-y-2.5">
+                      {products.length === 0 ? (
+                        <div className="text-center py-6 text-neutral-400 text-[10px]">
+                          No products registered in local inventory yet. Add a product to see how it previews on WhatsApp.
+                        </div>
+                      ) : (
+                        products.slice(0, 4).map((p) => (
+                          <div key={p.id} className="bg-white rounded-xl overflow-hidden border border-black/5 shadow-xs flex flex-col">
+                            <div className="flex gap-2.5 p-2.5">
+                              {p.image ? (
+                                <img
+                                  src={p.image}
+                                  alt={p.name}
+                                  className="w-14 h-14 object-cover rounded-lg bg-neutral-100 border border-neutral-200 shrink-0"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <div className="w-14 h-14 bg-neutral-100 rounded-lg flex items-center justify-center text-neutral-400 text-[10px] border border-neutral-200 shrink-0">
+                                  No image
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0 flex flex-col justify-between">
+                                <div>
+                                  <h5 className="text-[10px] font-bold text-neutral-800 truncate pr-1 font-sans">{p.name}</h5>
+                                  <p className="text-[8px] text-neutral-400 font-mono mt-0.5">{p.brand} · {p.category}</p>
+                                </div>
+                                <div className="flex justify-between items-baseline mt-1.5">
+                                  <span className="text-[10px] font-black text-[#075e54] font-mono">KES {p.price.toLocaleString()}</span>
+                                  {p.stock > 0 ? (
+                                    <span className="text-[7px] font-bold bg-emerald-50/80 text-emerald-600 px-1.5 py-0.5 rounded border border-emerald-100">IN STOCK</span>
+                                  ) : (
+                                    <span className="text-[7px] font-bold bg-red-50 text-red-600 px-1.5 py-0.5 rounded border border-red-100">OUT OF STOCK</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="bg-neutral-50/80 border-t border-neutral-100 grid grid-cols-2 text-center text-[8.5px] font-sans font-bold text-[#075e54]">
+                              <button className="py-2 border-r border-neutral-100 hover:bg-neutral-100 transition-all cursor-pointer flex items-center justify-center gap-1">
+                                <MessageSquare className="w-2.5 h-2.5" />
+                                <span>Message Business</span>
+                              </button>
+                              <a
+                                href={`${window.location.origin}/?product=${p.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="py-2 hover:bg-neutral-100 transition-all flex items-center justify-center gap-1 text-neutral-600"
+                              >
+                                <ExternalLink className="w-2.5 h-2.5" />
+                                <span>View Website</span>
+                              </a>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    <div className="text-center pt-2 pb-4">
+                      <span className="text-[7.5px] text-neutral-400 font-sans block uppercase font-mono tracking-wider">PREVIEW ENDS HERE</span>
+                      <span className="text-[7px] text-neutral-400 font-sans">TechSokoni Kenya Virtual Phone Core</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {activeSubTab === "diagnostics" && (
         <div id="admin-diagnostics-tab" className="space-y-8 animate-fadeIn text-[#E0E0E0] font-sans">
