@@ -196,6 +196,14 @@ service cloud.firestore {
         && data.flashBanner is string && data.flashBanner.size() <= 200;
     }
 
+    function isValidWhatsAppNotification(data) {
+      return data.orderId is string && data.orderId.size() > 0
+        && data.recipient is string && data.recipient.size() <= 30
+        && data.message is string && data.message.size() <= 2000
+        && data.status is string && (data.status == 'Sent' || data.status == 'Delivered' || data.status == 'Failed')
+        && data.createdAt is string && data.createdAt.size() <= 100;
+    }
+
     // --- Collection Routes ---
 
     // Products collection: anybody can browse (read/list), only admins can edit products
@@ -426,6 +434,15 @@ service cloud.firestore {
       allow read, list, get: if true;
       allow create, update: if isAdmin() && isValidFlashOffer(incoming());
       allow delete: if isAdmin();
+    }
+
+    // WhatsApp Notifications collection:
+    // - Anyone can create a notification log
+    // - Only administrators can read, list, or delete
+    match /whatsapp_notifications/{notificationId} {
+      allow create: if isValidWhatsAppNotification(incoming());
+      allow read, list, get, delete: if isAdmin();
+      allow update: if false;
     }
   }
 }

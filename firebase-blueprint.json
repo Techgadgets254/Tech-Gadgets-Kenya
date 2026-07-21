@@ -217,6 +217,19 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["orderId", "userId", "userName", "rating", "createdAt"]
+    },
+    "whatsapp_notification": {
+      "title": "WhatsApp Notification",
+      "description": "Log of WhatsApp notifications dispatched for new orders and inventory changes",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string", "description": "The associated order ID" },
+        "recipient": { "type": "string", "description": "WhatsApp number notified (e.g., 0792620789)" },
+        "message": { "type": "string", "description": "The raw message content sent to WhatsApp" },
+        "status": { "type": "string", "description": "Dispatch status: Sent, Delivered, Failed" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["orderId", "recipient", "message", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -283,6 +296,10 @@
     "/order_feedback/{feedbackId}": {
       "schema": "order_feedback",
       "description": "Post-purchase customer ratings of their overall purchase experience"
+    },
+    "/whatsapp_notifications/{notificationId}": {
+      "schema": "whatsapp_notification",
+      "description": "The dispatched WhatsApp order notification logs"
     }
   }
 }

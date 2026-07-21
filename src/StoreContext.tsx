@@ -1115,6 +1115,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         console.warn("Could not adjust stock directly due to permission limits, skipping local stock adjustment:", stockErr);
       }
 
+      // Trigger instant WhatsApp Notification to owner/admin phone 0792620789
+      try {
+        fetch("/api/whatsapp/notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId: docRef.id,
+            recipient: "0792620789", // Verified admin number requested
+            customerName: details.customerName,
+            customerPhone: details.customerPhone,
+            totalAmount: orderData.totalAmount,
+            items: items
+          })
+        }).catch(err => console.error("Async WhatsApp notify background call failed:", err));
+      } catch (notifyErr) {
+        console.error("Failed triggering background WhatsApp notification request:", notifyErr);
+      }
+
       return { id: docRef.id, ...orderData } as Order;
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, "orders");

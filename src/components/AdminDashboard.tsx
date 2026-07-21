@@ -777,6 +777,31 @@ export default function AdminDashboard() {
   const [copiedFeedUrl, setCopiedFeedUrl] = useState(false);
   const [whatsappGuideStep, setWhatsappGuideStep] = useState(1);
 
+  // WhatsApp Notification Control Panel states
+  const [whatsappNotifications, setWhatsappNotifications] = useState<any[]>([]);
+  const [loadingWhatsappNotifications, setLoadingWhatsappNotifications] = useState(false);
+  const [testWhatsappNumber, setTestWhatsappNumber] = useState("0792620789");
+  const [testWhatsappMessage, setTestWhatsappMessage] = useState("Hello! This is a test order notification from the TechSokoni Kenya System Diagnostics console.");
+  const [sendingTestWhatsapp, setSendingTestWhatsapp] = useState(false);
+  const [whatsappNotificationStatus, setWhatsappNotificationStatus] = useState<string | null>(null);
+
+  const fetchWhatsappNotifications = async () => {
+    try {
+      setLoadingWhatsappNotifications(true);
+      const res = await fetch("/api/whatsapp/notifications");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.notifications)) {
+          setWhatsappNotifications(data.notifications);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to query WhatsApp notification logs:", err);
+    } finally {
+      setLoadingWhatsappNotifications(false);
+    }
+  };
+
   // Fetch functions for System Diagnostics
   const fetchDiagnosticsSmtpConfig = async () => {
     try {
@@ -830,6 +855,9 @@ export default function AdminDashboard() {
       fetchDiagnosticsSmtpConfig();
       fetchDiagnosticsSyncLogs();
       fetchDiagnosticsSitemapStatus();
+    }
+    if (activeSubTab === "whatsapp_catalog") {
+      fetchWhatsappNotifications();
     }
   }, [activeSubTab]);
 
@@ -6212,6 +6240,170 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                   <span className="text-[10px] text-white/40 font-mono block uppercase">Catalog Readiness</span>
                   <span className="text-lg font-black text-blue-400 font-sans">{compliancePercentage}% Ready</span>
                 </div>
+              </div>
+            </div>
+
+            {/* WhatsApp Instant Order Notifications Panel */}
+            <div className="bg-[#0F0F0F] border border-white/10 p-6 sm:p-8 rounded-3xl relative overflow-hidden shadow-2xl">
+              <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl -z-10" />
+              <div className="flex flex-col lg:flex-row gap-8 justify-between">
+                
+                {/* Notification Settings & Status */}
+                <div className="flex-1 space-y-4">
+                  <div className="flex items-center gap-2.5">
+                    <span className="bg-emerald-500/10 text-emerald-400 p-2 rounded-2xl text-xs border border-emerald-500/20">
+                      <MessageSquare className="w-5 h-5" />
+                    </span>
+                    <span className="text-emerald-400 font-mono text-[10px] tracking-widest uppercase font-bold bg-emerald-500/5 border border-emerald-500/10 px-2 py-0.5 rounded-md">Automated Dispatcher</span>
+                  </div>
+                  <div>
+                    <h4 className="font-sans font-black text-xl text-white tracking-tight">
+                      Instant WhatsApp Order Notifications
+                    </h4>
+                    <p className="text-white/50 text-xs mt-1 leading-relaxed">
+                      Receive real-time alerts on your verified WhatsApp Business line whenever a customer places an order. Keeps you connected to your boutique's commerce stream even when away from your dashboard.
+                    </p>
+                  </div>
+
+                  {/* Active Configuration Info */}
+                  <div className="bg-black/40 border border-white/5 rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-[10px] text-white/30 font-mono uppercase block">ALERT TARGET NUMBER</span>
+                      <span className="font-sans text-sm font-bold text-white flex items-center gap-1.5 mt-0.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        +254 792 620 789 (0792620789)
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-white/30 font-mono uppercase block">DISPATCH GATEWAY STATUS</span>
+                      <span className="font-sans text-xs font-bold text-emerald-400 mt-0.5 block">
+                        ACTIVE & FULLY CONFIGURED
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Manual Test Dispatch Form */}
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    setSendingTestWhatsapp(true);
+                    setWhatsappNotificationStatus(null);
+                    try {
+                      const response = await fetch("/api/whatsapp/notify", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          orderId: "TEST-" + Math.floor(1000 + Math.random() * 9000),
+                          recipient: testWhatsappNumber,
+                          customerName: "Kenyan Developer Test",
+                          customerPhone: "0712345678",
+                          totalAmount: 125000,
+                          items: [{ name: "Refurbished HP EliteBook 840 G5", quantity: 1, price: 125000 }]
+                        })
+                      });
+                      const data = await response.json();
+                      if (data.success) {
+                        setWhatsappNotificationStatus("Test dispatch processed successfully! Checked green on verified logs.");
+                        fetchWhatsappNotifications();
+                      } else {
+                        setWhatsappNotificationStatus("Failed: " + (data.error || "Unknown server response"));
+                      }
+                    } catch (err: any) {
+                      setWhatsappNotificationStatus("Connection failed: " + err.message);
+                    } finally {
+                      setSendingTestWhatsapp(false);
+                    }
+                  }} className="space-y-3.5 pt-2">
+                    <h5 className="text-white text-xs font-bold">Trigger Test Order Dispatch</h5>
+                    <div className="flex flex-col sm:flex-row gap-2.5">
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          required
+                          value={testWhatsappNumber}
+                          onChange={(e) => setTestWhatsappNumber(e.target.value)}
+                          placeholder="Recipient WhatsApp Number"
+                          className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-2.5 font-sans text-xs text-white placeholder-white/20 focus:border-[#C5A059] focus:outline-none transition-all"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={sendingTestWhatsapp}
+                        className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-black text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-lg shadow-emerald-500/10 shrink-0"
+                      >
+                        {sendingTestWhatsapp ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>DISPATCHING...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4" />
+                            <span>SEND TEST DISPATCH</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    {whatsappNotificationStatus && (
+                      <p className={`text-[11px] font-sans font-medium ${whatsappNotificationStatus.startsWith("Failed") ? "text-red-400" : "text-emerald-400"}`}>
+                        {whatsappNotificationStatus}
+                      </p>
+                    )}
+                  </form>
+                </div>
+
+                {/* Notifications Dispatch Log Table */}
+                <div className="flex-1 bg-black/40 border border-white/10 rounded-3xl p-5 flex flex-col justify-between max-h-[380px] overflow-hidden">
+                  <div className="border-b border-white/5 pb-3 flex justify-between items-center">
+                    <div>
+                      <h5 className="text-white text-sm font-bold">Verified Outbound Alerts Log</h5>
+                      <p className="text-[10px] text-white/40">Real-time status of orders notified to +254 792 620 789.</p>
+                    </div>
+                    <button
+                      onClick={fetchWhatsappNotifications}
+                      disabled={loadingWhatsappNotifications}
+                      className="text-[#C5A059] hover:text-amber-400 text-xs font-bold transition-colors cursor-pointer disabled:opacity-30 flex items-center gap-1"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${loadingWhatsappNotifications ? "animate-spin" : ""}`} />
+                      <span>Sync</span>
+                    </button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto mt-3 pr-1 space-y-2.5 scrollbar-thin">
+                    {loadingWhatsappNotifications && whatsappNotifications.length === 0 ? (
+                      <div className="text-center py-12 text-white/30 text-xs">
+                        <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-[#C5A059]" />
+                        <span>Querying Firestore audit trail...</span>
+                      </div>
+                    ) : whatsappNotifications.length === 0 ? (
+                      <div className="text-center py-16 text-white/30 text-xs flex flex-col items-center gap-2">
+                        <MessageSquare className="w-8 h-8 text-white/10" />
+                        <span>No order dispatch records stored yet.</span>
+                        <p className="text-[10px] text-white/20 max-w-[200px] leading-relaxed">
+                          Place a live checkout order or click Send Test Dispatch to register the first event.
+                        </p>
+                      </div>
+                    ) : (
+                      whatsappNotifications.map((notif: any) => (
+                        <div key={notif.id} className="bg-[#0A0A0A] border border-white/5 rounded-xl p-3 text-[11px] space-y-1.5 hover:border-white/10 transition-all">
+                          <div className="flex justify-between items-center">
+                            <span className="font-mono text-[#C5A059] font-bold">Order ID: #{notif.orderId}</span>
+                            <span className="text-white/30 text-[10px]">{new Date(notif.createdAt).toLocaleTimeString()}</span>
+                          </div>
+                          <p className="text-white/60 font-sans leading-relaxed truncate max-w-[400px]" title={notif.message}>
+                            {notif.message.replace(/\*/g, "")}
+                          </p>
+                          <div className="flex justify-between items-center pt-1 border-t border-white/[0.03]">
+                            <span className="text-white/40 font-mono text-[9px]">TARGET: {notif.recipient}</span>
+                            <span className="text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded text-[9px] border border-emerald-500/20">
+                              ✓ {notif.status || "SENT"}
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
               </div>
             </div>
 

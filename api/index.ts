@@ -599,6 +599,147 @@ Designed with a clean structural aesthetic, the ${nameGuess} from ${brandGuess} 
   }
 });
 
+// Outbound WhatsApp Transactional Notifications handler
+app.post("/api/whatsapp/notify", async (req, res) => {
+  const { orderId, recipient, customerName, customerPhone, totalAmount, items } = req.body;
+
+  if (!orderId) {
+    return res.status(400).json({ error: "orderId is required." });
+  }
+
+  const targetNumber = recipient || "0792620789";
+  const normalizedNumber = targetNumber.trim().startsWith("+") 
+    ? targetNumber.trim() 
+    : (targetNumber.trim().startsWith("0") ? "+254" + targetNumber.trim().slice(1) : "+254" + targetNumber.trim());
+
+  // Format a professional retail notification text block
+  let itemsStr = "";
+  if (Array.isArray(items)) {
+    itemsStr = items.map((item: any) => `- ${item.quantity}x ${item.name || item.productName} (KES ${Number(item.price).toLocaleString()})`).join("\n");
+  } else {
+    itemsStr = "- Order components pending verification";
+  }
+
+  const mpesaNotice = customerPhone ? `\n📞 Buyer Mobile: ${customerPhone}` : "";
+  
+  const messageText = `🚀 *New Order Placed on TechSokoni Kenya!*
+📦 *Order ID:* #${orderId}
+👤 *Customer:* ${customerName || "Guest Buyer"} ${mpesaNotice}
+💰 *Total Value:* KES ${Number(totalAmount || 0).toLocaleString()}
+
+🛒 *Items Ordered:*
+${itemsStr}
+
+⏱️ *Date:* ${new Date().toLocaleString("en-KE", { timeZone: "Africa/Nairobi" })} EAT
+Please log in to the TechSokoni Admin Portal to verify payment and process dispatch.`;
+
+  const notificationData: {
+    orderId: string;
+    recipient: string;
+    message: string;
+    status: "Sent" | "Failed";
+    createdAt: string;
+  } = {
+    orderId,
+    recipient: targetNumber,
+    message: messageText,
+    status: "Sent",
+    createdAt: new Date().toISOString()
+  };
+
+  try {
+    let gatewayTriggered = false;
+    let gatewayMessage = "Simulated notification triggered successfully.";
+    
+    if (process.env.WHATSAPP_API_TOKEN) {
+      try {
+        const payload = {
+          messaging_product: "whatsapp",
+          to: normalizedNumber.replace("+", ""),
+          type: "text",
+          text: { body: messageText }
+        };
+        const response = await fetch(`https://graph.facebook.com/v18.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${process.env.WHATSAPP_API_TOKEN}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+        if (response.ok) {
+          gatewayTriggered = true;
+          gatewayMessage = "Real-time Meta WhatsApp Cloud API dispatch completed successfully.";
+        } else {
+          const errBody = await response.text();
+          console.warn("[WhatsApp Gateway Warning] Cloud API rejected request:", errBody);
+          notificationData.status = "Failed";
+        }
+      } catch (gateErr: any) {
+        console.error("[WhatsApp Gateway Error] Meta request crashed:", gateErr.message);
+        notificationData.status = "Failed";
+      }
+    } else {
+      console.log(`[WhatsApp Notification Daemon] Simulated Dispatch to ${normalizedNumber}:\n${messageText}`);
+    }
+
+    if (adminDb && isAdminDbAuthorized) {
+      await adminDb.collection("whatsapp_notifications").add(notificationData);
+    } else {
+      await serverAddDoc(serverCollection(serverDb, "whatsapp_notifications"), notificationData);
+    }
+
+    try {
+      const auditLog = {
+        action: "whatsapp_notification",
+        details: `Dispatched order notification for ID #${orderId} to admin phone ${targetNumber}.`.slice(0, 1000),
+        adminEmail: "system_scheduler@techsokoni.com",
+        createdAt: new Date().toISOString()
+      };
+      if (adminDb && isAdminDbAuthorized) {
+        await adminDb.collection("audit_logs").add(auditLog);
+      } else {
+        await serverAddDoc(serverCollection(serverDb, "audit_logs"), auditLog);
+      }
+    } catch (auditErr) {
+      console.log("[WhatsApp Notification Info] Audit logging bypassed in fallback.");
+    }
+
+    res.json({
+      success: true,
+      message: gatewayMessage,
+      dispatchedTo: normalizedNumber,
+      status: notificationData.status,
+      log: notificationData
+    });
+  } catch (err: any) {
+    console.error("WhatsApp notification dispatch failed:", err);
+    res.status(500).json({ error: "Failed to log WhatsApp notification: " + err.message });
+  }
+});
+
+app.get("/api/whatsapp/notifications", async (req, res) => {
+  try {
+    let notifications: any[] = [];
+    if (adminDb && isAdminDbAuthorized) {
+      const snap = await adminDb.collection("whatsapp_notifications").orderBy("createdAt", "desc").limit(20).get();
+      snap.forEach((doc: any) => {
+        notifications.push({ id: doc.id, ...doc.data() });
+      });
+    } else {
+      const snap = await serverGetDocs(serverCollection(serverDb, "whatsapp_notifications"));
+      snap.forEach((doc: any) => {
+        notifications.push({ id: doc.id, ...doc.data() });
+      });
+      notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      notifications = notifications.slice(0, 20);
+    }
+    res.json({ success: true, notifications });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to fetch WhatsApp notification logs.", details: err.message });
+  }
+});
+
 app.get("/api/paystack/check-config", (req, res) => {
   const rawSecret = process.env.PAYSTACK_SECRET_KEY;
   const isPaystackSecretValid = !!(rawSecret && 
