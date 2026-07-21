@@ -13,6 +13,7 @@ import {
   Search, 
   Monitor, 
   Settings, 
+  MessageSquare,
   Home, 
   LogIn,
   ShieldAlert,
@@ -351,19 +352,33 @@ export default function Header() {
                           )}
                         </div>
 
-                        {userProfile?.role === "admin" && (
-                          <button
-                            onClick={() => {
-                              setActiveView("admin-dashboard");
-                              setShowProfileDropdown(false);
-                            }}
-                            className={`w-full text-left px-4 py-2.5 text-xs transition-colors flex items-center gap-2 font-bold cursor-pointer ${
-                              isLight ? "text-zinc-700 hover:bg-zinc-50" : "text-white/70 hover:bg-white/[0.03]"
-                            }`}
-                          >
-                            <Settings className="w-3.5 h-3.5 text-[#C5A059]" />
-                            <span>Admin Portal</span>
-                          </button>
+                        {(userProfile?.role === "admin" || user?.email === "techgadgetsk@gmail.com") && (
+                          <>
+                            <button
+                              onClick={() => {
+                                localStorage.setItem("tsk_active_admin_subtab", "overview");
+                                setActiveView("admin-dashboard");
+                                setShowProfileDropdown(false);
+                              }}
+                              className={`w-full text-left px-4 py-2.5 text-xs transition-colors flex items-center gap-2 font-bold cursor-pointer ${
+                                isLight ? "text-zinc-700 hover:bg-zinc-50" : "text-white/70 hover:bg-white/[0.03]"
+                              }`}
+                            >
+                              <Settings className="w-3.5 h-3.5 text-[#C5A059]" />
+                              <span>Admin Portal</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                localStorage.setItem("tsk_active_admin_subtab", "whatsapp_catalog");
+                                setActiveView("admin-dashboard");
+                                setShowProfileDropdown(false);
+                              }}
+                              className={`w-full text-left px-4 py-2.5 text-xs transition-colors flex items-center gap-2 font-bold cursor-pointer text-[#25D366] hover:bg-[#25D366]/5`}
+                            >
+                              <MessageSquare className="w-3.5 h-3.5 text-[#25D366]" />
+                              <span>WhatsApp Catalog Sync</span>
+                            </button>
+                          </>
                         )}
 
                         <button
@@ -629,14 +644,31 @@ export default function Header() {
 
                 {user ? (
                   <>
-                    {userProfile?.role === "admin" && (
-                      <button
-                        onClick={() => { setActiveView("admin-dashboard"); setMobileMenuOpen(false); }}
-                        className="w-full text-left py-2.5 px-3.5 rounded-xl bg-[#C5A059]/5 hover:bg-[#C5A059]/10 border border-[#C5A059]/25 text-[#C5A059] text-xs font-bold flex items-center gap-2 cursor-pointer"
-                      >
-                        <Settings className="w-4 h-4" />
-                        <span>Go to Admin Dashboard</span>
-                      </button>
+                    {(userProfile?.role === "admin" || user?.email === "techgadgetsk@gmail.com") && (
+                      <>
+                        <button
+                          onClick={() => {
+                            localStorage.setItem("tsk_active_admin_subtab", "overview");
+                            setActiveView("admin-dashboard");
+                            setMobileMenuOpen(false);
+                          }}
+                          className="w-full text-left py-2.5 px-3.5 rounded-xl bg-[#C5A059]/5 hover:bg-[#C5A059]/10 border border-[#C5A059]/25 text-[#C5A059] text-xs font-bold flex items-center gap-2 cursor-pointer"
+                        >
+                          <Settings className="w-4 h-4" />
+                          <span>Go to Admin Dashboard</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            localStorage.setItem("tsk_active_admin_subtab", "whatsapp_catalog");
+                            setActiveView("admin-dashboard");
+                            setMobileMenuOpen(false);
+                          }}
+                          className="w-full text-left py-2.5 px-3.5 rounded-xl bg-emerald-500/5 hover:bg-emerald-500/10 border border-emerald-500/25 text-[#25D366] text-xs font-bold flex items-center gap-2 cursor-pointer"
+                        >
+                          <MessageSquare className="w-4 h-4 text-[#25D366]" />
+                          <span>WhatsApp Catalog Sync 💬</span>
+                        </button>
+                      </>
                     )}
 
                     <button

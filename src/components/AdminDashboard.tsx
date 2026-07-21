@@ -742,7 +742,22 @@ export default function AdminDashboard() {
   }, [orders, orderSortField, orderSortDirection, orderSearchQuery, orderStatusFilter]);
 
   // Active sub-view ("overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "whatsapp_catalog" | "flash_offers" | "diagnostics")
-  const [activeSubTab, setActiveSubTab] = useState<"overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "whatsapp_catalog" | "flash_offers" | "diagnostics">("overview");
+  const [activeSubTab, setActiveSubTab] = useState<"overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "whatsapp_catalog" | "flash_offers" | "diagnostics">(() => {
+    try {
+      const saved = localStorage.getItem("tsk_active_admin_subtab");
+      const validTabs = ["overview", "inventory", "orders", "newsletters", "trash", "affiliates", "price_alerts", "intelligence", "admin_settings", "audit_logs", "auth_audit", "seo_settings", "whatsapp_catalog", "flash_offers", "diagnostics"];
+      if (saved && validTabs.includes(saved)) {
+        return saved as any;
+      }
+    } catch (e) {}
+    return "overview";
+  });
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem("tsk_active_admin_subtab", activeSubTab);
+    } catch (e) {}
+  }, [activeSubTab]);
 
   // System Diagnostics state variables
   const [diagnosticsRecipientEmail, setDiagnosticsRecipientEmail] = useState("techgadgetsk@gmail.com");
