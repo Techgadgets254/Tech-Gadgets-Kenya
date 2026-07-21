@@ -902,24 +902,23 @@ app.get(["/google-merchant-feed.xml", "/api/google-merchant-feed.xml", "/api/ind
           imageLink = imageLink.replace(/fm=webp/gi, "fm=jpg").replace(/fm=avif/gi, "fm=jpg");
         }
         
-        // Convert webp and avif extensions/formats to jpg
-        if (lowerImg.endsWith(".webp") || lowerImg.includes(".webp?")) {
-          imageLink = imageLink.replace(/\.webp/gi, ".jpg");
-        } else if (lowerImg.endsWith(".avif") || lowerImg.includes(".avif?")) {
-          imageLink = imageLink.replace(/\.avif/gi, ".jpg");
-        } else if (lowerImg.endsWith(".svg") || lowerImg.includes(".svg?")) {
+        // WebP is natively supported by Google Merchant Center. We MUST NOT rename .webp files to .jpg
+        // because doing so breaks the URL, causing 404s/custom HTML fallbacks, and triggers encoding warnings.
+        if (lowerImg.endsWith(".svg") || lowerImg.includes(".svg?")) {
           imageLink = `${baseUrl}/logo.jpg`; // Vector formats are completely unsupported, fallback to standard JPEG logo
         } else if (
           !lowerImg.endsWith(".jpg") && 
           !lowerImg.endsWith(".jpeg") && 
           !lowerImg.endsWith(".png") && 
           !lowerImg.endsWith(".gif") &&
+          !lowerImg.endsWith(".webp") &&
           !lowerImg.includes(".jpg?") &&
           !lowerImg.includes(".jpeg?") &&
           !lowerImg.includes(".png?") &&
-          !lowerImg.includes(".gif?")
+          !lowerImg.includes(".gif?") &&
+          !lowerImg.includes(".webp?")
         ) {
-          // If no recognized safe extension is present, append a query parameter to satisfy Google's format check
+          // If it's an unsupported format or has no extension, append a format=jpg query parameter
           if (imageLink.includes("?")) {
             imageLink = `${imageLink}&format=jpg&ext=.jpg`;
           } else {

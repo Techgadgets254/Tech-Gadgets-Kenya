@@ -765,7 +765,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (products.length > 0) {
       const params = new URLSearchParams(window.location.search);
-      const prodId = params.get("product");
+      let prodId = params.get("product");
+      
+      // Also look for /product/productId pattern in the URL pathname
+      if (!prodId) {
+        const pathParts = window.location.pathname.split("/");
+        // pathParts format: ["", "product", "productId"]
+        if (pathParts[1] === "product" && pathParts[2]) {
+          prodId = pathParts[2];
+        }
+      }
+
       if (prodId) {
         const prodExists = products.some((p) => p.id === prodId);
         if (prodExists) {

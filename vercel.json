@@ -12,6 +12,14 @@
     {
       "source": "/api/:path*",
       "destination": "/api/index"
+    },
+    {
+      "source": "/product/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/((?!api/|sitemap\\.xml|google-merchant-feed\\.xml|robots\\.txt|logo\\.jpg|logo\\.png|sw\\.js).*)/?",
+      "destination": "/index.html"
     }
   ]
 }
