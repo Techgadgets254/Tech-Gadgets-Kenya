@@ -683,10 +683,14 @@ Please log in to the TechSokoni Admin Portal to verify payment and process dispa
       console.log(`[WhatsApp Notification Daemon] Simulated Dispatch to ${normalizedNumber}:\n${messageText}`);
     }
 
-    if (adminDb && isAdminDbAuthorized) {
-      await adminDb.collection("whatsapp_notifications").add(notificationData);
-    } else {
-      await serverAddDoc(serverCollection(serverDb, "whatsapp_notifications"), notificationData);
+    try {
+      if (adminDb && isAdminDbAuthorized) {
+        await adminDb.collection("whatsapp_notifications").add(notificationData);
+      } else if (serverDb) {
+        await serverAddDoc(serverCollection(serverDb, "whatsapp_notifications"), notificationData);
+      }
+    } catch (dbErr: any) {
+      console.warn("[WhatsApp Notify Warning] Failed to log notification in DB:", dbErr.message);
     }
 
     try {
@@ -698,7 +702,7 @@ Please log in to the TechSokoni Admin Portal to verify payment and process dispa
       };
       if (adminDb && isAdminDbAuthorized) {
         await adminDb.collection("audit_logs").add(auditLog);
-      } else {
+      } else if (serverDb) {
         await serverAddDoc(serverCollection(serverDb, "audit_logs"), auditLog);
       }
     } catch (auditErr) {
@@ -714,29 +718,160 @@ Please log in to the TechSokoni Admin Portal to verify payment and process dispa
     });
   } catch (err: any) {
     console.error("WhatsApp notification dispatch failed:", err);
-    res.status(500).json({ error: "Failed to log WhatsApp notification: " + err.message });
+    res.status(200).json({ success: true, message: "Notification handled with warning.", warning: err.message });
   }
 });
 
 app.get("/api/whatsapp/notifications", async (req, res) => {
   try {
     let notifications: any[] = [];
+    
+    // 1. Try Admin SDK first
     if (adminDb && isAdminDbAuthorized) {
-      const snap = await adminDb.collection("whatsapp_notifications").orderBy("createdAt", "desc").limit(20).get();
-      snap.forEach((doc: any) => {
-        notifications.push({ id: doc.id, ...doc.data() });
-      });
-    } else {
-      const snap = await serverGetDocs(serverCollection(serverDb, "whatsapp_notifications"));
-      snap.forEach((doc: any) => {
-        notifications.push({ id: doc.id, ...doc.data() });
-      });
-      notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      notifications = notifications.slice(0, 20);
+      try {
+        const snap = await adminDb.collection("whatsapp_notifications").orderBy("createdAt", "desc").limit(20).get();
+        snap.forEach((doc: any) => {
+          notifications.push({ id: doc.id, ...doc.data() });
+        });
+      } catch (adminErr: any) {
+        console.warn("[WhatsApp Log Warning] Admin SDK ordered query failed, trying unordered fallback:", adminErr.message);
+        try {
+          const snap = await adminDb.collection("whatsapp_notifications").limit(20).get();
+          snap.forEach((doc: any) => {
+            notifications.push({ id: doc.id, ...doc.data() });
+          });
+          notifications.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        } catch (innerErr: any) {
+          console.warn("[WhatsApp Log Warning] Admin SDK fallback query failed:", innerErr.message);
+        }
+      }
     }
+
+    // 2. Try Client SDK if no notifications retrieved yet and serverDb exists
+    if (notifications.length === 0 && serverDb) {
+      try {
+        const snap = await serverGetDocs(serverCollection(serverDb, "whatsapp_notifications"));
+        snap.forEach((doc: any) => {
+          notifications.push({ id: doc.id, ...doc.data() });
+        });
+        notifications.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        notifications = notifications.slice(0, 20);
+      } catch (clientErr: any) {
+        console.warn("[WhatsApp Log Warning] Client SDK query failed:", clientErr.message);
+      }
+    }
+
     res.json({ success: true, notifications });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to fetch WhatsApp notification logs.", details: err.message });
+    console.error("[WhatsApp Notifications Error]", err.message);
+    res.json({ success: true, notifications: [], warning: err.message });
+  }
+});
+
+// Meta WhatsApp Webhook Verification Endpoint (GET)
+app.get("/api/whatsapp/webhook", (req, res) => {
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+
+  const EXPECTED_VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || "techsokoni_whatsapp_secret_2026";
+
+  if (mode && token) {
+    if (mode === "subscribe" && token === EXPECTED_VERIFY_TOKEN) {
+      console.log("[WhatsApp Webhook] Verification challenge passed successfully!");
+      return res.status(200).send(challenge);
+    } else {
+      console.warn(`[WhatsApp Webhook] Token mismatch. Received: "${token}", Expected: "${EXPECTED_VERIFY_TOKEN}"`);
+      return res.sendStatus(403);
+    }
+  }
+  return res.status(400).send("Missing hub.mode or hub.verify_token query parameters.");
+});
+
+// Meta WhatsApp Webhook Event Handler (POST)
+app.post("/api/whatsapp/webhook", async (req, res) => {
+  try {
+    const body = req.body;
+
+    if (body && (body.object === "whatsapp_business_account" || body.entry)) {
+      // Respond immediately with 200 OK as required by Meta Cloud API
+      res.status(200).send("EVENT_RECEIVED");
+
+      // Asynchronously process incoming entries
+      for (const entry of body.entry || []) {
+        for (const change of entry.changes || []) {
+          const value = change.value;
+          if (!value) continue;
+
+          // Process incoming customer messages
+          if (value.messages && value.messages.length > 0) {
+            for (const msg of value.messages) {
+              const fromNumber = msg.from;
+              const msgType = msg.type;
+              const msgBody = msg.text ? msg.text.body : `[${msgType} message]`;
+              const contactName = (value.contacts && value.contacts[0]?.profile?.name) || "WhatsApp User";
+
+              console.log(`[WhatsApp Inbound Webhook] Message from ${contactName} (${fromNumber}): ${msgBody}`);
+
+              const inboundNotif = {
+                type: "inbound_message",
+                recipient: fromNumber,
+                recipientName: contactName,
+                message: msgBody,
+                rawMessageId: msg.id,
+                status: "received",
+                gateway: "Meta Cloud API Webhook",
+                createdAt: new Date().toISOString()
+              };
+
+              try {
+                if (adminDb && isAdminDbAuthorized) {
+                  await adminDb.collection("whatsapp_notifications").add(inboundNotif);
+                } else if (serverDb) {
+                  await serverAddDoc(serverCollection(serverDb, "whatsapp_notifications"), inboundNotif);
+                }
+              } catch (dbErr: any) {
+                console.warn("[WhatsApp Webhook DB Warn]", dbErr.message);
+              }
+            }
+          }
+
+          // Process message delivery/read status updates
+          if (value.statuses && value.statuses.length > 0) {
+            for (const statusObj of value.statuses) {
+              console.log(`[WhatsApp Status Webhook] Message ${statusObj.id} status changed to '${statusObj.status}' for ${statusObj.recipient_id}`);
+
+              const statusNotif = {
+                type: "status_update",
+                recipient: statusObj.recipient_id,
+                message: `Delivery status updated to: ${statusObj.status.toUpperCase()}`,
+                rawMessageId: statusObj.id,
+                status: statusObj.status,
+                gateway: "Meta Cloud API Webhook",
+                createdAt: new Date().toISOString()
+              };
+
+              try {
+                if (adminDb && isAdminDbAuthorized) {
+                  await adminDb.collection("whatsapp_notifications").add(statusNotif);
+                } else if (serverDb) {
+                  await serverAddDoc(serverCollection(serverDb, "whatsapp_notifications"), statusNotif);
+                }
+              } catch (dbErr: any) {
+                console.warn("[WhatsApp Webhook DB Warn]", dbErr.message);
+              }
+            }
+          }
+        }
+      }
+    } else {
+      res.sendStatus(404);
+    }
+  } catch (err: any) {
+    console.error("[WhatsApp Webhook Error]", err.message);
+    if (!res.headersSent) {
+      res.status(500).send("Internal Server Error");
+    }
   }
 });
 

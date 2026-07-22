@@ -45,7 +45,8 @@ import {
   Mic,
   MicOff,
   MessageSquare,
-  ExternalLink
+  ExternalLink,
+  Zap
 } from "lucide-react";
 import { Product, Order } from "../types";
 import { PAYSTACK_GATEWAYS } from "../data";
@@ -784,6 +785,28 @@ export default function AdminDashboard() {
   const [testWhatsappMessage, setTestWhatsappMessage] = useState("Hello! This is a test order notification from the TechSokoni Kenya System Diagnostics console.");
   const [sendingTestWhatsapp, setSendingTestWhatsapp] = useState(false);
   const [whatsappNotificationStatus, setWhatsappNotificationStatus] = useState<string | null>(null);
+  const [webhookTestStatus, setWebhookTestStatus] = useState<string | null>(null);
+  const [testingWebhook, setTestingWebhook] = useState(false);
+  const [copiedWebhookField, setCopiedWebhookField] = useState<string | null>(null);
+
+  const testWebhookPing = async () => {
+    setTestingWebhook(true);
+    setWebhookTestStatus(null);
+    try {
+      const testUrl = `/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=techsokoni_whatsapp_secret_2026&hub.challenge=VERIFY_TEST_PASSED_12345`;
+      const res = await fetch(testUrl);
+      const text = await res.text();
+      if (res.ok && text.includes("VERIFY_TEST_PASSED_12345")) {
+        setWebhookTestStatus("SUCCESS: Webhook endpoint verified! Meta verification challenge passed.");
+      } else {
+        setWebhookTestStatus(`WARNING: Webhook responded with status ${res.status}: ${text}`);
+      }
+    } catch (err: any) {
+      setWebhookTestStatus(`ERROR: Failed to connect to webhook: ${err.message}`);
+    } finally {
+      setTestingWebhook(false);
+    }
+  };
 
   const fetchWhatsappNotifications = async () => {
     try {
@@ -6723,8 +6746,166 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                   </div>
                 </div>
               </div>
+
+              {/* Webhook Configuration & App Publishing Guide Card */}
+              <div className="lg:col-span-12 mt-6">
+                <div className="bg-[#0F0F0F] border border-white/10 p-6 rounded-3xl space-y-6">
+                  {/* Header */}
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-white/10">
+                    <div>
+                      <span className="text-[#C5A059] font-mono text-[10px] uppercase font-bold tracking-wider">LIVE EVENT STREAMING & APP PUBLISHING</span>
+                      <h4 className="text-white font-bold text-base mt-1 flex items-center gap-2">
+                        <span className="bg-[#C5A059]/10 text-[#C5A059] p-1.5 rounded-xl">
+                          <Zap className="w-4 h-4" />
+                        </span>
+                        WhatsApp Webhook Setup & Meta App Go-Live Guide
+                      </h4>
+                      <p className="text-white/50 text-xs mt-1">
+                        Configure Webhooks to receive incoming customer messages & delivery status updates automatically in real-time.
+                      </p>
+                    </div>
+                    <button
+                      onClick={testWebhookPing}
+                      disabled={testingWebhook}
+                      className="px-4 py-2 bg-[#C5A059] text-black hover:bg-[#B38F4D] text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 shrink-0 disabled:opacity-50"
+                    >
+                      <Activity className="w-3.5 h-3.5" />
+                      {testingWebhook ? "Pinging Webhook..." : "Test Webhook Endpoint"}
+                    </button>
+                  </div>
+
+                  {webhookTestStatus && (
+                    <div className={`p-3.5 rounded-xl text-xs font-mono border ${
+                      webhookTestStatus.startsWith("SUCCESS") 
+                        ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
+                        : "bg-amber-500/10 border-amber-500/20 text-amber-400"
+                    }`}>
+                      {webhookTestStatus}
+                    </div>
+                  )}
+
+                  {/* Webhook Connection Parameters */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Callback URL Box */}
+                    <div className="bg-white/[0.02] border border-white/10 p-4 rounded-2xl space-y-2">
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs font-bold text-white/80 font-sans flex items-center gap-1.5">
+                          <span>Callback URL</span>
+                          <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded font-mono uppercase">GET / POST</span>
+                        </label>
+                        <button
+                          onClick={() => {
+                            const url = `${window.location.origin}/api/whatsapp/webhook`;
+                            navigator.clipboard.writeText(url);
+                            setCopiedWebhookField("url");
+                            setTimeout(() => setCopiedWebhookField(null), 2000);
+                          }}
+                          className="text-[10px] text-[#C5A059] hover:underline cursor-pointer font-bold flex items-center gap-1"
+                        >
+                          <Copy className="w-3 h-3" />
+                          {copiedWebhookField === "url" ? "COPIED!" : "COPY URL"}
+                        </button>
+                      </div>
+                      <div className="bg-[#0A0A0A] border border-white/5 p-3 rounded-xl font-mono text-xs text-white/90 break-all select-all">
+                        {`${window.location.origin}/api/whatsapp/webhook`}
+                      </div>
+                      <p className="text-[10px] text-white/40">
+                        Paste this Callback URL into your Meta Developer Dashboard under WhatsApp Webhooks.
+                      </p>
+                    </div>
+
+                    {/* Verify Token Box */}
+                    <div className="bg-white/[0.02] border border-white/10 p-4 rounded-2xl space-y-2">
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs font-bold text-white/80 font-sans flex items-center gap-1.5">
+                          <span>Verify Token</span>
+                          <span className="text-[9px] bg-sky-500/10 text-sky-400 px-1.5 py-0.5 rounded font-mono uppercase">SECRET</span>
+                        </label>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText("techsokoni_whatsapp_secret_2026");
+                            setCopiedWebhookField("token");
+                            setTimeout(() => setCopiedWebhookField(null), 2000);
+                          }}
+                          className="text-[10px] text-[#C5A059] hover:underline cursor-pointer font-bold flex items-center gap-1"
+                        >
+                          <Copy className="w-3 h-3" />
+                          {copiedWebhookField === "token" ? "COPIED!" : "COPY TOKEN"}
+                        </button>
+                      </div>
+                      <div className="bg-[#0A0A0A] border border-white/5 p-3 rounded-xl font-mono text-xs text-amber-300 break-all select-all">
+                        techsokoni_whatsapp_secret_2026
+                      </div>
+                      <p className="text-[10px] text-white/40">
+                        Enter this exact verify token in Meta Developer Portal to verify ownership.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Two Main Sections: Webhook Setup & App Publishing */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
+                    {/* Section A: How to Configure Webhooks in Meta */}
+                    <div className="bg-white/[0.01] border border-white/5 p-5 rounded-2xl space-y-4">
+                      <div>
+                        <span className="text-emerald-400 font-mono text-[10px] font-bold uppercase tracking-wider">GUIDE 1</span>
+                        <h5 className="text-white font-bold text-sm mt-0.5">How to Configure Meta Webhooks</h5>
+                      </div>
+                      <ol className="space-y-3 text-xs text-white/70 list-decimal pl-4">
+                        <li>
+                          Open <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer" className="text-[#C5A059] font-bold hover:underline inline-flex items-center gap-0.5">Meta Developer Dashboard <ExternalLink className="w-3 h-3 inline" /></a> and select your App.
+                        </li>
+                        <li>
+                          In the left sidebar, click <strong>WhatsApp</strong> and select <strong>Configuration</strong> (or Webhooks).
+                        </li>
+                        <li>
+                          In the <strong>Webhook</strong> section, click <strong>Edit</strong> (or Configure a Webhook).
+                        </li>
+                        <li>
+                          Paste the <strong>Callback URL</strong> and <strong>Verify Token</strong> copied above, then click <strong>Verify and Save</strong>.
+                        </li>
+                        <li>
+                          Under <strong>Webhook fields</strong>, click <strong>Subscribe</strong> to:
+                          <ul className="list-disc pl-4 mt-1 space-y-1 text-white/60 font-mono text-[11px]">
+                            <li><code>messages</code> (Receives incoming customer replies & chats)</li>
+                            <li><code>message_template_status</code> (Receives template approval updates)</li>
+                          </ul>
+                        </li>
+                      </ol>
+                    </div>
+
+                    {/* Section B: How to Publish App (Go Live) */}
+                    <div className="bg-white/[0.01] border border-white/5 p-5 rounded-2xl space-y-4">
+                      <div>
+                        <span className="text-[#C5A059] font-mono text-[10px] font-bold uppercase tracking-wider">GUIDE 2</span>
+                        <h5 className="text-white font-bold text-sm mt-0.5">How to Publish Your App (Go Live)</h5>
+                      </div>
+                      <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl text-[11px] text-amber-200">
+                        <strong>Why messages don't reach non-test numbers:</strong> While the Meta app is in <em>In Development Mode</em>, webhooks and messages are restricted to designated test phone numbers. Publishing the app enables live production messaging to all customers.
+                      </div>
+                      <ol className="space-y-2.5 text-xs text-white/70 list-decimal pl-4">
+                        <li>
+                          <strong>Switch App Mode to Live:</strong> At the top right of Meta App Dashboard, toggle <strong>App Mode</strong> from <em>In Development</em> to <strong>Live</strong>.
+                        </li>
+                        <li>
+                          <strong>Set Privacy Policy URL:</strong> In App Settings &gt; Basic, enter your Privacy Policy URL: <code className="text-[#C5A059]">https://www.techsokoni.com/?view=privacy</code>.
+                        </li>
+                        <li>
+                          <strong>Complete Business Verification:</strong> Go to Meta Business Manager &gt; Security Center &gt; Start Verification. Upload Tech Sokoni Kenya business registration documents or tax certificates.
+                        </li>
+                        <li>
+                          <strong>Verify Production Phone Number:</strong> In WhatsApp Manager &gt; Phone Numbers, add your official Kenyan business number (+254...) and complete SMS/Voice OTP verification.
+                        </li>
+                        <li>
+                          Once switched to <strong>Live</strong> mode, your webhooks and WhatsApp messages will instantly deliver to any phone number globally!
+                        </li>
+                      </ol>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
+
         );
       })()}
 
