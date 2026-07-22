@@ -456,9 +456,9 @@ export default function MetadataEditor() {
           setGoogleSiteVerification(data.googleSiteVerification || "rrGmCuK82a5ZTyHm-o1SoqqZWva8MGOr2UE0AS1rlGg");
         } else {
           // Defaults
-          setTitle("Tech Sokoni Kenya | Authorized Apple, HP & ASUS Dealer");
+          setTitle("Tech Sokoni Kenya | Authorized HP, Dell & ASUS Dealer");
           setDescription("Premium laptops, custom workstation desktops, and high-tier accessories along Kenyatta Avenue, Nairobi.");
-          setKeywords("macbook pro, hp elitebook, asus rog, premium gadgets, nairobi tech store");
+          setKeywords("hp elitebook, dell xps, asus rog, premium gadgets, nairobi tech store");
           setGoogleSiteVerification("rrGmCuK82a5ZTyHm-o1SoqqZWva8MGOr2UE0AS1rlGg");
         }
       } catch (err: any) {
@@ -813,7 +813,7 @@ export default function MetadataEditor() {
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Tech Sokoni Kenya | Premium Apple & Dell Laptops Nairobi"
+                  placeholder="e.g. Tech Sokoni Kenya | Premium HP & Dell Laptops Nairobi"
                   className="w-full bg-[#161616] border border-white/10 hover:border-white/20 focus:border-[#C5A059] focus:outline-none rounded-xl px-4 py-3 text-xs text-white placeholder-white/20 font-sans tracking-wide transition-all"
                 />
               </div>
@@ -847,7 +847,7 @@ export default function MetadataEditor() {
                   type="text"
                   value={keywords}
                   onChange={(e) => setKeywords(e.target.value)}
-                  placeholder="e.g. nairobi laptops, genuine macbook kenya, tech soko, waiyaki way gadgets"
+                  placeholder="e.g. nairobi laptops, genuine laptops kenya, tech soko, waiyaki way gadgets"
                   className="w-full bg-[#161616] border border-white/10 hover:border-white/20 focus:border-[#C5A059] focus:outline-none rounded-xl px-4 py-3 text-xs text-white placeholder-white/20 font-mono transition-all"
                 />
               </div>

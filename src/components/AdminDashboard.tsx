@@ -1729,7 +1729,7 @@ Return a strictly valid JSON object structured exactly like this:
         const basePrefix = (data.sku_base || data.brand || "PROD").split(" ")[0].replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
         const matchedProducts = products.filter(p => p.sku && p.sku.toUpperCase().startsWith(`${basePrefix}-`));
         const seqNumber = matchedProducts.length + 1;
-        const finalGeneratedSku = `${basePrefix}-${String(seqNumber).padStart(3, "0")}`; // e.g., APPLE-001, EPSON-002
+        const finalGeneratedSku = `${basePrefix}-${String(seqNumber).padStart(3, "0")}`; // e.g., DELL-001, EPSON-002
 
         // Automatically change the categories base condition setup if brand or name changes to keep categories clean
         let finalBaseCategory = adminBaseCategory;
@@ -1786,7 +1786,7 @@ Return a strictly valid JSON object structured exactly like this:
           const ramMatch = descText.match(/\b(\d+GB|\d+gb|\d+ GB|\d+ gb)\s*(RAM|ram|DDR\d|Unified|Memory)\b/i) || descText.match(/\b(8GB|16GB|24GB|32GB|64GB|128GB)\b/i);
           if (ramMatch) specsList.push(`Memory: ${ramMatch[1] || ramMatch[0]}`);
 
-          const cpuMatch = descText.match(/\b(Core i\d|Ryzen \d|M\d Pro|M\d Max|M\d Ultra|Intel|AMD|Snapdragon|Apple M\d|M3|M4)\b/i);
+          const cpuMatch = descText.match(/\b(Core i\d|Ryzen \d|Intel|AMD|Snapdragon)\b/i);
           if (cpuMatch) specsList.push(`Processor: ${cpuMatch[0]}`);
 
           const ssdMatch = descText.match(/\b(\d+GB|\d+TB|\d+ gb|\d+ tb|1TB|2TB|512GB|256GB)\s*(SSD|NVMe|Storage|ROM|Hard Drive)\b/i) || descText.match(/\b(256GB|512GB|1TB|2TB)\b/i);

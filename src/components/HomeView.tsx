@@ -111,16 +111,16 @@ export default function HomeView() {
     },
     {
       q: "Are the products genuine and covered by warranty?",
-      a: "Absolutely. Every Apple MacBook/iPhone, genuine Epson EcoTank printer, and Anker power backup is 100% manufacturer-certified and comes with a 1-year local service center replacement guarantee."
+      a: "Absolutely. Every HP laptop/Samsung Galaxy, genuine Epson EcoTank printer, and Anker power backup is 100% manufacturer-certified and comes with a 1-year local service center replacement guarantee."
     }
   ];
 
   // Expanded categories map for custom icons & counts
   const categories = [
-    { name: "New Laptops", desc: "Brand-new M3 Pro/Max sealed developer powerhouse arrays", icon: Laptop, color: "bg-white/[0.02] text-[#C5A059] border-white/10" },
+    { name: "New Laptops", desc: "Brand-new Intel Ultra & Ryzen 9 developer powerhouse arrays", icon: Laptop, color: "bg-white/[0.02] text-[#C5A059] border-white/10" },
     { name: "Refurbished Laptops", desc: "Certified pristine corporate business laptops", icon: Laptop, color: "bg-white/[0.02] text-[#C5A059] border-white/10" },
-    { name: "New Phones", desc: "Titanium iPhone 15s & AI Galaxy S-series flagships", icon: Smartphone, color: "bg-white/[0.02] text-[#C5A059] border-white/10" },
-    { name: "Refurbished Phones", desc: "Certified pristine pre-owned iPhone & Galaxy units", icon: Smartphone, color: "bg-white/[0.02] text-[#C5A059] border-white/10" },
+    { name: "New Phones", desc: "Flagship Samsung Galaxy S-series & Google Pixel phones", icon: Smartphone, color: "bg-white/[0.02] text-[#C5A059] border-white/10" },
+    { name: "Refurbished Phones", desc: "Certified pristine pre-owned Samsung & Google Pixel units", icon: Smartphone, color: "bg-white/[0.02] text-[#C5A059] border-white/10" },
     { name: "New Desktops", desc: "Brand-new Ryzen custom compiling rigs & elite workspace towers", icon: Cpu, color: "bg-white/[0.02] text-[#C5A059] border-white/10" },
     { name: "Refurbished Desktops", desc: "Certified pristine corporate HP secure slim towers", icon: Cpu, color: "bg-white/[0.02] text-[#C5A059] border-white/10" },
     { name: "Printers", desc: "Industrial Epson EcoTanks & smart business scanners", icon: Printer, color: "bg-white/[0.02] text-[#C5A059] border-white/10" },
@@ -158,7 +158,7 @@ export default function HomeView() {
               <span className="text-[#C5A059] block font-sans font-extrabold not-italic mt-2 tracking-tight">Immediate Delivery.</span>
             </h1>
             <p className="font-sans text-white/50 text-sm sm:text-base mt-4 leading-relaxed">
-              Acquire premium Apple M3 suites, extreme-capacity Anker reservoirs, and genuine Epson ink technologies synced directly on local inventory pools. Pay securely with M-Pesa.
+              Acquire premium Dell & HP suites, extreme-capacity Anker reservoirs, and genuine Epson ink technologies synced directly on local inventory pools. Pay securely with M-Pesa.
             </p>
             
             <div className="flex flex-wrap gap-3 mt-8">
@@ -662,7 +662,7 @@ export default function HomeView() {
               Premium Laptop Listings
             </h2>
             <p className="text-white/50 text-xs sm:text-sm mt-1">
-              Top-tier computing power: Apple Silicon MacBooks and Intel Ultra powerhouse elite laptops.
+              Top-tier computing power: Intel Ultra powerhouse elite laptops and AMD Ryzen workstations.
             </p>
           </div>
           <button 

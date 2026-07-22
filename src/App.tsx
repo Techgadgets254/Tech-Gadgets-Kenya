@@ -281,13 +281,13 @@ function StoreLayout() {
         return {
           title: "Tech Soko Kenya | Premium Imports & Hardware",
           description: "Premium laptops, desktops, and phones imported directly to Kenya. Fast, secure Lipa Na M-Pesa checkout with Nairobi CBD same-day dispatch.",
-          keywords: "Tech Soko Kenya, laptops Nairobi, M-Pesa electronics, refurbished laptops Kenya, Apple MacBook Nairobi"
+          keywords: "Tech Soko Kenya, laptops Nairobi, M-Pesa electronics, refurbished laptops Kenya, Dell XPS Nairobi"
         };
       case "shop":
         return {
           title: "Browse Stock Storefront | Tech Soko Kenya",
           description: "Explore our live stock of high-end business laptops, Intel Core i7 systems, dedicated graphics cards, and enterprise accessories.",
-          keywords: "HP EliteBook Nairobi, ThinkPad Kenya, refurbished MacBooks, Buy laptops Kenya"
+          keywords: "HP EliteBook Nairobi, ThinkPad Kenya, refurbished laptops, Buy laptops Kenya"
         };
       case "product-details":
         return {

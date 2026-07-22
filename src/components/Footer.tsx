@@ -194,7 +194,7 @@ export default function Footer() {
               <span className="text-white font-bold tracking-wider uppercase">TECH SOKONI KENYA</span>
             </div>
             <p className="text-xs text-white/30 max-w-sm leading-relaxed">
-              Kenya's premier portal for luxury personal electronics and business computer arrays. From elite hardware like Apple M3 developer suites to industrial Epson ink reservoirs, we maintain absolute uptime for your technical life.
+              Kenya's premier portal for luxury personal electronics and business computer arrays. From elite hardware like HP EliteBook developer suites to industrial Epson ink reservoirs, we maintain absolute uptime for your technical life.
             </p>
           </div>
 

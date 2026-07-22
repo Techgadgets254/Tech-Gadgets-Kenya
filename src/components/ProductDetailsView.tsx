@@ -177,7 +177,7 @@ export default function ProductDetailsView() {
     // Fallback beautiful device angles and lifestyle showcases from Unsplash depending on category
     const cat = product.category.toLowerCase();
     
-    if (cat.includes("laptop") || cat.includes("macbook")) {
+    if (cat.includes("laptop")) {
       return [
         product.image,
         "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=600", // Side ports / layout
@@ -185,7 +185,7 @@ export default function ProductDetailsView() {
         "https://images.unsplash.com/photo-1541807084-5c52b6b3adef?auto=format&fit=crop&q=80&w=600", // Ergonomic backlit keyboard close-up
         "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?auto=format&fit=crop&q=80&w=600"  // Multi-angle workstation mockup
       ];
-    } else if (cat.includes("phone") || cat.includes("iphone")) {
+    } else if (cat.includes("phone")) {
       return [
         product.image,
         "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&q=80&w=600", // Profile / camera glass
@@ -249,7 +249,7 @@ export default function ProductDetailsView() {
   // Simulated static and dynamic reviews builder
   const displayedReviews = useMemo(() => {
     const base = [
-      { name: "Edwin K. (Senior Lead Dev)", rating: 5, date: "3 weeks ago", text: "Exceptional hardware. Processed payment via M-Pesa STK and received the MacBook within 2 hours at our office along Waiyaki Way. Highly recommend Tech Soko Kenya for genuine equipment.", location: "Nairobi, KE" },
+      { name: "Edwin K. (Senior Lead Dev)", rating: 5, date: "3 weeks ago", text: "Exceptional hardware. Processed payment via M-Pesa STK and received the laptop within 2 hours at our office along Waiyaki Way. Highly recommend Tech Soko Kenya for genuine equipment.", location: "Nairobi, KE" },
       { name: "Phyllis N. (Studio Director)", rating: 5, date: "1 month ago", text: "Genuine article verified through the manufacturer portal. The screens look flawless. Best local pricing for authentic titanium specs.", location: "Mombasa, KE" },
       { name: "Abdi H. (Freelance Architect)", rating: 4, date: "2 months ago", text: "Clean transactional clearance. Checked specs thoroughly; they match the physical inventory sheet exactly. Stock levels are live, which is incredible.", location: "Kisumu, KE" }
     ];

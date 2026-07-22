@@ -7,21 +7,21 @@ import { Product } from "./types";
 
 export const DEFAULT_PRODUCTS: Omit<Product, "id">[] = [
   {
-    name: "MacBook Pro 16\" M3 Max",
-    brand: "Apple",
+    name: "Dell XPS 16 Developer Laptop",
+    brand: "Dell",
     category: "New Laptops",
-    price: 345000,
+    price: 325000,
     stock: 8,
-    description: "The ultimate developer powerhouse. Brand-new sealed. Featuring the Apple M3 Max chip with a 16-core CPU, 40-core GPU, 48GB Unified Memory, and 1TB SSD. Liquid Retina XDR display with ProMotion.",
-    image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=600",
+    description: "The ultimate developer powerhouse. Brand-new sealed. Featuring the Intel Core Ultra 9 processor, NVIDIA RTX 4070 8GB GPU, 32GB LPDDR5X RAM, and 1TB NVMe SSD. 16.3-inch 4K OLED Touchscreen display.",
+    image: "https://images.unsplash.com/photo-1593642632823-8f785ba67e45?auto=format&fit=crop&q=80&w=600",
     specifications: {
-      "Processor": "Apple M3 Max (16-core CPU)",
-      "Graphics": "40-core GPU, Hardware-accelerated ray tracing",
-      "Memory": "48GB Unified RAM",
-      "Storage": "1TB Superfast SSD",
-      "Display": "16.2-inch Liquid Retina XDR, 3456 x 2234, 120Hz",
-      "Battery": "Up to 22 hours",
-      "OS": "macOS Sonoma"
+      "Processor": "Intel Core Ultra 9 185H (16 Cores, 5.1GHz)",
+      "Graphics": "NVIDIA GeForce RTX 4070 8GB GDDR6",
+      "Memory": "32GB LPDDR5X 7467MHz",
+      "Storage": "1TB PCIe Gen4 NVMe SSD",
+      "Display": "16.3-inch 4K+ OLED Touchscreen, 400 nits, 120Hz",
+      "Battery": "Up to 14 hours (99.5Wh)",
+      "OS": "Windows 11 Pro"
     }
   },
   {
@@ -60,21 +60,21 @@ export const DEFAULT_PRODUCTS: Omit<Product, "id">[] = [
     }
   },
   {
-    name: "iPhone 15 Pro Max",
-    brand: "Apple",
+    name: "Google Pixel 8 Pro",
+    brand: "Google",
     category: "New Phones",
-    price: 189000,
+    price: 135000,
     stock: 15,
-    description: "Brand-new. Forged in titanium and featuring the groundbreaking A17 Pro chip, a customizable Action button, and the most powerful iPhone camera system ever with 5x optical zoom.",
-    image: "https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?auto=format&fit=crop&q=80&w=600",
+    description: "Brand-new factory sealed. Supercharged by Google Tensor G3, featuring advanced AI camera capabilities, 50MP triple lens array, 12GB RAM, and 7 years of OS updates.",
+    image: "https://images.unsplash.com/photo-1598327105666-5b89351aff97?auto=format&fit=crop&q=80&w=600",
     specifications: {
-      "Processor": "A17 Pro chip with 6-core GPU",
-      "Camera": "48MP Main | 12MP Ultra Wide | 12MP 5x Telephoto",
-      "Storage": "256GB NVMe",
-      "Display": "6.7-inch Super Retina XDR OLED, 120Hz",
-      "Material": "Aerospace-grade Titanium design",
-      "Port": "USB-C (highly requested USB 3 speeds)",
-      "OS": "iOS 17 (upgradable to iOS 18)"
+      "Processor": "Google Tensor G3 with Titan M2 security coprocessor",
+      "Camera": "50MP Main | 48MP Ultra Wide | 48MP 5x Telephoto",
+      "Storage": "256GB UFS 3.1",
+      "Display": "6.7-inch Super Actua OLED, 120Hz LTPO",
+      "Battery": "5050mAh with 30W Fast Charging",
+      "Port": "USB-C 3.2",
+      "OS": "Android 14 (Pure Pixel Experience)"
     }
   },
   {
@@ -96,20 +96,20 @@ export const DEFAULT_PRODUCTS: Omit<Product, "id">[] = [
     }
   },
   {
-    name: "Refurbished iPhone 13 Pro Max (Certified)",
-    brand: "Apple",
+    name: "Refurbished Samsung Galaxy S22 Ultra (Certified)",
+    brand: "Samsung",
     category: "Refurbished Phones",
-    price: 89000,
+    price: 85000,
     stock: 12,
-    description: "Certified refurbished iPhone 13 Pro Max in pristine physical condition. Battery health is guaranteed above 88%. 1-year local service center warranty support.",
-    image: "https://images.unsplash.com/photo-1523206489230-c012c64b2b48?auto=format&fit=crop&q=80&w=600",
+    description: "Certified refurbished Galaxy S22 Ultra in pristine physical condition. Built-in S-Pen stylus, 108MP camera with 100x Space Zoom, battery health guaranteed above 90%. 1-year local warranty.",
+    image: "https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?auto=format&fit=crop&q=80&w=600",
     specifications: {
-      "Processor": "A15 Bionic chip",
-      "Camera": "12MP Pro camera system with 3x optical zoom",
-      "Display": "6.7-inch Super Retina XDR with ProMotion",
-      "Battery": "Certified 88%+ health",
-      "Storage": "128GB Flash NVMe",
-      "OS": "iOS 17"
+      "Processor": "Snapdragon 8 Gen 1",
+      "Camera": "108MP Quad Camera System with 10x Optical Zoom",
+      "Display": "6.8-inch Edge QHD+ Dynamic AMOLED 2X 120Hz",
+      "Battery": "Certified 90%+ health (5000mAh)",
+      "Storage": "256GB UFS 3.1",
+      "OS": "Android 14"
     }
   },
   {
@@ -180,21 +180,21 @@ export const DEFAULT_PRODUCTS: Omit<Product, "id">[] = [
     }
   },
   {
-    name: "Apple iMac 24\" M3 (Yellow)",
-    brand: "Apple",
+    name: "Dell OptiPlex 7410 All-in-One",
+    brand: "Dell",
     category: "All-in-One PCs",
-    price: 245000,
+    price: 225000,
     stock: 5,
-    description: "The world's best all-in-one desktop, now supercharged by the M3 chip. Bold slim design, gorgeous 4.5K Retina display, studio-quality mics, and six-speaker sound system.",
+    description: "Premium commercial all-in-one desktop PC powered by 13th Gen Intel Core i7 processor. 23.8-inch FHD Touchscreen display, wireless keyboard and mouse included.",
     image: "https://images.unsplash.com/photo-1547082299-de196ea013d6?auto=format&fit=crop&q=80&w=600",
     specifications: {
-      "Processor": "Apple M3 (8-core CPU, 10-core GPU)",
-      "Display": "24-inch 4.5K Retina display, 4480 x 2520, 500 nits",
-      "Memory": "8GB Unified RAM",
-      "Storage": "512GB SSD",
-      "Camera": "1080p FaceTime HD camera with M3 ISP",
-      "Audio": "High-fidelity six-speaker system with spatial audio",
-      "Accessories": "Color-matched Magic Keyboard & Mouse"
+      "Processor": "Intel Core i7-13700 (16 Cores, up to 5.2GHz)",
+      "Display": "23.8-inch FHD IPS Touchscreen (1920 x 1080)",
+      "Memory": "16GB DDR5 RAM",
+      "Storage": "512GB PCIe NVMe SSD",
+      "Camera": "Pop-up Full HD Privacy Camera",
+      "Audio": "Waves MaxxAudio Pro dual stereo speakers",
+      "OS": "Windows 11 Pro"
     }
   },
   {

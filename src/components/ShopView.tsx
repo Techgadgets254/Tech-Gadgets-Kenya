@@ -120,7 +120,6 @@ function normalizeBrandName(brand: string): string {
   if (!brand) return "Unknown";
   const b = brand.trim().toLowerCase();
   if (b === "hp") return "HP";
-  if (b === "apple") return "Apple";
   if (b === "lenovo") return "Lenovo";
   if (b === "dell") return "Dell";
   if (b === "samsung") return "Samsung";
@@ -789,7 +788,7 @@ export default function ShopView() {
               }
             }}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search specific products or brands (e.g., Apple, HP, Lenovo)..."
+            placeholder="Search specific products or brands (e.g., HP, Dell, Lenovo)..."
             className="block w-full pl-10 pr-20 py-3 bg-[#0F0F0F] border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:outline-hidden focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] transition-all font-sans shadow-inner"
           />
           <div className="absolute inset-y-0 right-0 pr-3 flex items-center gap-1.5 z-10">

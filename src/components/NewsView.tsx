@@ -48,9 +48,9 @@ export interface Article {
 export const FIXED_ARTICLES: Article[] = [
   {
     id: "art-1",
-    title: "M-Silicon Dominance in Nairobi Tech Hubs: Why Developers are Choosing M3 Pro & Max Arrays",
-    excerpt: "From Westlands seed startups to Kilimani development corporations, custom high-bandwidth Apple silicon is shifting the Kenyan computer landscape.",
-    content: "With local developer salaries reaching global markets, computer latency translates directly to financial losses for Kenyan tech startups. The Apple M3 Pro and M3 Max SoC architectures provide unprecedented memory bandwidth, transforming compilation pipelines. In local developer build runs using Docker containers, microservices compiled in localized clusters finish 45% faster under a 36GB unified memory pool compared to traditional x86 developer laptops in Nairobi's tech hubs.\n\nUnified memory guarantees that heavy local virtual machines, swarm clusters, Swahili LLM environments, and parallel VS Code instances run concurrently without hitting swap page bottlenecks.\n\nCritical Hard specs tested by our Nairobi CBD System Engineers:\n- Apple M3 Pro Chip: 12-Core CPU, 18-Core GPU, up to 36GB high-speed Unified Memory\n- Apple M3 Max Chip: 14-Core CPU, 30-Core GPU, up to 128GB Unified Memory for high-end machine learning models\n- Thermals: Upgraded single-fan active cooling system optimized for dust-heavy equatorial environments\n- SSD Speeds: Read speeds exceeding 5,600 MB/s to ensure robust virtual disk mounting under severe loads.\n\nTo see these units operating live under standard load matrices, visit the official TechSokoKenya showroom on Kenyatta Avenue in Nairobi CBD, Floor 5, Shop 514 (inside the Kenyatta Pioneer Building, adjacent to the I&M CBD Offices).",
+    title: "Intel Ultra & AMD Ryzen Workstation Dominance in Nairobi Tech Hubs: Why Developers are Choosing AI Workstations",
+    excerpt: "From Westlands seed startups to Kilimani development corporations, custom high-bandwidth Intel & AMD workstations are shifting the Kenyan computer landscape.",
+    content: "With local developer salaries reaching global markets, computer latency translates directly to financial losses for Kenyan tech startups. High-core Intel Core Ultra 9 and AMD Ryzen 9 architectures provide unprecedented processing bandwidth, transforming compilation pipelines. In local developer build runs using Docker containers, microservices compiled in localized clusters finish 45% faster under a 64GB DDR5 memory pool compared to traditional developer laptops in Nairobi's tech hubs.\n\nHigh-capacity memory guarantees that heavy local virtual machines, swarm clusters, Swahili LLM environments, and parallel VS Code instances run concurrently without hitting swap page bottlenecks.\n\nCritical Hard specs tested by our Nairobi CBD System Engineers:\n- Intel Core Ultra 9 Chip: 16-Core CPU, Intel Arc Graphics, up to 64GB high-speed DDR5 Memory\n- AMD Ryzen 9 7900X Chip: 12-Core CPU, up to 128GB Memory for high-end machine learning models\n- Thermals: Upgraded vapor chamber cooling system optimized for dust-heavy equatorial environments\n- SSD Speeds: Read speeds exceeding 7,000 MB/s to ensure robust virtual disk mounting under severe loads.\n\nTo see these units operating live under standard load matrices, visit the official TechSokoKenya showroom on Kenyatta Avenue in Nairobi CBD, Floor 5, Shop 514 (inside the Kenyatta Pioneer Building, adjacent to the I&M CBD Offices).",
     imageUrl: "https://images.unsplash.com/photo-1542744094-3a31f103e35f?auto=format&fit=crop&q=80&w=700",
     date: "June 14, 2026",
     readTime: "8 min read",
@@ -176,7 +176,7 @@ export const DAILY_ARTICLES: Record<number, Article> = {
 // High-Value SEO Product Comparisons Data
 const LAPTOP_COMPARISONS = [
   {
-    name: "MacBook Pro M3 Max (Developer Choice)",
+    name: "Dell XPS 16 Developer Edition (Developer Choice)",
     compileTime: "9.2s",
     compilePercent: 100, // lower time = better, but representation bar
     vram: "48GB / 128GB Unified Memory",
@@ -486,7 +486,7 @@ export default function NewsView() {
             Kenya Tech News & Buying Handbooks
           </h1>
           <p className="text-xs sm:text-sm text-stone-500 dark:text-white/50 mt-3 max-w-xl leading-relaxed">
-            Engineered specifically to power SEO rankings. Our daily bulletins cover MacBook M3 compilation matrices, Lipa Na M-Pesa automatic webhooks, HP/Epson tank costs, and Kenyatta Avenue showroom stock updates.
+            Engineered specifically to power SEO rankings. Our daily bulletins cover Intel Ultra compilation matrices, Lipa Na M-Pesa automatic webhooks, HP/Epson tank costs, and Kenyatta Avenue showroom stock updates.
           </p>
         </div>
 
@@ -1072,7 +1072,7 @@ export default function NewsView() {
               <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0" />
               <div>
                 <span className="font-mono text-[9px] font-black text-stone-500 dark:text-white/40 uppercase block">SEO COGNITIVE SCHEMA ARCHIVE</span>
-                <span className="text-[10px] text-stone-400 dark:text-white/30 font-sans">Indexed tags: e-commerce laptops Kenya, Epson l3250 price Nairobi, MacBook M3 compile developer.</span>
+                <span className="text-[10px] text-stone-400 dark:text-white/30 font-sans">Indexed tags: e-commerce laptops Kenya, Epson l3250 price Nairobi, Dell XPS compile developer.</span>
               </div>
             </div>
             <div className="flex gap-2">
