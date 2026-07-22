@@ -1325,6 +1325,18 @@ export default function ClientDashboard() {
                       )}
                     </button>
 
+                    {/* Track Courier Dispatch Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab("tracking");
+                      }}
+                      className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Truck className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Track Dispatch</span>
+                    </button>
+
                     {/* Preview Invoice PDF Button */}
                     <button
                       type="button"

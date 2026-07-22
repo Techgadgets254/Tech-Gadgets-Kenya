@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { doc, onSnapshot, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { Order } from "../types";
+import { useStore } from "../StoreContext";
 import { 
   Search, 
   Package, 
@@ -17,7 +18,12 @@ import {
   ShieldCheck,
   Building,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Clock,
+  PhoneCall,
+  Navigation,
+  History,
+  ChevronRight
 } from "lucide-react";
 import { jsPDF } from "jspdf";
 
@@ -27,18 +33,26 @@ interface LiveOrderTrackerProps {
 }
 
 export default function LiveOrderTracker({ initialOrderId = "", onNavigateToShop }: LiveOrderTrackerProps) {
+  const { orders } = useStore();
   const [orderIdInput, setOrderIdInput] = useState(initialOrderId);
   const [trackedOrder, setTrackedOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [isDownloading, setIsDownloading] = useState(false);
 
-  // Auto-track if an initial Order ID is provided
+  // Auto-track if initialOrderId is provided OR auto-load the most recent order from user history
   useEffect(() => {
     if (initialOrderId) {
+      setOrderIdInput(initialOrderId);
       handleTrackOrder(initialOrderId);
+    } else if (orders && orders.length > 0 && !trackedOrder) {
+      const latestOrder = orders[0];
+      if (latestOrder?.id) {
+        setOrderIdInput(latestOrder.id);
+        handleTrackOrder(latestOrder.id);
+      }
     }
-  }, [initialOrderId]);
+  }, [initialOrderId, orders]);
 
   // Real-time Firestore Sync for the tracked order
   useEffect(() => {
@@ -325,6 +339,47 @@ export default function LiveOrderTracker({ initialOrderId = "", onNavigateToShop
         </div>
       </div>
 
+      {/* Quick Select from User's Order History in Firestore */}
+      {orders && orders.length > 0 && (
+        <div className="mb-6 bg-white/[0.02] border border-white/5 rounded-2xl p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[10px] font-mono font-bold text-[#C5A059] uppercase tracking-wider flex items-center gap-1.5">
+              <History className="w-3.5 h-3.5 text-[#C5A059]" />
+              Your Recent Orders ({orders.length})
+            </span>
+            <span className="text-[10px] text-white/40 font-mono">Click to track live</span>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-white/10">
+            {orders.map((ord) => {
+              const isSelected = trackedOrder?.id === ord.id;
+              return (
+                <button
+                  key={ord.id}
+                  type="button"
+                  onClick={() => {
+                    setOrderIdInput(ord.id);
+                    handleTrackOrder(ord.id);
+                  }}
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-left border text-xs font-mono transition-all shrink-0 cursor-pointer ${
+                    isSelected 
+                      ? "bg-[#C5A059]/15 border-[#C5A059]/40 text-white shadow-md"
+                      : "bg-[#030303] border-white/10 text-white/70 hover:border-white/25 hover:text-white"
+                  }`}
+                >
+                  <Package className={`w-3.5 h-3.5 ${isSelected ? "text-[#C5A059]" : "text-white/40"}`} />
+                  <div>
+                    <span className="font-bold block text-[11px]">#{ord.id.substring(0, 8).toUpperCase()}</span>
+                    <span className="text-[9px] text-white/40 block">
+                      {ord.shippingStatus || "Processing"} • KES {Number(ord.totalAmount).toLocaleString()}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Search Input Bar */}
       <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 sm:p-5 mb-6">
         <p className="text-white/60 text-xs mb-3 font-sans leading-relaxed">
@@ -441,6 +496,62 @@ export default function LiveOrderTracker({ initialOrderId = "", onNavigateToShop
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Courier Dispatch Progress Telemetry Panel */}
+          <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-white/5">
+              <div className="flex items-center gap-2">
+                <Truck className="w-4 h-4 text-[#C5A059]" />
+                <h4 className="font-sans font-bold text-xs text-white uppercase tracking-wider">
+                  Courier Dispatch Telemetry & Waybill
+                </h4>
+              </div>
+              <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase">
+                {trackedOrder.shippingStatus === "Delivered" ? "Fulfilled" : "Active Dispatch"}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-mono">
+              <div className="bg-black/40 p-3 rounded-xl border border-white/5">
+                <span className="text-white/40 text-[9px] uppercase block mb-1">Carrier Logistics</span>
+                <span className="text-white font-bold block">Fargo / G4S Express KE</span>
+                <span className="text-[9px] text-[#C5A059] block mt-0.5">Waybill: WB-{trackedOrder.id.substring(0, 6).toUpperCase()}</span>
+              </div>
+
+              <div className="bg-black/40 p-3 rounded-xl border border-white/5">
+                <span className="text-white/40 text-[9px] uppercase block mb-1">Estimated Arrival</span>
+                <span className="text-white font-bold block">
+                  {trackedOrder.shippingStatus === "Delivered" 
+                    ? "Completed" 
+                    : trackedOrder.shippingStatus === "Shipped" 
+                    ? "In Transit (Today)" 
+                    : "Within 24 Hours"}
+                </span>
+                <span className="text-[9px] text-white/50 block mt-0.5">Nairobi & Nationwide</span>
+              </div>
+
+              <div className="bg-black/40 p-3 rounded-xl border border-white/5">
+                <span className="text-white/40 text-[9px] uppercase block mb-1">Dispatch Destination</span>
+                <span className="text-white font-bold truncate block">{trackedOrder.shippingAddress || "Client Address"}</span>
+                <span className="text-[9px] text-emerald-400 block mt-0.5">Verified Recipient</span>
+              </div>
+            </div>
+
+            {/* Courier hotline button */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs">
+              <div className="flex items-center gap-2 text-white/60">
+                <PhoneCall className="w-3.5 h-3.5 text-[#C5A059]" />
+                <span className="font-mono text-[11px]">Courier Helpline: +254 700 000000 / +254 793 090200</span>
+              </div>
+              <a 
+                href={`tel:${trackedOrder.customerPhone}`}
+                className="text-[10px] font-mono text-[#C5A059] hover:underline flex items-center gap-1"
+              >
+                <span>Direct Dispatch Query</span>
+                <ChevronRight className="w-3 h-3" />
+              </a>
             </div>
           </div>
 

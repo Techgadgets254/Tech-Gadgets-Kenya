@@ -22,7 +22,8 @@ import {
   Moon,
   Menu,
   X,
-  RotateCcw
+  RotateCcw,
+  GitCompare
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -42,7 +43,9 @@ export default function Header() {
     products,
     setSelectedProductId,
     setIsAuthModalOpen,
-    setAuthModalMode
+    setAuthModalMode,
+    compareList,
+    setIsCompareOverlayOpen
   } = useStore();
 
   const isLight = theme === "light";
@@ -282,6 +285,24 @@ export default function Header() {
                 <Sun className="w-4 h-4 transition-transform group-hover:scale-110" />
               ) : (
                 <Moon className="w-4 h-4 transition-transform group-hover:scale-110" />
+              )}
+            </button>
+
+            {/* Compare Matrix Trigger */}
+            <button
+              onClick={() => setIsCompareOverlayOpen(true)}
+              className={`relative p-2.5 rounded-xl transition-all border group focus:outline-none cursor-pointer ${
+                compareList.length > 0 
+                  ? "bg-[#C5A059]/15 text-[#C5A059] border-[#C5A059]/40" 
+                  : "text-white/70 hover:text-[#C5A059] border-white/10 hover:bg-[#1A1A1A]"
+              }`}
+              title="Open Hardware Comparison Overlay"
+            >
+              <GitCompare className="w-4 h-4 transition-transform group-hover:scale-110" />
+              {compareList.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#C5A059] text-black font-sans text-[10px] font-black w-4.5 h-4.5 flex items-center justify-center rounded-full shadow-lg">
+                  {compareList.length}
+                </span>
               )}
             </button>
 

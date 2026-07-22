@@ -22,6 +22,8 @@ import AIAdvisor from "./components/AIAdvisor";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { Helmet } from "./components/Helmet";
 import AuthModal from "./components/AuthModal";
+import ProductComparisonOverlay from "./components/ProductComparisonOverlay";
+import FloatingCompareBar from "./components/FloatingCompareBar";
 import { Loader2, MessageSquare, HelpCircle, Share2, Package, PhoneCall, ShoppingBag, XCircle, Copy } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -710,6 +712,10 @@ function StoreLayout() {
           </motion.button>
         </div>
       )}
+
+      {/* Product Comparison Overlay & Floating Bar */}
+      <FloatingCompareBar />
+      <ProductComparisonOverlay />
 
       {/* 3. Base footer elements */}
       <Footer />

@@ -586,7 +586,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                 {(userProfile?.role === "admin" || user.email === "techgadgetsk@gmail.com") && (
                   <button
                     onClick={() => {
-                      setActiveView("admin");
+                      setActiveView("admin-dashboard");
                       setIsAuthModalOpen(false);
                     }}
                     className="w-full py-3 px-4 rounded-2xl bg-[#C5A059] hover:bg-[#C5A059]/90 text-black font-sans font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer shadow-lg transition-all"
@@ -597,7 +597,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
 
                 <button
                   onClick={() => {
-                    setActiveView("orders");
+                    setActiveView("client-dashboard");
                     setIsAuthModalOpen(false);
                   }}
                   className={`w-full py-3 px-4 rounded-2xl border text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all ${
@@ -611,7 +611,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
 
                 <button
                   onClick={() => {
-                    setActiveView("wishlist");
+                    setActiveView("shop");
                     setIsAuthModalOpen(false);
                   }}
                   className={`w-full py-3 px-4 rounded-2xl border text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all ${

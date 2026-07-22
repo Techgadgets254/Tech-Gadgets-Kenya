@@ -68,6 +68,8 @@ interface StoreContextType {
   compareList: Product[];
   toggleCompare: (product: Product) => void;
   clearCompareList: () => void;
+  isCompareOverlayOpen: boolean;
+  setIsCompareOverlayOpen: (open: boolean) => void;
   notifications: ToastNotification[];
   dismissNotification: (id: string) => void;
   dismissAllNotifications: () => void;
@@ -381,6 +383,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Wishlist and Compare States
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [compareList, setCompareList] = useState<Product[]>([]);
+  const [isCompareOverlayOpen, setIsCompareOverlayOpen] = useState(false);
   const [notifications, setNotifications] = useState<ToastNotification[]>([]);
   const [cartToasts, setCartToasts] = useState<CartToast[]>([]);
 
@@ -1787,6 +1790,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         compareList,
         toggleCompare,
         clearCompareList,
+        isCompareOverlayOpen,
+        setIsCompareOverlayOpen,
         notifications,
         dismissNotification,
         dismissAllNotifications,
