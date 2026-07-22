@@ -40,11 +40,25 @@ export default function ProductDetailsView() {
     toggleWishlist,
     user,
     registerPriceAlert,
+    registerProductRestockRequest,
     productReviews
   } = useStore();
 
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState<string | null>(null);
+
+  // Restock Notification form state
+  const [restockEmail, setRestockEmail] = useState("");
+  const [restockWhatsapp, setRestockWhatsapp] = useState("");
+  const [restockSubmitted, setRestockSubmitted] = useState(false);
+  const [restockSubmitting, setRestockSubmitting] = useState(false);
+
+  // Auto-fill user contact info if logged in
+  React.useEffect(() => {
+    if (user?.email) {
+      setRestockEmail(user.email);
+    }
+  }, [user]);
 
   // Hover zoom magnifier state
   const [zoomStyle, setZoomStyle] = useState<React.CSSProperties>({
@@ -116,6 +130,28 @@ export default function ProductDetailsView() {
     );
     if (ok) {
       setPriceAlertSuccess(true);
+    }
+  };
+
+  const handleRestockSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!product || (!restockEmail.trim() && !restockWhatsapp.trim())) return;
+    setRestockSubmitting(true);
+    try {
+      const ok = await registerProductRestockRequest(
+        product.id,
+        product.name,
+        product.image,
+        restockEmail.trim(),
+        restockWhatsapp.trim()
+      );
+      if (ok) {
+        setRestockSubmitted(true);
+      }
+    } catch (err) {
+      console.error("Error submitting restock request:", err);
+    } finally {
+      setRestockSubmitting(false);
     }
   };
 
@@ -903,6 +939,73 @@ export default function ProductDetailsView() {
           </div>
 
           {/* Quantitative stock limits status indicator */}
+
+          {/* Out of Stock Notify Me Section */}
+          {isOutOfStock && (
+            <div className="bg-[#161616] border border-[#C5A059]/30 rounded-2xl p-5 space-y-4 animate-fadeIn shadow-2xl relative overflow-hidden my-4">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[#C5A059]/10 rounded-full blur-2xl pointer-events-none" />
+              
+              <div className="flex items-start gap-3 relative z-10">
+                <div className="p-2.5 rounded-xl bg-[#C5A059]/15 border border-[#C5A059]/30 text-[#C5A059] shrink-0">
+                  <Bell className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <h4 className="font-sans font-bold text-sm sm:text-base text-white">Notify Me When Restocked</h4>
+                  <p className="text-xs text-white/60 leading-relaxed mt-0.5">
+                    This item is currently out of stock. Leave your contact details below to receive an instant WhatsApp or email alert when new units arrive!
+                  </p>
+                </div>
+              </div>
+
+              {restockSubmitted ? (
+                <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center gap-3 relative z-10">
+                  <CheckCircle className="w-5 h-5 shrink-0 text-emerald-400" />
+                  <div className="text-xs">
+                    <span className="font-bold block text-sm">Restock Request Registered!</span>
+                    <span>We&apos;ll notify you on {restockWhatsapp || restockEmail} immediately as soon as this item returns to inventory.</span>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleRestockSubmit} className="space-y-3 relative z-10">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-mono text-[#C5A059] uppercase font-bold tracking-wider block mb-1">
+                        WhatsApp Number
+                      </label>
+                      <input
+                        type="text"
+                        value={restockWhatsapp}
+                        onChange={(e) => setRestockWhatsapp(e.target.value)}
+                        placeholder="e.g. 0792620789"
+                        className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white placeholder-white/30 focus:outline-none focus:border-[#C5A059]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-mono text-[#C5A059] uppercase font-bold tracking-wider block mb-1">
+                        Email Address
+                      </label>
+                      <input
+                        type="email"
+                        value={restockEmail}
+                        onChange={(e) => setRestockEmail(e.target.value)}
+                        placeholder="name@example.com"
+                        className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white placeholder-white/30 focus:outline-none focus:border-[#C5A059]"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={restockSubmitting || (!restockEmail.trim() && !restockWhatsapp.trim())}
+                    className="w-full py-3.5 rounded-xl bg-[#C5A059] hover:bg-[#C5A059]/90 text-black font-sans font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg disabled:opacity-50"
+                  >
+                    <Bell className="w-4 h-4" />
+                    <span>{restockSubmitting ? "Saving Request..." : "Request Restock Notification"}</span>
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
 
           {/* Quantity custom count and Add-to-bag section */}
           {!isOutOfStock && (

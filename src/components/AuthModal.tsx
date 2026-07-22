@@ -39,6 +39,10 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
     loginWithGoogle,
     setUser,
     setUserProfile,
+    user,
+    userProfile,
+    setActiveView,
+    logout,
     theme
   } = useStore();
 
@@ -552,11 +556,86 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
             onClick={handleClose}
             className={`absolute top-5 right-5 ${
               isLight ? "text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100" : "text-white/40 hover:text-white hover:bg-white/5"
-            } p-2 rounded-xl transition-all cursor-pointer`}
+            } p-2 rounded-xl transition-all cursor-pointer z-10`}
             title="Dismiss Authentication"
           >
             <X className="w-4 h-4" />
           </button>
+
+          {/* Logged In User Profile View (Bypasses Login Form) */}
+          {user ? (
+            <div className="py-2 space-y-6">
+              <div className="text-center">
+                <div className="w-16 h-16 rounded-full bg-[#C5A059]/20 border-2 border-[#C5A059] flex items-center justify-center mx-auto mb-3 text-2xl font-bold text-[#C5A059] shadow-lg">
+                  {(userProfile?.name || user.displayName || user.email || "U").charAt(0).toUpperCase()}
+                </div>
+                <div className="flex items-center justify-center gap-1.5 mb-1.5">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-[#C5A059]/15 text-[#C5A059] border border-[#C5A059]/30">
+                    {userProfile?.role === "admin" || user.email === "techgadgetsk@gmail.com" ? "⚡ Administrator" : "✓ Active Account"}
+                  </span>
+                </div>
+                <h2 className={`text-xl font-bold font-sans tracking-tight ${isLight ? "text-zinc-900" : "text-white"}`}>
+                  {userProfile?.name || user.displayName || "Valued Account"}
+                </h2>
+                <p className={`text-xs font-mono mt-1 ${isLight ? "text-zinc-500" : "text-white/50"}`}>
+                  {user.email}
+                </p>
+              </div>
+
+              <div className="space-y-2.5 pt-2 border-t border-white/10">
+                {(userProfile?.role === "admin" || user.email === "techgadgetsk@gmail.com") && (
+                  <button
+                    onClick={() => {
+                      setActiveView("admin");
+                      setIsAuthModalOpen(false);
+                    }}
+                    className="w-full py-3 px-4 rounded-2xl bg-[#C5A059] hover:bg-[#C5A059]/90 text-black font-sans font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer shadow-lg transition-all"
+                  >
+                    <span>Go to Admin Dashboard</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => {
+                    setActiveView("orders");
+                    setIsAuthModalOpen(false);
+                  }}
+                  className={`w-full py-3 px-4 rounded-2xl border text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                    isLight 
+                      ? "bg-zinc-100 border-zinc-200 hover:bg-zinc-200 text-zinc-900" 
+                      : "bg-white/5 border-white/10 hover:bg-white/10 text-white"
+                  }`}
+                >
+                  <span>My Orders & Invoices</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setActiveView("wishlist");
+                    setIsAuthModalOpen(false);
+                  }}
+                  className={`w-full py-3 px-4 rounded-2xl border text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                    isLight 
+                      ? "bg-zinc-100 border-zinc-200 hover:bg-zinc-200 text-zinc-900" 
+                      : "bg-white/5 border-white/10 hover:bg-white/10 text-white"
+                  }`}
+                >
+                  <span>View Saved Items</span>
+                </button>
+
+                <button
+                  onClick={async () => {
+                    await logout();
+                    setIsAuthModalOpen(false);
+                  }}
+                  className="w-full py-2.5 px-4 rounded-2xl text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all cursor-pointer flex items-center justify-center gap-2 mt-4"
+                >
+                  <span>Sign Out of Account</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
 
           {/* Title Header */}
           <div className="mb-5">
@@ -972,6 +1051,8 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
               isLight ? "text-zinc-400" : "text-white/20"
             }`}>Secure OAuth 2.0 Endpoints Enabled</span>
           </div>
+          </>
+          )}
         </motion.div>
       </div>
     </div>

@@ -126,6 +126,7 @@ interface StoreContextType {
   submitProductReview: (productId: string, rating: number, comment: string, name: string) => Promise<void>;
   importProductsCSV: (csvContent: string, onProgress?: (progress: number) => void) => Promise<{ addedCount: number; logs: any[]; error?: string }>;
   registerPriceAlert: (productId: string, productName: string, email: string, whatsapp: string, targetPrice: number, currentPrice: number) => Promise<boolean>;
+  registerProductRestockRequest: (productId: string, productName: string, productImage: string, email: string, whatsapp: string) => Promise<boolean>;
   productsLoading: boolean;
   productsLimit: number;
   hasMoreProducts: boolean;
@@ -1686,6 +1687,50 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Register user restock request for out-of-stock items
+  const registerProductRestockRequest = async (
+    productId: string,
+    productName: string,
+    productImage: string,
+    email: string,
+    whatsapp: string
+  ): Promise<boolean> => {
+    try {
+      const restockCol = collection(db, "product_restock_requests");
+      await addDoc(restockCol, {
+        productId,
+        productName,
+        productImage: productImage || "",
+        email: email ? email.trim() : "",
+        whatsapp: whatsapp ? whatsapp.trim() : "",
+        userId: user ? user.uid : null,
+        status: "pending",
+        createdAt: new Date().toISOString()
+      });
+      return true;
+    } catch (e) {
+      console.error("Error creating restock request:", e);
+      try {
+        const storedStr = localStorage.getItem("tgk_restock_requests") || "[]";
+        const stored = JSON.parse(storedStr);
+        stored.push({
+          productId,
+          productName,
+          productImage,
+          email,
+          whatsapp,
+          userId: user ? user.uid : null,
+          status: "pending",
+          createdAt: new Date().toISOString()
+        });
+        localStorage.setItem("tgk_restock_requests", JSON.stringify(stored));
+      } catch (err) {
+        console.error("Restock request local storage fallback error:", err);
+      }
+      return true;
+    }
+  };
+
   const submitTransactionFeedback = async (orderId: string, rating: number, comment: string) => {
     if (!user) throw new Error("You must be logged in to submit feedback");
     try {
@@ -1771,6 +1816,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         submitProductReview,
         importProductsCSV,
         registerPriceAlert,
+        registerProductRestockRequest,
         affiliates,
         addAffiliate,
         toggleAffiliate,

@@ -120,6 +120,17 @@ service cloud.firestore {
         && (!data.keys().hasAll(['whatsapp']) || (data.whatsapp is string && data.whatsapp.size() <= 100));
     }
 
+    function isValidProductRestockRequest(data) {
+      return data.productId is string && data.productId.size() > 0 && data.productId.size() <= 128
+        && data.productName is string && data.productName.size() > 0 && data.productName.size() <= 300
+        && (!data.keys().hasAll(['email']) || (data.email is string && data.email.size() <= 300))
+        && (!data.keys().hasAll(['whatsapp']) || (data.whatsapp is string && data.whatsapp.size() <= 100))
+        && (!data.keys().hasAll(['productImage']) || (data.productImage is string && data.productImage.size() <= 1000))
+        && (!data.keys().hasAll(['userId']) || data.userId == null || (data.userId is string && data.userId.size() <= 128))
+        && (!data.keys().hasAll(['status']) || (data.status is string && data.status.size() <= 50))
+        && data.createdAt is string && data.createdAt.size() <= 100;
+    }
+
     function isValidTrash(data) {
       return data.originalId is string && data.originalId.size() > 0
         && data.deletedAt is string && data.deletedAt.size() <= 100
@@ -443,6 +454,14 @@ service cloud.firestore {
       allow create: if isValidWhatsAppNotification(incoming());
       allow read, list, get, delete: if isAdmin();
       allow update: if false;
+    }
+
+    // Product Restock Requests collection:
+    // - Anyone can submit a restock request for out-of-stock products
+    // - Only administrators can read, list, update, or delete
+    match /product_restock_requests/{requestId} {
+      allow create: if isValidProductRestockRequest(incoming());
+      allow read, list, get, update, delete: if isAdmin();
     }
   }
 }

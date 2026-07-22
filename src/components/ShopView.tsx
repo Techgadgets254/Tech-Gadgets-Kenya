@@ -29,7 +29,8 @@ import {
   History,
   Mic,
   MicOff,
-  Flame
+  Flame,
+  Bell
 } from "lucide-react";
 import { Product } from "../types";
 
@@ -1534,22 +1535,33 @@ export default function ShopView() {
                             </div>
 
                             <button
-                              disabled={isOutOfStock}
                               onClick={() => {
-                                const variants = getProductVariants(p);
-                                if (variants && variants.options.length > 0) {
-                                  setQuickBuyProduct(p);
+                                if (isOutOfStock) {
+                                  setSelectedProductId(p.id);
+                                  setActiveView("product-details");
                                 } else {
-                                  addToCart(p, 1);
+                                  const variants = getProductVariants(p);
+                                  if (variants && variants.options.length > 0) {
+                                    setQuickBuyProduct(p);
+                                  } else {
+                                    addToCart(p, 1);
+                                  }
                                 }
                               }}
-                              className={`font-sans text-[11px] font-semibold px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                              className={`font-sans text-[11px] font-semibold px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1 shrink-0 ${
                                 isOutOfStock 
-                                  ? "bg-white/5 text-white/30 cursor-not-allowed" 
-                                  : "bg-[#C5A059] hover:bg-[#C5A059]/90 text-black shrink-0"
+                                  ? "bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25" 
+                                  : "bg-[#C5A059] hover:bg-[#C5A059]/90 text-black"
                               }`}
                             >
-                              {isOutOfStock ? "Sold Out" : "Add to Bag"}
+                              {isOutOfStock ? (
+                                <>
+                                  <Bell className="w-3 h-3" />
+                                  <span>Notify Me</span>
+                                </>
+                              ) : (
+                                "Add to Bag"
+                              )}
                             </button>
                           </div>
                         </div>
