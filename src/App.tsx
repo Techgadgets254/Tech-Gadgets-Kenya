@@ -24,6 +24,7 @@ import { Helmet } from "./components/Helmet";
 import AuthModal from "./components/AuthModal";
 import ProductComparisonOverlay from "./components/ProductComparisonOverlay";
 import FloatingCompareBar from "./components/FloatingCompareBar";
+import BackToTop from "./components/BackToTop";
 import { Loader2, MessageSquare, HelpCircle, Share2, Package, PhoneCall, ShoppingBag, XCircle, Copy } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -242,8 +243,14 @@ function StoreLayout() {
   }, []);
 
   React.useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [activeView]);
+    try {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior });
+    } catch (e) {
+      window.scrollTo(0, 0);
+    }
+    if (document.documentElement) document.documentElement.scrollTop = 0;
+    if (document.body) document.body.scrollTop = 0;
+  }, [activeView, selectedProductId]);
 
   React.useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => {
@@ -713,9 +720,10 @@ function StoreLayout() {
         </div>
       )}
 
-      {/* Product Comparison Overlay & Floating Bar */}
+      {/* Product Comparison Overlay, Floating Bar & Back to Top */}
       <FloatingCompareBar />
       <ProductComparisonOverlay />
+      <BackToTop />
 
       {/* 3. Base footer elements */}
       <Footer />

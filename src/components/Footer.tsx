@@ -17,7 +17,8 @@ import {
   Facebook,
   Twitter,
   Instagram,
-  Youtube 
+  Youtube,
+  ArrowUp
 } from "lucide-react";
 
 export default function Footer() {
@@ -256,6 +257,25 @@ export default function Footer() {
           </div>
           <div className="flex flex-wrap items-center gap-4">
             <button
+              type="button"
+              onClick={() => {
+                try {
+                  window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+                } catch (e) {
+                  window.scrollTo(0, 0);
+                }
+                if (document.documentElement) document.documentElement.scrollTop = 0;
+                if (document.body) document.body.scrollTop = 0;
+              }}
+              className="text-white/60 hover:text-[#C5A059] hover:bg-white/[0.04] transition-all cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 bg-white/[0.02] text-xs font-mono font-bold"
+              title="Return to Top of Page"
+            >
+              <ArrowUp className="w-3.5 h-3.5 text-[#C5A059]" />
+              <span>Return to Top</span>
+            </button>
+            <span className="text-white/20 hidden sm:inline">|</span>
+            <button
+              type="button"
               onClick={() => setActiveView("admin-dashboard")}
               className="text-white/40 hover:text-[#C5A059] hover:bg-white/[0.04] transition-all cursor-pointer flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-white/5 bg-white/[0.01]"
               title="Secure Administrator Control Panel"
