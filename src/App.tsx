@@ -154,6 +154,13 @@ function StoreLayout() {
     }
   });
   const [copied, setCopied] = React.useState(false);
+  const [toastMessage, setToastMessage] = React.useState<string | null>(null);
+
+  const triggerToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
   const [hasBeenOnProductPageTenSecs, setHasBeenOnProductPageTenSecs] = React.useState(false);
   const lastScrollTopRef = React.useRef(0);
   const menuRef = React.useRef<HTMLDivElement>(null);
@@ -351,23 +358,41 @@ function StoreLayout() {
       } catch (e) {}
     }
 
+    const currentUrl = activeProduct 
+      ? `${window.location.origin}/?product=${activeProduct.id}`
+      : window.location.href;
+
+    const shareTitle = activeProduct 
+      ? `${activeProduct.brand} ${activeProduct.name} - Tech Sokoni Kenya`
+      : "Tech Sokoni Kenya | Premium Laptops & Enterprise Electronics";
+
+    const shareText = activeProduct
+      ? `🔥 Check out the ${activeProduct.brand} ${activeProduct.name} (KES ${activeProduct.price.toLocaleString()}) on Tech Sokoni Kenya!\nStock: ${activeProduct.stock > 0 ? `${activeProduct.stock} units available` : "Pre-order / Request Alert"}\nSpecs: ${activeProduct.description?.slice(0, 110) || "Genuine imported hardware"}...\nSame-day Nairobi delivery with Lipa Na M-Pesa STK Push.`
+      : `🔥 Discover genuine Apple MacBooks, HP EliteBooks, Dell XPS workstations, and iPhones on Tech Sokoni Kenya!\nSame-day Nairobi delivery with Lipa Na M-Pesa.`;
+
     const shareData = {
-      title: document.title || "Tech Soko Kenya",
-      text: activeProduct 
-        ? `Check out ${activeProduct.name} on Tech Soko Kenya!` 
-        : "Check out Tech Soko Kenya for premium imported hardware!",
-      url: window.location.href,
+      title: shareTitle,
+      text: shareText,
+      url: currentUrl,
     };
 
     try {
       if (navigator.share) {
         await navigator.share(shareData);
+        triggerToast("Product details shared successfully!");
       } else {
-        await navigator.clipboard.writeText(window.location.href);
-        alert("Link copied to clipboard!");
+        await navigator.clipboard.writeText(`${shareText}\nDirect Link: ${currentUrl}`);
+        triggerToast("Product details & link copied to clipboard!");
       }
-    } catch (err) {
-      console.warn("Share failed:", err);
+    } catch (err: any) {
+      if (err.name !== "AbortError") {
+        try {
+          await navigator.clipboard.writeText(`${shareText}\nDirect Link: ${currentUrl}`);
+          triggerToast("Product details & link copied to clipboard!");
+        } catch (clipErr) {
+          console.warn("Share failed:", clipErr);
+        }
+      }
     }
   };
 
@@ -683,6 +708,21 @@ function StoreLayout() {
       <FloatingCompareBar />
       <ProductComparisonOverlay />
       <BackToTop />
+
+      {/* Floating Toast Notification */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] bg-[#0F0F0F] text-white px-5 py-3 rounded-2xl border border-[#C5A059]/40 shadow-2xl flex items-center gap-3 backdrop-blur-md"
+          >
+            <div className="w-2.5 h-2.5 rounded-full bg-[#C5A059] animate-pulse" />
+            <span className="text-xs font-semibold text-white tracking-wide">{toastMessage}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 3. Base footer elements */}
       <Footer />

@@ -673,13 +673,22 @@ export default function ShopView() {
 
   // Unified list of categories for main sidebar selection
   const mainCategoriesList = useMemo(() => {
-    return ["All", "Laptops", "Desktops", "Phones", "Printers", "Accessories"];
+    return ["All", "Apple Collection", "Laptops", "Desktops", "Phones", "Printers", "Accessories"];
   }, []);
 
   const brands = useMemo(() => {
-    const matchingProducts = products.filter(p => 
-      selectedMainCategory === "All" || getProductMainCategory(p.category) === selectedMainCategory
-    );
+    const matchingProducts = products.filter(p => {
+      if (selectedMainCategory === "All") return true;
+      if (selectedMainCategory === "Apple Collection") {
+        return (p.brand && p.brand.toLowerCase() === "apple") ||
+          p.name.toLowerCase().includes("apple") ||
+          p.name.toLowerCase().includes("macbook") ||
+          p.name.toLowerCase().includes("iphone") ||
+          p.name.toLowerCase().includes("airpods") ||
+          p.name.toLowerCase().includes("ipad");
+      }
+      return getProductMainCategory(p.category) === selectedMainCategory;
+    });
     const list = new Set(matchingProducts.map(p => normalizeBrandName(p.brand)));
     return ["All", ...Array.from(list)];
   }, [products, selectedMainCategory]);
@@ -707,7 +716,18 @@ export default function ShopView() {
 
     // Main Category Filter
     if (selectedMainCategory !== "All") {
-      result = result.filter(p => getProductMainCategory(p.category) === selectedMainCategory);
+      if (selectedMainCategory === "Apple Collection") {
+        result = result.filter(p => 
+          (p.brand && p.brand.toLowerCase() === "apple") ||
+          p.name.toLowerCase().includes("apple") ||
+          p.name.toLowerCase().includes("macbook") ||
+          p.name.toLowerCase().includes("iphone") ||
+          p.name.toLowerCase().includes("airpods") ||
+          p.name.toLowerCase().includes("ipad")
+        );
+      } else {
+        result = result.filter(p => getProductMainCategory(p.category) === selectedMainCategory);
+      }
     }
 
     // Condition Filter
