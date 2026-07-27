@@ -7,6 +7,110 @@ import { Product } from "./types";
 
 export const DEFAULT_PRODUCTS: Omit<Product, "id">[] = [
   {
+    name: "Apple MacBook Pro 16\" M3 Max",
+    brand: "Apple",
+    category: "New Laptops",
+    price: 485000,
+    stock: 6,
+    description: "The ultimate Apple Silicon workstation. Brand-new sealed. Featuring the M3 Max 16-core CPU, 40-core GPU, 36GB Unified Memory, and 1TB SSD. 16.2-inch Liquid Retina XDR display with 120Hz ProMotion in Space Black.",
+    image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=600",
+    specifications: {
+      "Processor": "Apple M3 Max (16-Core CPU, 40-Core GPU)",
+      "Unified Memory": "36GB Unified RAM",
+      "Storage": "1TB PCIe NVMe SSD",
+      "Display": "16.2-inch Liquid Retina XDR, 3024x1964, 120Hz ProMotion",
+      "Battery": "Up to 22 hours video playback",
+      "OS": "macOS Sonoma",
+      "Color": "Space Black"
+    }
+  },
+  {
+    name: "Refurbished Apple MacBook Air 13\" M2",
+    brand: "Apple",
+    category: "Refurbished Laptops",
+    price: 125000,
+    stock: 14,
+    description: "Certified pristine condition Apple Silicon laptop. Fanless silent operation, 13.6-inch Liquid Retina display, M2 8-core CPU / 8-core GPU, 8GB Unified RAM, 256GB SSD. Midnight finish with MagSafe 3.",
+    image: "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&q=80&w=600",
+    specifications: {
+      "Processor": "Apple M2 (8-Core CPU, 8-Core GPU)",
+      "Unified Memory": "8GB Unified Memory",
+      "Storage": "256GB High-Speed SSD",
+      "Display": "13.6-inch Liquid Retina, 500 nits brightness",
+      "Battery": "Up to 18 hours (90%+ verified battery health)",
+      "Ports": "MagSafe 3, 2x Thunderbolt / USB 4",
+      "Warranty": "1-Year Boutique Warranty"
+    }
+  },
+  {
+    name: "Apple iPhone 15 Pro Max 256GB",
+    brand: "Apple",
+    category: "New Phones",
+    price: 185000,
+    stock: 20,
+    description: "Brand-new factory sealed Titanium flagship. Powered by A17 Pro 3nm chip, customizable Action button, 48MP main camera with 5x optical telephoto lens, USB-C 3.0 port.",
+    image: "https://images.unsplash.com/photo-1695048133142-1a20484d2569?auto=format&fit=crop&q=80&w=600",
+    specifications: {
+      "Processor": "Apple A17 Pro (6-Core CPU, 6-Core GPU)",
+      "Camera": "48MP Main | 12MP Ultra Wide | 12MP 5x Telephoto",
+      "Storage": "256GB NVMe",
+      "Display": "6.7-inch Super Retina XDR OLED, 120Hz ProMotion",
+      "Build": "Grade 5 Titanium frame with Ceramic Shield front",
+      "OS": "iOS 17"
+    }
+  },
+  {
+    name: "Refurbished Apple iPhone 13 Pro 128GB (Certified)",
+    brand: "Apple",
+    category: "Refurbished Phones",
+    price: 78000,
+    stock: 12,
+    description: "Certified pristine refurbished iPhone 13 Pro in Sierra Blue. 120Hz ProMotion display, cinematic mode video recording, 12MP triple lens array, battery health guaranteed above 88%.",
+    image: "https://images.unsplash.com/photo-1632661674596-df8be070a5c5?auto=format&fit=crop&q=80&w=600",
+    specifications: {
+      "Processor": "Apple A15 Bionic",
+      "Camera": "12MP Telephoto, Wide, and Ultra Wide cameras",
+      "Display": "6.1-inch Super Retina XDR with ProMotion",
+      "Battery": "88%+ Verified Health Capacity",
+      "Storage": "128GB",
+      "OS": "iOS 17"
+    }
+  },
+  {
+    name: "Apple iPad Pro 12.9\" M2 Wi-Fi + Cellular",
+    brand: "Apple",
+    category: "Accessories",
+    price: 165000,
+    stock: 8,
+    description: "The ultimate iPad experience powered by Apple M2. 12.9-inch Liquid Retina XDR display with mini-LED backlighting, ProMotion, Apple Pencil hover, and 5G Cellular connectivity.",
+    image: "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?auto=format&fit=crop&q=80&w=600",
+    specifications: {
+      "Processor": "Apple M2 (8-Core CPU, 10-Core GPU)",
+      "Display": "12.9-inch Liquid Retina XDR mini-LED (2732x2048)",
+      "Storage": "256GB",
+      "Connectivity": "Wi-Fi 6E + 5G Cellular (eSIM + Nano-SIM)",
+      "Camera": "12MP Wide + 10MP Ultra Wide + LiDAR Scanner",
+      "Accessories": "Supports Apple Pencil (2nd Gen) & Magic Keyboard"
+    }
+  },
+  {
+    name: "Apple Watch Ultra 2 GPS + Cellular 49mm",
+    brand: "Apple",
+    category: "Accessories",
+    price: 115000,
+    stock: 10,
+    description: "The most rugged and capable Apple Watch ever. 49mm titanium case, S9 SiP with double tap gesture, 3000 nits Always-On display, dual-frequency precision GPS.",
+    image: "https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?auto=format&fit=crop&q=80&w=600",
+    specifications: {
+      "Case": "49mm Aerospace-Grade Titanium",
+      "Processor": "Apple S9 SiP with 4-core Neural Engine",
+      "Display": "Always-On Retina OLED, up to 3000 nits",
+      "Water Resistance": "100m water resistant, EN13319 certified",
+      "Battery": "Up to 36 hours normal use / 72 hours low power",
+      "Sensors": "ECG, Blood Oxygen, Temperature sensing, Depth gauge"
+    }
+  },
+  {
     name: "Dell XPS 16 Developer Laptop",
     brand: "Dell",
     category: "New Laptops",

@@ -727,7 +727,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
         } else {
           // Since we ordered the query, active items are sorted, but let's ensure order
-          const sorted = [...items].sort((a, b) => {
+          // Merge any missing DEFAULT_PRODUCTS (e.g. Apple laptops/phones) so catalog stays complete
+          const existingNames = new Set(items.map(p => p.name.trim().toLowerCase()));
+          const missingDefaults: Product[] = [];
+          DEFAULT_PRODUCTS.forEach((dp, idx) => {
+            if (!existingNames.has(dp.name.trim().toLowerCase())) {
+              missingDefaults.push({
+                id: `default-apple-${idx}`,
+                ...dp,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              } as Product);
+            }
+          });
+
+          const sorted = [...items, ...missingDefaults].sort((a, b) => {
             const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
             const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
             return dateB - dateA;

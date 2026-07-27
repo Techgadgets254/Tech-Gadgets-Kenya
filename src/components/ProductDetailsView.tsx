@@ -18,6 +18,8 @@ import {
   Monitor,
   Bookmark,
   Share2,
+  Facebook,
+  Twitter,
   Bell,
   MessageCircle,
   ChevronDown,
@@ -1080,6 +1082,28 @@ export default function ProductDetailsView() {
                     <Share2 className="w-4 h-4 text-white" />
                     <span>Share</span>
                   </button>
+
+                  <a
+                    href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`🔥 Check out ${product.name} on Tech Sokoni Kenya for KES ${product.price.toLocaleString()}!`)}&url=${encodeURIComponent(`${window.location.origin}/?product=${product.id}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-[#1DA1F2]/10 border border-[#1DA1F2]/30 text-[#1DA1F2] hover:bg-[#1DA1F2]/20 px-3.5 py-3.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                    title="Share on Twitter / X"
+                  >
+                    <Twitter className="w-4 h-4 text-[#1DA1F2]" />
+                    <span>X / Tweet</span>
+                  </a>
+
+                  <a
+                    href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${window.location.origin}/?product=${product.id}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-[#1877F2]/10 border border-[#1877F2]/30 text-[#1877F2] hover:bg-[#1877F2]/20 px-3.5 py-3.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                    title="Share on Facebook"
+                  >
+                    <Facebook className="w-4 h-4 text-[#1877F2]" />
+                    <span>Facebook</span>
+                  </a>
 
                   <a
                     href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
