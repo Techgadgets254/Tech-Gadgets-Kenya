@@ -19,6 +19,7 @@ import {
   Plus
 } from "lucide-react";
 import Markdown from "react-markdown";
+import { cleanAiMarkdown } from "../lib/cleanAiMarkdown";
 
 interface SavedConversation {
   id: string;
@@ -470,7 +471,7 @@ Where "id_1, id_2" are the raw matching IDs of the products from the live databa
       <button
         id="ai-floating-bubble"
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-4 right-4 z-40 bg-gradient-to-br from-[#C5A059] to-[#9E8043] text-black hover:scale-105 active:scale-95 shadow-lg shadow-[#C5A059]/20 w-12 h-12 rounded-full flex items-center justify-center cursor-pointer transition-all border border-[#C5A059]"
+        className="fixed bottom-6 right-6 z-40 bg-gradient-to-br from-[#C5A059] to-[#9E8043] text-black hover:scale-105 active:scale-95 shadow-lg shadow-[#C5A059]/20 w-12 h-12 rounded-full flex items-center justify-center cursor-pointer transition-all border border-[#C5A059]"
         title="Consult AI Assistant Advisor"
       >
         {isOpen ? <X className="w-5 h-5 font-bold" /> : <Bot className="w-5 h-5" />}
@@ -480,7 +481,7 @@ Where "id_1, id_2" are the raw matching IDs of the products from the live databa
       {isOpen && (
         <div 
           id="ai-advisor-panel"
-          className={`fixed bottom-20 right-4 z-40 bg-[#0F0F0F] border border-white/10 rounded-2xl h-[550px] shadow-2xl flex overflow-hidden animate-fadeIn transition-all duration-300 ${
+          className={`fixed bottom-20 right-4 sm:right-6 z-50 bg-[#0F0F0F] border border-white/10 rounded-2xl h-[550px] shadow-2xl flex overflow-hidden animate-fadeIn transition-all duration-300 ${
             showHistorySidebar ? "w-[92vw] sm:w-[650px]" : "w-[92vw] sm:w-[400px]"
           }`}
         >
@@ -665,9 +666,10 @@ Where "id_1, id_2" are the raw matching IDs of the products from the live databa
                               h1: ({ node, ...props }) => <h1 className="text-sm font-bold text-white mb-2 mt-3" {...props} />,
                               h2: ({ node, ...props }) => <h2 className="text-xs font-bold text-white mb-1.5 mt-2.5" {...props} />,
                               h3: ({ node, ...props }) => <h3 className="text-[11px] font-bold text-[#C5A059] mb-1 mt-2" {...props} />,
+                              strong: ({ node, ...props }) => <strong className="font-bold text-[#C5A059]" {...props} />,
                             }}
                           >
-                            {displayContent}
+                            {cleanAiMarkdown(displayContent)}
                           </Markdown>
                         </div>
                       </div>

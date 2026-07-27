@@ -276,53 +276,79 @@ function StoreLayout() {
   }, []);
 
   const seoData = React.useMemo(() => {
+    const defaultSiteImage = "https://techsokoni.com/src/assets/images/tech_soko_logo_1783961449391.jpg";
     switch (activeView) {
       case "home":
         return {
-          title: "Tech Soko Kenya | Premium Imports & Hardware",
-          description: "Premium laptops, desktops, and phones imported directly to Kenya. Fast, secure Lipa Na M-Pesa checkout with Nairobi CBD same-day dispatch.",
-          keywords: "Tech Soko Kenya, laptops Nairobi, M-Pesa electronics, refurbished laptops Kenya, Dell XPS Nairobi"
+          title: "Tech Sokoni Kenya | Premium Laptops, Desktops & Enterprise Electronics",
+          description: "Discover genuine business laptops, high-performance workstations, and smart gadgets in Nairobi. Instant Safaricom Lipa Na M-Pesa checkout with same-day dispatch.",
+          keywords: "Tech Sokoni Kenya, laptops Nairobi, M-Pesa electronics, refurbished laptops Kenya, Dell XPS Nairobi, HP EliteBook Kenya, Lenovo ThinkPad Nairobi",
+          image: defaultSiteImage,
+          url: "https://techsokoni.com/",
+          type: "website"
         };
       case "shop":
         return {
-          title: "Browse Stock Storefront | Tech Soko Kenya",
-          description: "Explore our live stock of high-end business laptops, Intel Core i7 systems, dedicated graphics cards, and enterprise accessories.",
-          keywords: "HP EliteBook Nairobi, ThinkPad Kenya, refurbished laptops, Buy laptops Kenya"
+          title: "Browse Electronics & Laptop Inventory | Tech Sokoni Kenya",
+          description: "Explore our live inventory of Intel Core i7 & i9 laptops, workstation PCs, graphics tablets, and tech accessories with instant M-Pesa pay option.",
+          keywords: "Buy laptops Nairobi, HP EliteBook Kenya, ThinkPad Nairobi, gaming laptops Kenya, refurbished computers Nairobi CBD",
+          image: defaultSiteImage,
+          url: "https://techsokoni.com/shop",
+          type: "website"
         };
       case "product-details":
         return {
-          title: "Detailed Specifications | Tech Soko Kenya",
-          description: "Inspect component specifications, live local inventory levels, and configure direct WhatsApp price drop alerts instantly.",
-          keywords: "Refurbished specs, laptop hardware configuration, tech price drop alert"
+          title: "Detailed Specifications & Live Stock | Tech Sokoni Kenya",
+          description: "Inspect component specifications, live local inventory levels, local warranty coverage, and request direct WhatsApp stock alerts instantly.",
+          keywords: "Laptop hardware specs Nairobi, computer price drop alert Kenya, Tech Sokoni stock",
+          image: defaultSiteImage,
+          url: "https://techsokoni.com/product-details",
+          type: "product"
         };
       case "checkout":
         return {
-          title: "Secure Lipa Na M-Pesa Checkout | Tech Soko Kenya",
-          description: "Authorize purchase settlement securely with Safaricom Daraja STK Push pin prompt instantly. Quick regional courier dispatch.",
-          keywords: "STK push, pay till number Nairobi, Safaricom Daraja checkout"
+          title: "Secure Lipa Na M-Pesa STK Push Checkout | Tech Sokoni Kenya",
+          description: "Settle orders safely using Safaricom Daraja M-Pesa STK Push pin prompt with rapid regional courier tracking across all Kenya counties.",
+          keywords: "M-Pesa STK push checkout, Pay till number Nairobi, Safaricom Daraja checkout, Tech Sokoni buy",
+          image: defaultSiteImage,
+          url: "https://techsokoni.com/checkout",
+          type: "website"
         };
       case "client-dashboard":
         return {
-          title: "Client Profile Hub | Tech Soko Kenya",
-          description: "Trace active delivery courier timelines, view transaction history, download tax invoices, and retrieve partner affiliate codes.",
-          keywords: "Tech Soko invoice download, Nairobi county shipper tracking, Kenya tech partner"
+          title: "Client Portal & Delivery Tracking Hub | Tech Sokoni Kenya",
+          description: "Trace live delivery timelines, view order status history, download official tax invoices, and access partner referral reward codes.",
+          keywords: "Tech Sokoni order tracking, download invoice Kenya, Nairobi courier delivery, partner rewards",
+          image: defaultSiteImage,
+          url: "https://techsokoni.com/client-dashboard",
+          type: "website"
         };
       case "admin-dashboard":
         return {
-          title: "Admin Portal Console | Tech Soko Kenya",
-          description: "Confidential administration console. Manage product assets, bulk ingest inventory CSV, and process customer price drop signals.",
-          keywords: "Admin management console, inventory CSV ingestion, Kenya Daraja API"
+          title: "Management Console & Stock Control | Tech Sokoni Kenya",
+          description: "Confidential store administration console for managing inventory catalog, CSV imports, and WhatsApp webhook notifications.",
+          keywords: "Tech Sokoni admin console, catalog inventory manager, Kenya Daraja API integration",
+          image: defaultSiteImage,
+          url: "https://techsokoni.com/admin-dashboard",
+          type: "website"
         };
       case "news":
         return {
-          title: "Kenya Technology & Hardware Blog | Tech Soko Kenya",
-          description: "Inside coverage on global computer imports, KRA customs clearance procedures, and Nairobi hardware price forecasts.",
-          keywords: "Kenya tech blogs, Nairobi computers price drop forecasts, customs gadgets Nairobi"
+          title: "Kenya Tech Insights & Hardware News | Tech Sokoni Kenya",
+          description: "Stay informed on global computer import trends, KRA customs clearance guidelines, and Nairobi electronics price drop analysis.",
+          keywords: "Kenya tech blogs, Nairobi computer market trends, KRA tech import guides, Nairobi gadgets blog",
+          image: defaultSiteImage,
+          url: "https://techsokoni.com/news",
+          type: "article"
         };
       default:
         return {
-          title: "Tech Soko Kenya | High-Performance Electronics",
-          description: "Premium computer imports, electronics, and accessories along Kenyatta Avenue, Nairobi. Fast Safaricom M-Pesa checkout."
+          title: "Tech Sokoni Kenya | High-Performance Electronics",
+          description: "Premium computer imports, enterprise electronics, and accessories along Kenyatta Avenue, Nairobi. Fast Safaricom M-Pesa checkout.",
+          keywords: "Tech Sokoni Kenya, laptops Nairobi, M-Pesa electronics",
+          image: defaultSiteImage,
+          url: "https://techsokoni.com/",
+          type: "website"
         };
     }
   }, [activeView]);
@@ -502,7 +528,15 @@ function StoreLayout() {
   return (
     <div className="min-h-screen bg-[#0A0A0A] flex flex-col text-[#E0E0E0] font-sans selection:bg-[#C5A059]/20 selection:text-[#C5A059]">
       {/* Dynamic SEO Meta Header element */}
-      <Helmet title={seoData.title} description={seoData.description} keywords={seoData.keywords} />
+      <Helmet 
+        title={seoData.title} 
+        description={seoData.description} 
+        keywords={seoData.keywords}
+        image={seoData.image}
+        url={seoData.url}
+        type={seoData.type}
+        product={activeProduct}
+      />
 
       {/* Real-time Order Status Notifications overlay */}
       <NotificationCenter />

@@ -4,9 +4,13 @@ import { motion, AnimatePresence } from "motion/react";
 
 export default function BackToTop() {
   const [isVisible, setIsVisible] = useState(false);
+  const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
 
   useEffect(() => {
     const toggleVisibility = () => {
+      const aiPanel = document.getElementById("ai-advisor-panel");
+      setIsAiPanelOpen(!!aiPanel);
+
       if (window.scrollY > 250) {
         setIsVisible(true);
       } else {
@@ -15,10 +19,22 @@ export default function BackToTop() {
     };
 
     window.addEventListener("scroll", toggleVisibility, { passive: true });
-    // Check initial scroll position
+    
+    // MutationObserver to detect when #ai-advisor-panel is opened or closed
+    const observer = new MutationObserver(() => {
+      const aiPanel = document.getElementById("ai-advisor-panel");
+      setIsAiPanelOpen(!!aiPanel);
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    // Check initial status
     toggleVisibility();
 
-    return () => window.removeEventListener("scroll", toggleVisibility);
+    return () => {
+      window.removeEventListener("scroll", toggleVisibility);
+      observer.disconnect();
+    };
   }, []);
 
   const scrollToTop = () => {
@@ -35,6 +51,8 @@ export default function BackToTop() {
     if (document.body) document.body.scrollTop = 0;
   };
 
+  if (isAiPanelOpen) return null;
+
   return (
     <AnimatePresence>
       {isVisible && (
@@ -46,11 +64,11 @@ export default function BackToTop() {
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
           onClick={scrollToTop}
-          className="fixed bottom-6 right-6 z-40 bg-[#C5A059] hover:bg-[#b08e4d] text-black rounded-full p-3.5 shadow-2xl border border-white/20 flex items-center justify-center cursor-pointer transition-all group"
+          className="fixed bottom-22 right-6 z-30 sm:bottom-24 bg-[#C5A059] hover:bg-[#b08e4d] text-black rounded-full p-3 shadow-2xl border border-white/20 flex items-center justify-center cursor-pointer transition-all group"
           title="Return to Top"
           aria-label="Return to Top"
         >
-          <ArrowUp className="w-5 h-5 stroke-[2.5] group-hover:-translate-y-0.5 transition-transform" />
+          <ArrowUp className="w-4 h-4 stroke-[2.5] group-hover:-translate-y-0.5 transition-transform" />
           <span className="sr-only">Return to Top</span>
         </motion.button>
       )}

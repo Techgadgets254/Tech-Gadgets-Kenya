@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { useStore } from "../StoreContext";
 import { Product } from "../types";
+import Markdown from "react-markdown";
+import { cleanAiMarkdown } from "../lib/cleanAiMarkdown";
 import { 
   X, 
   GitCompare, 
@@ -367,8 +369,21 @@ Provide a concise, professional comparison with:
                 </div>
 
                 {aiAnalysis && (
-                  <div className="bg-black/60 border border-white/10 rounded-xl p-4 text-xs leading-relaxed text-white/90 whitespace-pre-wrap font-sans">
-                    {aiAnalysis}
+                  <div className="bg-black/60 border border-white/10 rounded-xl p-4 text-xs leading-relaxed text-white/90 font-sans markdown-body">
+                    <Markdown
+                      components={{
+                        h1: ({ node, ...props }) => <h1 className="text-sm font-bold text-white mb-2 mt-3" {...props} />,
+                        h2: ({ node, ...props }) => <h2 className="text-xs font-bold text-[#C5A059] mb-1.5 mt-2.5" {...props} />,
+                        h3: ({ node, ...props }) => <h3 className="text-[11px] font-bold text-[#C5A059] mb-1 mt-2" {...props} />,
+                        p: ({ node, ...props }) => <p className="mb-2 last:mb-0 leading-relaxed text-white/90" {...props} />,
+                        ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-2 space-y-1 text-white/85" {...props} />,
+                        ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2 space-y-1 text-white/85" {...props} />,
+                        li: ({ node, ...props }) => <li className="text-xs leading-relaxed" {...props} />,
+                        strong: ({ node, ...props }) => <strong className="font-bold text-[#C5A059]" {...props} />,
+                      }}
+                    >
+                      {cleanAiMarkdown(aiAnalysis)}
+                    </Markdown>
                   </div>
                 )}
               </div>

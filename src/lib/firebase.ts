@@ -99,11 +99,23 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 // CRITICAL CONSTRAINT: Validate Connection to Firestore on initial boot
 async function testConnection() {
   try {
-    await getDocFromServer(doc(db, "test", "connection"));
+    const connectionTest = getDocFromServer(doc(db, "test", "connection"));
+    const timeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("Connection test timed out")), 3000)
+    );
+    await Promise.race([connectionTest, timeout]);
   } catch (error) {
-    if (error instanceof Error && error.message.includes("the client is offline")) {
-      console.error("Please check your Firebase configuration. Client is offline.");
+    if (error instanceof Error) {
+      if (
+        error.message.includes("offline") || 
+        error.message.includes("Could not reach Cloud Firestore") || 
+        error.message.includes("timed out")
+      ) {
+        console.warn("[Firebase] Client operating in offline cache mode or initial connection deferred.");
+        return;
+      }
     }
+    console.warn("[Firebase Connection Check]", error);
   }
 }
 testConnection();

@@ -459,6 +459,51 @@ Where "id_1, id_2" are the raw matching IDs of the products from the live databa
   }
 });
 
+app.post("/api/gemini/analyze-comparison", async (req, res) => {
+  if (!ai) {
+    return res.status(500).json({ error: "Gemini API key is not configured on the server." });
+  }
+
+  const { products } = req.body;
+  if (!Array.isArray(products) || products.length < 2) {
+    return res.status(400).json({ error: "At least 2 products are required for comparison." });
+  }
+
+  try {
+    const prompt = `Compare these ${products.length} electronic products side-by-side for a buyer in Kenya:
+${products.map((p: any, idx: number) => `
+Product ${idx + 1}: ${p.brand || ""} ${p.name || ""}
+Price: KES ${p.price ? Number(p.price).toLocaleString() : "N/A"}
+Category: ${p.category || "Electronics"}
+Specifications: ${JSON.stringify(p.specs || p.specifications || {})}
+`).join("\n")}
+
+Provide a concise, highly polished, professional comparison:
+1. Executive Verdict (Which offers best performance and value per KES)
+2. Key Strengths & Target User for each product
+3. Final Purchasing Recommendation.
+
+CRITICAL FORMATTING RULES:
+- Format cleanly using Markdown with bold titles and clean bullet points.
+- Do NOT output raw asterisks as star ratings or orphan double colons like "**:" or "**: **".
+- Write clean, professional, human-readable text.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        temperature: 0.3,
+      }
+    });
+
+    const analysis = response.text || "Comparison analysis completed.";
+    res.json({ analysis });
+  } catch (error: any) {
+    console.error("Gemini Comparison Error:", error);
+    res.status(500).json({ error: error.message || "Failed to generate comparison analysis." });
+  }
+});
+
 app.post("/api/ai/describe", async (req, res) => {
   if (!ai) {
     return res.status(500).json({ error: "Gemini API key is not configured on the server." });
@@ -723,6 +768,7 @@ Please log in to the TechSokoni Admin Portal to verify payment and process dispa
 });
 
 app.get("/api/whatsapp/notifications", async (req, res) => {
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   try {
     let notifications: any[] = [];
     

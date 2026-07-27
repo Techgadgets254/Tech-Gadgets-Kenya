@@ -9,10 +9,11 @@ interface HelmetProps {
   keywords?: string;
   image?: string;
   url?: string;
+  type?: string;
   product?: Product;
 }
 
-export function Helmet({ title, description, keywords, image, url, product }: HelmetProps) {
+export function Helmet({ title, description, keywords, image, url, type, product }: HelmetProps) {
   const [googleSiteVerification, setGoogleSiteVerification] = useState("");
 
   useEffect(() => {
@@ -34,7 +35,7 @@ export function Helmet({ title, description, keywords, image, url, product }: He
   }, []);
 
   useEffect(() => {
-    const defaultDesc = "Tech Sokoni Kenya provides premium laptops, desktops, and accessories along Kenyatta Avenue, Nairobi.";
+    const defaultDesc = "Tech Sokoni Kenya provides premium laptops, desktops, and accessories along Kenyatta Avenue, Nairobi with instant Lipa Na M-Pesa delivery.";
     
     // Dynamically derive attributes based on product data if present
     const activeTitle = product ? `${product.name} | Tech Sokoni Kenya` : title;
@@ -48,11 +49,12 @@ export function Helmet({ title, description, keywords, image, url, product }: He
     }
     const activeImage = productImgUrl || image || "https://techsokoni.com/src/assets/images/tech_soko_logo_1783961449391.jpg";
     const activeUrl = product ? `https://techsokoni.com/product/${product.id}` : (url || window.location.href);
+    const activeType = product ? "product" : (type || "website");
 
     // 1. Update Browser Dynamic Document Title
     document.title = activeTitle;
 
-    // Helper helper to set or create meta property/name tags
+    // Helper to set or create meta property/name tags
     const setMetaTag = (attributeName: "name" | "property", value: string, content: string) => {
       let element = document.querySelector(`meta[${attributeName}="${value}"]`);
       if (!element) {
@@ -73,18 +75,23 @@ export function Helmet({ title, description, keywords, image, url, product }: He
       setMetaTag("name", "keywords", keywords);
     }
 
-    // 3. OpenGraph tags
+    // 3. OpenGraph tags (Optimized for WhatsApp, Facebook, LinkedIn previews)
     setMetaTag("property", "og:title", activeTitle);
     setMetaTag("property", "og:description", activeDesc);
     setMetaTag("property", "og:image", activeImage);
+    setMetaTag("property", "og:image:secure_url", activeImage);
     setMetaTag("property", "og:url", activeUrl);
-    setMetaTag("property", "og:type", "product");
+    setMetaTag("property", "og:type", activeType);
+    setMetaTag("property", "og:site_name", "Tech Sokoni Kenya");
+    setMetaTag("property", "og:locale", "en_KE");
 
     // 4. Twitter Card tags
     setMetaTag("name", "twitter:card", "summary_large_image");
     setMetaTag("name", "twitter:title", activeTitle);
     setMetaTag("name", "twitter:description", activeDesc);
     setMetaTag("name", "twitter:image", activeImage);
+    setMetaTag("name", "twitter:site", "@TechSokoniKE");
+    setMetaTag("name", "twitter:creator", "@TechSokoniKE");
 
     // 5. Dynamic JSON-LD structured data injection for Product Crawling
     if (product) {
