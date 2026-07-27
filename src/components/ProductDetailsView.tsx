@@ -1064,10 +1064,18 @@ export default function ProductDetailsView() {
 
                   <button
                     type="button"
-                    onClick={async () => {
-                      const res = await SocialShareManager.share({ product, platform: "native" });
-                      if (res.method === "clipboard" && res.message) {
-                        alert(res.message);
+                    onClick={() => {
+                      const shareText = `Check out ${product.name} (KES ${product.price.toLocaleString()}) at Tech Soko Kenya!`;
+                      const shareUrl = `${window.location.origin}/?product=${product.id}`;
+                      if (navigator.share) {
+                        navigator.share({
+                          title: product.name,
+                          text: shareText,
+                          url: shareUrl,
+                        }).catch(() => {});
+                      } else {
+                        navigator.clipboard.writeText(`${shareText}\nLink: ${shareUrl}`);
+                        alert("Product details copied to system clipboard!");
                       }
                     }}
                     className="bg-white/5 border border-white/10 text-white hover:bg-white/10 px-4 py-3.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
@@ -1077,48 +1085,18 @@ export default function ProductDetailsView() {
                     <span>Share</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => SocialShareManager.share({ product, platform: "twitter" })}
-                    className="bg-[#1DA1F2]/10 border border-[#1DA1F2]/30 text-[#1DA1F2] hover:bg-[#1DA1F2]/20 px-3.5 py-3.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
-                    title="Share on Twitter / X"
-                  >
-                    <Twitter className="w-4 h-4 text-[#1DA1F2]" />
-                    <span>X / Tweet</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => SocialShareManager.share({ product, platform: "facebook" })}
-                    className="bg-[#1877F2]/10 border border-[#1877F2]/30 text-[#1877F2] hover:bg-[#1877F2]/20 px-3.5 py-3.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
-                    title="Share on Facebook"
-                  >
-                    <Facebook className="w-4 h-4 text-[#1877F2]" />
-                    <span>Facebook</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const res = await SocialShareManager.share({ product, platform: "instagram" });
-                      if (res.message) alert(res.message);
-                    }}
-                    className="bg-[#E4405F]/10 border border-[#E4405F]/30 text-[#E4405F] hover:bg-[#E4405F]/20 px-3.5 py-3.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
-                    title="Share on Instagram"
-                  >
-                    <Instagram className="w-4 h-4 text-[#E4405F]" />
-                    <span>Instagram</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => SocialShareManager.share({ product, platform: "whatsapp" })}
-                    className="bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/20 px-3.5 py-3.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                  <a
+                    href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                      `Check out this premium gadget on Tech Soko Kenya: *${product.name}* (${product.brand} - ${product.category})!\n\n💰 Price: KES ${product.price.toLocaleString()}\n📦 Stock: ${product.stock} units available\n\nTake a look here: ${window.location.origin}/?product=${product.id}`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/20 px-4 py-3.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
                     title="Share directly via WhatsApp"
                   >
                     <MessageCircle className="w-4 h-4 text-[#25D366]" />
                     <span>WhatsApp</span>
-                  </button>
+                  </a>
                 </div>
               </div>
             </div>
