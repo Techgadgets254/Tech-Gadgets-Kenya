@@ -31,6 +31,7 @@ import {
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from "./firebase";
 import { Product, Order, OrderItem, UserProfile, Affiliate, ProductReview, TransactionFeedback, CompanyProfile, CartToast } from "./types";
 import { DEFAULT_PRODUCTS } from "./data";
+import { normalizeBrandName } from "./lib/brandUtils";
 
 interface ToastNotification {
   id: string;
@@ -688,7 +689,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         snapshot.forEach((d) => {
           const data = d.data();
           if (data.deleted !== true) {
-            items.push({ id: d.id, ...data } as Product);
+            items.push({
+              id: d.id,
+              ...data,
+              brand: normalizeBrandName(data.brand || "Generic"),
+            } as Product);
           }
         });
         
@@ -699,6 +704,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const fallbackProducts = DEFAULT_PRODUCTS.map((item, i) => ({
             id: `default-${i}`,
             ...item,
+            brand: normalizeBrandName(item.brand),
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           })) as Product[];
@@ -717,6 +723,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               for (const item of DEFAULT_PRODUCTS) {
                 await addDoc(productsColRef, {
                   ...item,
+                  brand: normalizeBrandName(item.brand),
                   createdAt: new Date().toISOString(),
                   updatedAt: new Date().toISOString(),
                 });
@@ -735,6 +742,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               missingDefaults.push({
                 id: `default-apple-${idx}`,
                 ...dp,
+                brand: normalizeBrandName(dp.brand),
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
               } as Product);
@@ -1247,6 +1255,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     try {
       await addDoc(collection(db, "products"), {
         ...productData,
+        brand: normalizeBrandName(productData.brand || "Generic"),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
@@ -1259,10 +1268,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const editProduct = async (id: string, productData: Partial<Product>) => {
     try {
       const productRef = doc(db, "products", id);
-      await updateDoc(productRef, {
+      const updates: any = {
         ...productData,
         updatedAt: new Date().toISOString(),
-      });
+      };
+      if (productData.brand) {
+        updates.brand = normalizeBrandName(productData.brand);
+      }
+      await updateDoc(productRef, updates);
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `products/${id}`);
     }
@@ -1596,7 +1609,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        const brand = row[idxBrand] || "Generic";
+        const brand = normalizeBrandName(row[idxBrand] || "Generic");
         const rawCategory = row[idxCategory] || "Laptops";
         
         let category: Product["category"] = "Laptops";

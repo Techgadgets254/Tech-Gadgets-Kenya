@@ -96,22 +96,22 @@ export default function Pagination({
         <button
           disabled={currentPage === 1}
           onClick={() => handlePageSelect(1)}
-          className="p-1.5 rounded-lg border border-white/10 hover:border-[#C5A059]/40 hover:text-[#C5A059] disabled:opacity-30 disabled:hover:text-white/40 disabled:hover:border-white/10 transition-all cursor-pointer bg-[#0F0F0F] text-white active:scale-95 flex items-center justify-center"
+          className="min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 p-2 sm:p-1.5 rounded-lg border border-white/10 hover:border-[#C5A059]/40 hover:text-[#C5A059] disabled:opacity-30 disabled:hover:text-white/40 disabled:hover:border-white/10 transition-all cursor-pointer bg-[#0F0F0F] text-white active:scale-95 flex items-center justify-center"
           title="First Page"
           id="pagination-first-btn"
         >
-          <ChevronsLeft className="w-3.5 h-3.5" />
+          <ChevronsLeft className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
         </button>
 
         {/* Prev Page */}
         <button
           disabled={currentPage === 1}
           onClick={() => handlePageSelect(currentPage - 1)}
-          className="px-2.5 py-1.5 rounded-lg border border-white/10 hover:border-[#C5A059]/40 hover:text-[#C5A059] disabled:opacity-30 disabled:hover:text-white/40 disabled:hover:border-white/10 transition-all cursor-pointer bg-[#0F0F0F] text-white active:scale-95 flex items-center gap-1 font-bold uppercase tracking-wider text-[10px]"
+          className="min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 px-3 py-2 sm:px-2.5 sm:py-1.5 rounded-lg border border-white/10 hover:border-[#C5A059]/40 hover:text-[#C5A059] disabled:opacity-30 disabled:hover:text-white/40 disabled:hover:border-white/10 transition-all cursor-pointer bg-[#0F0F0F] text-white active:scale-95 flex items-center gap-1 font-bold uppercase tracking-wider text-[11px] sm:text-[10px]"
           title="Previous Page"
           id="pagination-prev-btn"
         >
-          <ChevronLeft className="w-3 h-3" />
+          <ChevronLeft className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
           <span className="hidden xs:inline">Prev</span>
         </button>
         
@@ -121,7 +121,7 @@ export default function Pagination({
             return (
               <span 
                 key={`ellipsis-${index}`} 
-                className="w-7 h-7 flex items-center justify-center text-white/30 select-none font-bold"
+                className="w-8 h-8 sm:w-7 sm:h-7 flex items-center justify-center text-white/30 select-none font-bold"
               >
                 ...
               </span>
@@ -133,7 +133,7 @@ export default function Pagination({
             <button
               key={`page-${page}`}
               onClick={() => handlePageSelect(page as number)}
-              className={`w-7 h-7 rounded-lg text-[10px] font-bold transition-all border cursor-pointer active:scale-95 flex items-center justify-center relative ${
+              className={`min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 w-11 h-11 sm:w-7 sm:h-7 rounded-lg text-xs sm:text-[10px] font-bold transition-all border cursor-pointer active:scale-95 flex items-center justify-center relative ${
                 isSelected
                   ? "bg-[#C5A059] text-black border-[#C5A059] font-extrabold shadow-md"
                   : "bg-[#0F0F0F] text-white border-white/10 hover:border-[#C5A059]/40 hover:text-[#C5A059]"
@@ -158,23 +158,23 @@ export default function Pagination({
         <button
           disabled={currentPage === totalPages}
           onClick={() => handlePageSelect(currentPage + 1)}
-          className="px-2.5 py-1.5 rounded-lg border border-white/10 hover:border-[#C5A059]/40 hover:text-[#C5A059] disabled:opacity-30 disabled:hover:text-white/40 disabled:hover:border-white/10 transition-all cursor-pointer bg-[#0F0F0F] text-white active:scale-95 flex items-center gap-1 font-bold uppercase tracking-wider text-[10px]"
+          className="min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 px-3 py-2 sm:px-2.5 sm:py-1.5 rounded-lg border border-white/10 hover:border-[#C5A059]/40 hover:text-[#C5A059] disabled:opacity-30 disabled:hover:text-white/40 disabled:hover:border-white/10 transition-all cursor-pointer bg-[#0F0F0F] text-white active:scale-95 flex items-center gap-1 font-bold uppercase tracking-wider text-[11px] sm:text-[10px]"
           title="Next Page"
           id="pagination-next-btn"
         >
           <span className="hidden xs:inline">Next</span>
-          <ChevronRight className="w-3 h-3" />
+          <ChevronRight className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
         </button>
 
         {/* Last Page */}
         <button
           disabled={currentPage === totalPages}
           onClick={() => handlePageSelect(totalPages)}
-          className="p-1.5 rounded-lg border border-white/10 hover:border-[#C5A059]/40 hover:text-[#C5A059] disabled:opacity-30 disabled:hover:text-white/40 disabled:hover:border-white/10 transition-all cursor-pointer bg-[#0F0F0F] text-white active:scale-95 flex items-center justify-center"
+          className="min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 p-2 sm:p-1.5 rounded-lg border border-white/10 hover:border-[#C5A059]/40 hover:text-[#C5A059] disabled:opacity-30 disabled:hover:text-white/40 disabled:hover:border-white/10 transition-all cursor-pointer bg-[#0F0F0F] text-white active:scale-95 flex items-center justify-center"
           title="Last Page"
           id="pagination-last-btn"
         >
-          <ChevronsRight className="w-3.5 h-3.5" />
+          <ChevronsRight className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
         </button>
       </div>
     </div>

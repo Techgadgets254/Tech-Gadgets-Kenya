@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useStore } from "../StoreContext";
 import Pagination from "./Pagination";
 import LazyImage from "./LazyImage";
+import { normalizeBrandName } from "../lib/brandUtils";
 import { 
   SlidersHorizontal, 
   RotateCcw, 
@@ -114,22 +115,6 @@ function highlightText(text: string, highlight: string) {
   } catch (error) {
     return <span>{text}</span>;
   }
-}
-
-function normalizeBrandName(brand: string): string {
-  if (!brand) return "Unknown";
-  const b = brand.trim().toLowerCase();
-  if (b === "hp") return "HP";
-  if (b === "lenovo") return "Lenovo";
-  if (b === "dell") return "Dell";
-  if (b === "samsung") return "Samsung";
-  if (b === "epson") return "Epson";
-  if (b === "anker") return "Anker";
-  if (b === "xiaomi") return "Xiaomi";
-  if (b === "huawei") return "Huawei";
-  if (b === "asus") return "Asus";
-  if (b === "acer") return "Acer";
-  return brand.trim().charAt(0).toUpperCase() + brand.trim().slice(1);
 }
 
 function ProductImageMagnifier({ src, alt }: { src: string; alt: string }) {
@@ -905,10 +890,10 @@ export default function ShopView() {
               </span>
               <button 
                 onClick={resetFilters} 
-                className="text-[11px] font-semibold text-white/40 hover:text-[#C5A059] hover:bg-white/[0.04] px-2 py-1 rounded-md border border-white/10 flex items-center gap-1 transition-all cursor-pointer"
+                className="text-xs font-semibold text-white/40 hover:text-[#C5A059] hover:bg-white/[0.04] min-h-[44px] px-3 py-2 rounded-xl border border-white/10 flex items-center gap-1.5 transition-all cursor-pointer"
                 title="Reset active filtering parameters"
               >
-                <RotateCcw className="w-3 h-3" />
+                <RotateCcw className="w-3.5 h-3.5" />
                 Reset
               </button>
             </div>
@@ -917,17 +902,17 @@ export default function ShopView() {
             <div className="mb-5 bg-white/[0.02] border border-white/5 rounded-xl p-3">
               <button
                 onClick={() => setOnlyShowWishlist(!onlyShowWishlist)}
-                className={`w-full flex items-center justify-between text-xs font-semibold py-2 px-3 rounded-lg transition-all cursor-pointer ${
+                className={`w-full min-h-[44px] flex items-center justify-between text-xs font-semibold py-2.5 px-3.5 rounded-xl transition-all cursor-pointer ${
                   onlyShowWishlist 
                     ? "bg-[#C5A059] text-black" 
                     : "bg-white/[0.04] text-white/70 hover:bg-[#C5A059]/15 hover:text-[#C5A059]"
                 }`}
               >
                 <span className="flex items-center gap-1.5">
-                  <Heart className={`w-3.5 h-3.5 ${onlyShowWishlist ? "fill-current" : ""}`} />
+                  <Heart className={`w-4 h-4 ${onlyShowWishlist ? "fill-current" : ""}`} />
                   Saved Wishlist
                 </span>
-                <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded-md ${
+                <span className={`font-mono text-xs px-2 py-0.5 rounded-md ${
                   onlyShowWishlist ? "bg-black/20 text-black font-extrabold" : "bg-white/5 text-white/40"
                 }`}>
                   {wishlist.length}
@@ -948,14 +933,14 @@ export default function ShopView() {
                       setSelectedMainCategory(cat);
                       setSelectedBrand("All"); // Reset brand selection when category changes
                     }}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-all flex items-center justify-between cursor-pointer ${
+                    className={`w-full min-h-[44px] text-left px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all flex items-center justify-between cursor-pointer ${
                       selectedMainCategory === cat
-                        ? "bg-[#C5A059]/10 text-[#C5A059] font-bold border-l-2 border-[#C5A059] pl-2.5"
+                        ? "bg-[#C5A059]/10 text-[#C5A059] font-bold border-l-2 border-[#C5A059] pl-3"
                         : "text-white/60 hover:bg-white/[0.02] hover:text-white"
                     }`}
                   >
                     <span>{cat === "All" ? "All Electronics" : cat}</span>
-                    <span className="font-mono text-[10px] bg-white/[0.04] text-white/40 px-1.5 py-0.5 rounded-md">
+                    <span className="font-mono text-xs bg-white/[0.04] text-white/40 px-2 py-0.5 rounded-md">
                       {cat === "All" 
                         ? products.length 
                         : products.filter(p => getProductMainCategory(p.category) === cat).length
@@ -976,7 +961,7 @@ export default function ShopView() {
                   <button
                     key={cond}
                     onClick={() => setSelectedCondition(cond)}
-                    className={`text-[10px] font-mono py-2 rounded-lg font-bold cursor-pointer transition-all uppercase ${
+                    className={`min-h-[44px] flex items-center justify-center text-xs font-mono py-2 rounded-lg font-bold cursor-pointer transition-all uppercase ${
                       selectedCondition === cond
                         ? "bg-[#C5A059] text-black shadow-md font-extrabold"
                         : "text-white/40 hover:text-white hover:bg-white/[0.02]"
@@ -993,10 +978,10 @@ export default function ShopView() {
                   onClick={() => {
                     setSelectedCondition(prev => prev === "New" ? "Refurbished" : "New");
                   }}
-                  className="w-full bg-white/[0.03] hover:bg-white/[0.08] text-white border border-white/10 hover:border-[#C5A059]/30 rounded-xl py-2 px-3 text-[10.5px] font-mono transition-all flex items-center justify-center gap-1.5 group cursor-pointer"
+                  className="w-full min-h-[44px] bg-white/[0.03] hover:bg-white/[0.08] text-white border border-white/10 hover:border-[#C5A059]/30 rounded-xl py-2.5 px-3.5 text-xs font-mono transition-all flex items-center justify-center gap-2 group cursor-pointer"
                   title="Swap condition filter instantly"
                 >
-                  <ArrowUpDown className="w-3 h-3 text-[#C5A059] group-hover:rotate-180 transition-transform duration-300" />
+                  <ArrowUpDown className="w-3.5 h-3.5 text-[#C5A059] group-hover:rotate-180 transition-transform duration-300" />
                   <span>Condition Quick-Switch ({selectedCondition === "New" ? "Refurbished" : "New"})</span>
                 </button>
               </div>
@@ -1012,7 +997,7 @@ export default function ShopView() {
                   <button
                     key={brand}
                     onClick={() => setSelectedBrand(brand)}
-                    className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                    className={`w-full min-h-[44px] flex items-center text-left px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
                       selectedBrand === brand
                         ? "bg-[#C5A059] text-black font-semibold"
                         : "text-white/50 hover:bg-white/[0.02] hover:text-white"
@@ -1364,30 +1349,30 @@ export default function ShopView() {
                         />
                         
                         {/* Interactive floating Wishlist and Compare Buttons */}
-                        <div className="absolute top-2.5 right-2.5 flex gap-1.5 z-10">
+                        <div className="absolute top-2.5 right-2.5 flex gap-2 z-10">
                           <button 
                             onClick={(e) => { e.stopPropagation(); toggleWishlist(p.id); }}
-                            className={`p-1.5 rounded-lg border backdrop-blur-xs cursor-pointer transition-all ${
+                            className={`min-w-[44px] min-h-[44px] p-2.5 rounded-xl border backdrop-blur-xs cursor-pointer transition-all flex items-center justify-center ${
                               wishlist.includes(p.id)
                                 ? "bg-[#C5A059] text-black border-[#C5A059]"
                                 : "bg-black/60 text-white/70 border-white/10 hover:text-white"
                             }`}
                             title={wishlist.includes(p.id) ? "Remove from wishlist" : "Add to wishlist"}
                           >
-                            <Heart className="w-3.5 h-3.5 fill-current" />
+                            <Heart className="w-4 h-4 fill-current" />
                           </button>
                           
                           <div className="relative group/compare flex items-center justify-center">
                             <button 
                               onClick={(e) => { e.stopPropagation(); toggleCompare(p); }}
-                              className={`p-1.5 rounded-lg border backdrop-blur-xs cursor-pointer transition-all ${
+                              className={`min-w-[44px] min-h-[44px] p-2.5 rounded-xl border backdrop-blur-xs cursor-pointer transition-all flex items-center justify-center ${
                                 compareList.some(item => item.id === p.id)
                                   ? "bg-white text-black border-white"
                                   : "bg-black/60 text-white/70 border-white/10 hover:text-white"
                               }`}
                               title={compareList.some(item => item.id === p.id) ? "Selected for comparison (Limit 3)" : "Compare with other hardware (Limit 3)"}
                             >
-                              <Scale className="w-3.5 h-3.5" />
+                              <Scale className="w-4 h-4" />
                             </button>
                             {/* Hover Tooltip explaining the 3 products maximum limit */}
                             <div className="absolute right-0 bottom-full mb-2.5 hidden group-hover/compare:block bg-[#0F0F0F] text-[9px] font-mono text-white/90 px-2 py-1.5 rounded shadow-xl border border-white/10 w-44 text-center pointer-events-none z-50 animate-fadeIn">
@@ -1495,13 +1480,13 @@ export default function ShopView() {
                               e.stopPropagation();
                               toggleExpandSpecs(p.id);
                             }}
-                            className="text-[10px] text-[#C5A059] font-mono hover:text-white transition-colors flex items-center justify-between w-full leading-none mb-3 cursor-pointer"
+                            className="min-h-[44px] text-xs text-[#C5A059] font-mono hover:text-white transition-colors flex items-center justify-between w-full mb-2 cursor-pointer px-1 py-2"
                           >
-                            <span className="flex items-center gap-1">
-                              <BookOpen className="w-3.5 h-3.5" />
+                            <span className="flex items-center gap-1.5">
+                              <BookOpen className="w-4 h-4" />
                               <span>{expandedProductIds[p.id] ? "Hide technical specifications" : "Reveal technical specifications"}</span>
                             </span>
-                            <span className="text-[12px]">
+                            <span className="text-sm font-bold">
                               {expandedProductIds[p.id] ? "▲" : "▼"}
                             </span>
                           </button>
@@ -1568,15 +1553,15 @@ export default function ShopView() {
                                   }
                                 }
                               }}
-                              className={`font-sans text-[11px] font-semibold px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1 shrink-0 ${
+                              className={`min-h-[44px] font-sans text-xs font-extrabold px-4 py-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
                                 isOutOfStock 
                                   ? "bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25" 
-                                  : "bg-[#C5A059] hover:bg-[#C5A059]/90 text-black"
+                                  : "bg-[#C5A059] hover:bg-[#C5A059]/90 text-black shadow-md"
                               }`}
                             >
                               {isOutOfStock ? (
                                 <>
-                                  <Bell className="w-3 h-3" />
+                                  <Bell className="w-3.5 h-3.5" />
                                   <span>Notify Me</span>
                                 </>
                               ) : (

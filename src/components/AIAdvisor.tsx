@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useStore } from "../StoreContext";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "../firebase";
 import { 
   Sparkles, 
   Send, 
@@ -161,6 +163,21 @@ function RecommendedProductCard({
 export default function AIAdvisor() {
   const { products, compareList, toggleCompare, clearCompareList, addToCart } = useStore();
   const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      try {
+        addDoc(collection(db, "user_activity"), {
+          eventType: "open_ai_chat",
+          timestamp: serverTimestamp(),
+          userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
+          createdAt: new Date().toISOString()
+        });
+      } catch (e) {
+        console.warn("Could not log AI Chat event to user_activity:", e);
+      }
+    }
+  }, [isOpen]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [chatHistory, setChatHistory] = useState<{ role: "user" | "assistant"; content: string }[]>([

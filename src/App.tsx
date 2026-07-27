@@ -22,6 +22,7 @@ import AIAdvisor from "./components/AIAdvisor";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { Helmet } from "./components/Helmet";
 import { useDynamicSeo } from "./hooks/useDynamicSeo";
+import { useUserActivityTracker } from "./hooks/useUserActivityTracker";
 import AuthModal from "./components/AuthModal";
 import ProductComparisonOverlay from "./components/ProductComparisonOverlay";
 import FloatingCompareBar from "./components/FloatingCompareBar";
@@ -144,7 +145,11 @@ function AdminDashboardSkeleton() {
 }
 
 function StoreLayout() {
-  const { activeView, authLoading, isAuthModalOpen, selectedProductId, products, setActiveView } = useStore();
+  const { activeView, authLoading, isAuthModalOpen, selectedProductId, products, cart, setActiveView } = useStore();
+
+  const cartCount = React.useMemo(() => {
+    return cart ? cart.reduce((sum, item) => sum + item.quantity, 0) : 0;
+  }, [cart]);
   const [isWhatsAppVisible, setIsWhatsAppVisible] = React.useState(true);
   const [isMicroMenuOpen, setIsMicroMenuOpen] = React.useState(() => {
     try {
@@ -291,6 +296,9 @@ function StoreLayout() {
   }, [activeView, selectedProductId, products]);
 
   const seoData = useDynamicSeo(activeView, activeProduct);
+
+  // Firestore user activity interaction tracking hook
+  useUserActivityTracker(activeView, activeProduct || null, cartCount, false);
 
   const whatsappUrl = React.useMemo(() => {
     const phone = "254792620789";
