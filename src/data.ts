@@ -111,6 +111,72 @@ export const DEFAULT_PRODUCTS: Omit<Product, "id">[] = [
     }
   },
   {
+    name: "Apple MacBook Pro 14\" M3 Pro",
+    brand: "Apple",
+    category: "New Laptops",
+    price: 310000,
+    stock: 8,
+    description: "Compact high-performance workstation for mobile creators. Apple M3 Pro 11-core CPU, 14-core GPU, 18GB Unified Memory, 512GB SSD. 14.2-inch Liquid Retina XDR 120Hz display.",
+    image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=600",
+    specifications: {
+      "Processor": "Apple M3 Pro (11-Core CPU, 14-Core GPU)",
+      "Unified Memory": "18GB Unified RAM",
+      "Storage": "512GB PCIe NVMe SSD",
+      "Display": "14.2-inch Liquid Retina XDR, 3024x1964, 120Hz ProMotion",
+      "Ports": "3x Thunderbolt 4, HDMI, SDXC, MagSafe 3",
+      "Color": "Space Black / Silver"
+    }
+  },
+  {
+    name: "Apple MacBook Air 15\" M3",
+    brand: "Apple",
+    category: "New Laptops",
+    price: 198000,
+    stock: 12,
+    description: "Impressively big, impossibly thin. 15.3-inch Liquid Retina display, Apple M3 8-core CPU / 10-core GPU, 16GB Unified RAM, 512GB SSD. MagSafe 3 charging and 18-hour battery life.",
+    image: "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&q=80&w=600",
+    specifications: {
+      "Processor": "Apple M3 (8-Core CPU, 10-Core GPU)",
+      "Unified Memory": "16GB Unified RAM",
+      "Storage": "512GB High-Speed SSD",
+      "Display": "15.3-inch Liquid Retina, 500 nits",
+      "Battery": "Up to 18 hours battery life",
+      "Audio": "Six-speaker sound system with Spatial Audio"
+    }
+  },
+  {
+    name: "Apple iPhone 15 128GB",
+    brand: "Apple",
+    category: "New Phones",
+    price: 128000,
+    stock: 15,
+    description: "Brand-new factory sealed iPhone 15 with Dynamic Island, 48MP main camera with 2x Telephoto, color-infused glass design, and USB-C connector.",
+    image: "https://images.unsplash.com/photo-1695048133142-1a20484d2569?auto=format&fit=crop&q=80&w=600",
+    specifications: {
+      "Processor": "Apple A16 Bionic",
+      "Camera": "48MP Main | 12MP Ultra Wide | 2x Telephoto",
+      "Display": "6.1-inch Super Retina XDR OLED with Dynamic Island",
+      "Storage": "128GB",
+      "Port": "USB-C"
+    }
+  },
+  {
+    name: "Apple AirPods Max Wireless Headphones",
+    brand: "Apple",
+    category: "Accessories",
+    price: 85000,
+    stock: 9,
+    description: "Over-ear computational audio headphones with Active Noise Cancellation, Transparency mode, personalized Spatial Audio, and anodized aluminum ear cups.",
+    image: "https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&q=80&w=600",
+    specifications: {
+      "Audio Driver": "Apple-designed 40mm dynamic transducer",
+      "Chips": "Dual Apple H1 headphone chips (one per ear cup)",
+      "Noise Control": "Active Noise Cancellation + Transparency Mode",
+      "Battery": "Up to 20 hours listening time with ANC enabled",
+      "Case": "Smart Case included"
+    }
+  },
+  {
     name: "Dell XPS 16 Developer Laptop",
     brand: "Dell",
     category: "New Laptops",

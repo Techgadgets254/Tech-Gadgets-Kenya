@@ -7,6 +7,7 @@ import React, { useState, useMemo } from "react";
 import { useStore } from "../StoreContext";
 import LazyImage from "./LazyImage";
 import { Helmet } from "./Helmet";
+import { SocialShareManager } from "../services/SocialShareManager";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { 
   ArrowLeft, 
@@ -20,6 +21,7 @@ import {
   Share2,
   Facebook,
   Twitter,
+  Instagram,
   Bell,
   MessageCircle,
   ChevronDown,
@@ -1062,18 +1064,10 @@ export default function ProductDetailsView() {
 
                   <button
                     type="button"
-                    onClick={() => {
-                      const shareText = `Check out ${product.name} (KES ${product.price.toLocaleString()}) at Tech Soko Kenya!`;
-                      const shareUrl = `${window.location.origin}/?product=${product.id}`;
-                      if (navigator.share) {
-                        navigator.share({
-                          title: product.name,
-                          text: shareText,
-                          url: shareUrl,
-                        }).catch(() => {});
-                      } else {
-                        navigator.clipboard.writeText(`${shareText}\nLink: ${shareUrl}`);
-                        alert("Product details copied to system clipboard!");
+                    onClick={async () => {
+                      const res = await SocialShareManager.share({ product, platform: "native" });
+                      if (res.method === "clipboard" && res.message) {
+                        alert(res.message);
                       }
                     }}
                     className="bg-white/5 border border-white/10 text-white hover:bg-white/10 px-4 py-3.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
@@ -1083,60 +1077,48 @@ export default function ProductDetailsView() {
                     <span>Share</span>
                   </button>
 
-                  <a
-                    href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`🔥 Check out ${product.name} on Tech Sokoni Kenya for KES ${product.price.toLocaleString()}!`)}&url=${encodeURIComponent(`${window.location.origin}/?product=${product.id}`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => SocialShareManager.share({ product, platform: "twitter" })}
                     className="bg-[#1DA1F2]/10 border border-[#1DA1F2]/30 text-[#1DA1F2] hover:bg-[#1DA1F2]/20 px-3.5 py-3.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
                     title="Share on Twitter / X"
                   >
                     <Twitter className="w-4 h-4 text-[#1DA1F2]" />
                     <span>X / Tweet</span>
-                  </a>
+                  </button>
 
-                  <a
-                    href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${window.location.origin}/?product=${product.id}`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => SocialShareManager.share({ product, platform: "facebook" })}
                     className="bg-[#1877F2]/10 border border-[#1877F2]/30 text-[#1877F2] hover:bg-[#1877F2]/20 px-3.5 py-3.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
                     title="Share on Facebook"
                   >
                     <Facebook className="w-4 h-4 text-[#1877F2]" />
                     <span>Facebook</span>
-                  </a>
+                  </button>
 
-                  <a
-                    href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                      `Check out this premium gadget on Tech Soko Kenya: *${product.name}* (${product.brand} - ${product.category})!\n\n💰 Price: KES ${product.price.toLocaleString()}\n📦 Stock: ${product.stock} units available\n\nTake a look here: ${window.location.origin}/?product=${product.id}`
-                    )}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onMouseEnter={() => {
-                      try {
-                        const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
-                        if (AudioCtxClass) {
-                          const audioCtx = new AudioCtxClass();
-                          const osc = audioCtx.createOscillator();
-                          const gain = audioCtx.createGain();
-                          osc.type = "sine";
-                          osc.frequency.setValueAtTime(600, audioCtx.currentTime);
-                          osc.frequency.exponentialRampToValueAtTime(1000, audioCtx.currentTime + 0.12);
-                          gain.gain.setValueAtTime(0, audioCtx.currentTime);
-                          gain.gain.linearRampToValueAtTime(0.015, audioCtx.currentTime + 0.02);
-                          gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.22);
-                          osc.connect(gain);
-                          gain.connect(audioCtx.destination);
-                          osc.start();
-                          osc.stop(audioCtx.currentTime + 0.25);
-                        }
-                      } catch (e) {}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const res = await SocialShareManager.share({ product, platform: "instagram" });
+                      if (res.message) alert(res.message);
                     }}
-                    className="bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/20 px-4 py-3.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all focus:outline-hidden"
+                    className="bg-[#E4405F]/10 border border-[#E4405F]/30 text-[#E4405F] hover:bg-[#E4405F]/20 px-3.5 py-3.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                    title="Share on Instagram"
+                  >
+                    <Instagram className="w-4 h-4 text-[#E4405F]" />
+                    <span>Instagram</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => SocialShareManager.share({ product, platform: "whatsapp" })}
+                    className="bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/20 px-3.5 py-3.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
                     title="Share directly via WhatsApp"
                   >
                     <MessageCircle className="w-4 h-4 text-[#25D366]" />
                     <span>WhatsApp</span>
-                  </a>
+                  </button>
                 </div>
               </div>
             </div>

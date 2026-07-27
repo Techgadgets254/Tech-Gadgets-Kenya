@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useStore } from "../StoreContext";
 import { Product } from "../types";
 import Markdown from "react-markdown";
-import { cleanAiMarkdown } from "../lib/cleanAiMarkdown";
+import { cleanAiMarkdown, stripMarkdownSymbols } from "../lib/cleanAiMarkdown";
 import { 
   X, 
   GitCompare, 
@@ -450,24 +450,29 @@ Provide a concise, professional comparison with:
 
                       {/* Dynamic Specs Rows */}
                       {allSpecKeys.map((key) => {
+                        const cleanKey = stripMarkdownSymbols(key);
                         const values = compareList.map((p) => p.specifications?.[key] || "—");
                         const areDifferent = new Set(values).size > 1 && values.some(v => v !== "—");
 
                         return (
                           <tr key={key} className={areDifferent ? "bg-[#C5A059]/5" : ""}>
                             <td className="p-3 sm:p-4 font-mono text-white/60 font-semibold capitalize flex items-center justify-between">
-                              <span>{key}</span>
+                              <span>{cleanKey}</span>
                               {areDifferent && (
                                 <span className="text-[8px] font-mono text-[#C5A059] bg-[#C5A059]/10 px-1.5 py-0.5 rounded-sm">
                                   Variant
                                 </span>
                               )}
                             </td>
-                            {compareList.map((p) => (
-                              <td key={p.id} className="p-3 sm:p-4 text-white/90 border-l border-white/5 font-sans leading-relaxed">
-                                {p.specifications?.[key] || "—"}
-                              </td>
-                            ))}
+                            {compareList.map((p) => {
+                              const rawVal = p.specifications?.[key] || "—";
+                              const cleanVal = rawVal === "—" ? "—" : stripMarkdownSymbols(rawVal);
+                              return (
+                                <td key={p.id} className="p-3 sm:p-4 text-white/90 border-l border-white/5 font-sans leading-relaxed">
+                                  {cleanVal}
+                                </td>
+                              );
+                            })}
                           </tr>
                         );
                       })}
