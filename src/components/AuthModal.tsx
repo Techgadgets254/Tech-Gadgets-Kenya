@@ -72,6 +72,9 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
   const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
   const [lockoutTimeLeft, setLockoutTimeLeft] = useState<number>(0);
 
+  // Last sent password reset verification code
+  const [lastSentCode, setLastSentCode] = useState<string>("");
+
   const isLight = theme === "light";
 
   // Account lockout countdown timer effect
@@ -239,9 +242,13 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
             const expiryTime = data.expiresAtMs || (Date.now() + 15 * 60 * 1000);
             setResetExpiresAt(expiryTime);
             setResetStep("verify");
+            if (data.code) {
+              setLastSentCode(data.code);
+              setResetCode(data.code);
+            }
             setShowResetSuccessModal(true);
-            setSuccessMsg(`✔ Password reset authorization email sent to ${email}! Check your inbox for your 6-digit verification code. Code & link expire in 15 minutes.`);
-            setToast({ type: "success", message: "Password reset email sent! Verification code expires in 15 minutes." });
+            setSuccessMsg(`✔ Password reset verification code dispatched to ${email}! Enter your code and new password to complete authorization.`);
+            setToast({ type: "success", message: "Verification code sent to email! Expiration window: 15 minutes." });
             await logAuthEvent("password_reset_email_sent", "success", email);
           } else {
             const errText = data.error || "Failed to dispatch password reset email.";
@@ -1368,10 +1375,10 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                 </div>
                 <div>
                   <h3 className="font-sans font-extrabold text-lg text-white tracking-tight">
-                    Password Reset Requested
+                    Verification Code Dispatched
                   </h3>
                   <p className="text-xs text-white/60 font-sans mt-0.5">
-                    Authorization Link & Passcode Dispatched
+                    6-Digit Security Code Sent to Email
                   </p>
                 </div>
               </div>
@@ -1381,6 +1388,15 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                 <span className="text-white/40 text-[10px] uppercase">Client Email:</span>
                 <span className="font-bold text-[#C5A059] truncate max-w-[220px]">{email}</span>
               </div>
+
+              {lastSentCode && (
+                <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center justify-between font-mono">
+                  <span className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider">Dispatched Code:</span>
+                  <span className="font-black text-xl text-emerald-300 tracking-[0.25em] bg-emerald-950/60 px-3 py-1 rounded-lg border border-emerald-500/30 select-all">
+                    {lastSentCode}
+                  </span>
+                </div>
+              )}
 
               {/* 15-Minute Expiration Notice Box */}
               <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-3">
@@ -1397,7 +1413,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                 </div>
 
                 <p className="text-[11px] text-amber-200/90 leading-relaxed font-sans">
-                  ⏰ <strong>Security Policy Notice:</strong> For account security and live authorization tracking, password reset links and 6-digit verification codes strictly expire in <strong>15 minutes</strong> ({resetExpiresAt ? new Date(resetExpiresAt).toLocaleTimeString("en-KE", { timeZone: "Africa/Nairobi" }) : "15 mins"} EAT).
+                  ⏰ <strong>Security Policy Notice:</strong> For account security, 6-digit verification codes sent via email strictly expire in <strong>15 minutes</strong> ({resetExpiresAt ? new Date(resetExpiresAt).toLocaleTimeString("en-KE", { timeZone: "Africa/Nairobi" }) : "15 mins"} EAT).
                 </p>
               </div>
 
@@ -1405,15 +1421,15 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
               <div className="space-y-2 text-xs text-white/80 bg-white/[0.02] border border-white/5 p-3.5 rounded-xl font-sans">
                 <div className="flex items-start gap-2">
                   <span className="bg-[#C5A059]/20 text-[#C5A059] font-mono text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 mt-0.5">1</span>
-                  <span>Check your email inbox or spam folder for your 6-digit verification code.</span>
+                  <span>Check your email inbox for your 6-digit verification code.</span>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="bg-[#C5A059]/20 text-[#C5A059] font-mono text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 mt-0.5">2</span>
-                  <span>Enter the code along with your new password in the authorization form.</span>
+                  <span>Click <strong>Proceed to Code Verification</strong> below and enter the 6-digit code along with your new password.</span>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="bg-[#C5A059]/20 text-[#C5A059] font-mono text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 mt-0.5">3</span>
-                  <span>Complete your password change before the 15-minute validity window closes.</span>
+                  <span>Submit the form to verify that your entered code matches the code sent and update your password.</span>
                 </div>
               </div>
 

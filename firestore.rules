@@ -185,6 +185,8 @@ service cloud.firestore {
         && data.createdAt is string && data.createdAt.size() <= 100
         && data.expiresAt is string && data.expiresAt.size() <= 100
         && (!data.keys().hasAll(['expiresAtMs']) || data.expiresAtMs is number || data.expiresAtMs is int)
+        && (!data.keys().hasAll(['failedAttempts']) || data.failedAttempts is number || data.failedAttempts is int)
+        && (!data.keys().hasAll(['invalidated']) || data.invalidated is bool)
         && (!data.keys().hasAll(['used']) || data.used is bool);
     }
 
@@ -474,7 +476,6 @@ service cloud.firestore {
       ));
       allow update: if isAdmin() || (
         existing().used == false &&
-        incoming().used == true &&
         isValidPasswordResetRequest(incoming())
       );
       allow delete: if isAdmin();

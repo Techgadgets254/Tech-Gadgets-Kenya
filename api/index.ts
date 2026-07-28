@@ -2981,6 +2981,18 @@ app.post("/api/merchant-sync/trigger", async (req, res) => {
 });
 
 // Password Reset Email & 15-Minute Expiration Verification System
+const inMemoryResetRequests: Array<{
+  id: string;
+  email: string;
+  code: string;
+  createdAt: string;
+  expiresAt: string;
+  expiresAtMs: number;
+  used: boolean;
+  failedAttempts?: number;
+  invalidated?: boolean;
+}> = [];
+
 app.post("/api/auth/send-reset-email", async (req, res) => {
   const { email } = req.body;
 
@@ -2997,20 +3009,30 @@ app.post("/api/auth/send-reset-email", async (req, res) => {
     const expiresAtMs = Date.now() + 15 * 60 * 1000; // 15 Minutes Expiration Limit
     const expiresAt = new Date(expiresAtMs).toISOString();
 
+    const resetRequestId = `reset_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const resetRequestDoc = {
+      id: resetRequestId,
       email: cleanEmail,
       code: resetCode,
       createdAt,
       expiresAt,
       expiresAtMs,
-      used: false
+      used: false,
+      failedAttempts: 0,
+      invalidated: false
     };
 
+    inMemoryResetRequests.push(resetRequestDoc);
+
     // Store in Firestore password_reset_requests collection
-    if (adminDb && isAdminDbAuthorized) {
-      await adminDb.collection("password_reset_requests").add(resetRequestDoc);
-    } else if (serverDb) {
-      await serverAddDoc(serverCollection(serverDb, "password_reset_requests"), resetRequestDoc);
+    try {
+      if (adminDb && isAdminDbAuthorized) {
+        await adminDb.collection("password_reset_requests").add(resetRequestDoc);
+      } else if (serverDb) {
+        await serverAddDoc(serverCollection(serverDb, "password_reset_requests"), resetRequestDoc);
+      }
+    } catch (dbErr: any) {
+      console.warn("Firestore password_reset_requests write fallback:", dbErr?.message);
     }
 
     // Security Audit Log: Log password reset generation
@@ -3063,7 +3085,7 @@ app.post("/api/auth/send-reset-email", async (req, res) => {
               ${resetCode}
             </div>
             <p style="margin: 12px 0 0 0; color: #ef4444; font-size: 12px; font-weight: bold;">
-              ⏰ SECURITY NOTICE: This verification code and authorization link strictly expire in 15 MINUTES (${new Date(expiresAtMs).toLocaleTimeString("en-KE", { timeZone: "Africa/Nairobi" })} EAT).
+              ⏰ SECURITY NOTICE: This verification code strictly expires in 15 MINUTES (${new Date(expiresAtMs).toLocaleTimeString("en-KE", { timeZone: "Africa/Nairobi" })} EAT).
             </p>
           </div>
 
@@ -3103,8 +3125,8 @@ app.post("/api/auth/send-reset-email", async (req, res) => {
       expiresAt,
       expiresAtMs,
       message: isSentViaSmtp
-        ? `Password reset email dispatched to ${cleanEmail}. Code strictly expires in 15 minutes.`
-        : `Password reset email prepared for ${cleanEmail}. Verification Code: ${resetCode} (Strictly expires in 15 minutes).`
+        ? `Password reset verification code dispatched to ${cleanEmail}. Code strictly expires in 15 minutes.`
+        : `Password reset verification code prepared for ${cleanEmail}. Code: ${resetCode} (Strictly expires in 15 minutes).`
     });
 
   } catch (err: any) {
@@ -3127,50 +3149,127 @@ app.post("/api/auth/reset-password", async (req, res) => {
     let resetDocs: any[] = [];
 
     if (adminDb && isAdminDbAuthorized) {
-      const snap = await adminDb.collection("password_reset_requests")
-        .where("email", "==", cleanEmail)
-        .where("code", "==", cleanCode)
-        .where("used", "==", false)
-        .get();
-      snap.forEach((d: any) => resetDocs.push({ id: d.id, ...d.data() }));
+      try {
+        const snap = await adminDb.collection("password_reset_requests")
+          .where("email", "==", cleanEmail)
+          .where("used", "==", false)
+          .get();
+        snap.forEach((d: any) => resetDocs.push({ id: d.id, ...d.data() }));
+      } catch (dbErr: any) {
+        console.warn("Firestore query error for active reset request:", dbErr?.message);
+      }
     } else if (serverDb) {
-      const q = query(
-        serverCollection(serverDb, "password_reset_requests"),
-        where("email", "==", cleanEmail),
-        where("code", "==", cleanCode),
-        where("used", "==", false)
-      );
-      const snap = await serverGetDocs(q);
-      snap.forEach((d: any) => resetDocs.push({ id: d.id, ...d.data() }));
+      try {
+        const q = query(
+          serverCollection(serverDb, "password_reset_requests"),
+          where("email", "==", cleanEmail),
+          where("used", "==", false)
+        );
+        const snap = await serverGetDocs(q);
+        snap.forEach((d: any) => resetDocs.push({ id: d.id, ...d.data() }));
+      } catch (dbErr: any) {
+        console.warn("ServerDb query error for active reset request:", dbErr?.message);
+      }
     }
 
-    if (resetDocs.length === 0) {
-      // Security Audit Log: Invalid or missing code attempt
-      try {
-        const failData = {
-          eventType: "password_reset_attempt",
-          status: "failed",
-          email: cleanEmail,
-          createdAt: new Date().toISOString(),
-          errorMessage: "Invalid or already used verification code attempt."
-        };
-        if (adminDb && isAdminDbAuthorized) {
-          await adminDb.collection("auth_events").add(failData);
-        } else if (serverDb) {
-          await serverAddDoc(serverCollection(serverDb, "auth_events"), failData);
-        }
-      } catch (logErr) {
-        console.warn("Failed log write for invalid reset code:", logErr);
+    // Check inMemoryResetRequests fallback
+    const memMatches = inMemoryResetRequests.filter(r => r.email === cleanEmail && !r.used);
+    memMatches.forEach(m => {
+      if (!resetDocs.some(d => d.id === m.id)) {
+        resetDocs.push(m);
       }
+    });
 
+    if (resetDocs.length === 0) {
       return res.status(400).json({ 
-        error: "Invalid or already used verification code. Please request a new password reset email." 
+        error: "No active password reset request found for this email address. Please request a new verification code." 
       });
     }
 
     resetDocs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     const validRequest = resetDocs[0];
 
+    // Check if code was already invalidated due to failed attempts
+    if (validRequest.invalidated || (validRequest.failedAttempts || 0) >= 3) {
+      return res.status(400).json({
+        error: "❌ Security Block: This verification code has been invalidated due to 3 failed attempts. Please request a new password reset code.",
+        invalidated: true
+      });
+    }
+
+    // Check code alignment
+    if (validRequest.code !== cleanCode) {
+      const newFailed = (validRequest.failedAttempts || 0) + 1;
+      validRequest.failedAttempts = newFailed;
+
+      // Update failed attempts in memory
+      const memMatch = inMemoryResetRequests.find(r => r.id === validRequest.id);
+      if (memMatch) {
+        memMatch.failedAttempts = newFailed;
+      }
+
+      if (newFailed >= 3) {
+        validRequest.invalidated = true;
+        validRequest.used = true;
+        if (memMatch) {
+          memMatch.invalidated = true;
+          memMatch.used = true;
+        }
+
+        // Update Firestore
+        try {
+          if (adminDb && isAdminDbAuthorized && validRequest.id) {
+            await adminDb.collection("password_reset_requests").doc(validRequest.id).update({
+              failedAttempts: newFailed,
+              invalidated: true,
+              used: true,
+              invalidationReason: "exceeded_3_failed_attempts",
+              invalidatedAt: new Date().toISOString()
+            });
+          }
+        } catch (updateErr) {
+          console.warn("Firestore update for reset code invalidation error:", updateErr);
+        }
+
+        // Audit log
+        try {
+          const failData = {
+            eventType: "password_reset_invalidated_brute_force",
+            status: "failed",
+            email: cleanEmail,
+            createdAt: new Date().toISOString(),
+            errorMessage: `❌ Verification code invalidated after ${newFailed} consecutive failed attempts.`
+          };
+          if (adminDb && isAdminDbAuthorized) {
+            await adminDb.collection("auth_events").add(failData);
+          }
+        } catch (logErr) {
+          console.warn("Failed audit log for code invalidation:", logErr);
+        }
+
+        return res.status(400).json({
+          error: `❌ Security Block: 3 incorrect verification code attempts recorded. This code has been invalidated to prevent brute-forcing. Please request a new password reset code.`,
+          invalidated: true
+        });
+      }
+
+      // Update failed attempts count in Firestore
+      try {
+        if (adminDb && isAdminDbAuthorized && validRequest.id) {
+          await adminDb.collection("password_reset_requests").doc(validRequest.id).update({
+            failedAttempts: newFailed
+          });
+        }
+      } catch (updateErr) {
+        console.warn("Firestore update for failed attempts error:", updateErr);
+      }
+
+      return res.status(400).json({
+        error: `Verification failed: The 6-digit code you entered does not match the code sent to your email. (${newFailed}/3 attempts recorded).`
+      });
+    }
+
+    // Check 15-minute expiration
     const now = Date.now();
     const expiryTime = validRequest.expiresAtMs || new Date(validRequest.expiresAt).getTime();
 
@@ -3195,9 +3294,26 @@ app.post("/api/auth/reset-password", async (req, res) => {
       }
 
       return res.status(400).json({
-        error: "❌ The password reset code has expired. For security reasons, reset emails and verification codes expire after 15 minutes. Please request a new reset email.",
+        error: "❌ The password reset code has expired. For security reasons, reset verification codes expire strictly after 15 minutes. Please request a new reset code.",
         expired: true
       });
+    }
+
+    // Mark as used in in-memory store & Firestore (Atomic single-use)
+    validRequest.used = true;
+    const memIdx = inMemoryResetRequests.findIndex(r => r.id === validRequest.id || (r.email === cleanEmail && r.code === cleanCode));
+    if (memIdx !== -1) {
+      inMemoryResetRequests[memIdx].used = true;
+    }
+
+    try {
+      if (adminDb && isAdminDbAuthorized && validRequest.id) {
+        await adminDb.collection("password_reset_requests").doc(validRequest.id).update({ used: true, usedAt: new Date().toISOString() });
+      } else if (serverDb && validRequest.id) {
+        await serverUpdateDoc(serverDoc(serverDb, "password_reset_requests", validRequest.id), { used: true, usedAt: new Date().toISOString() });
+      }
+    } catch (docUpdateErr) {
+      console.warn("Update password_reset_requests status error:", docUpdateErr);
     }
 
     let userUpdated = false;
@@ -3211,7 +3327,6 @@ app.post("/api/auth/reset-password", async (req, res) => {
         });
         userUpdated = true;
       }
-      await adminDb.collection("password_reset_requests").doc(validRequest.id).update({ used: true, usedAt: new Date().toISOString() });
     } else if (serverDb) {
       const q = query(serverCollection(serverDb, "users"), where("email", "==", cleanEmail));
       const userSnap = await serverGetDocs(q);
