@@ -24,6 +24,7 @@ import { Helmet } from "./components/Helmet";
 import { useDynamicSeo } from "./hooks/useDynamicSeo";
 import { useUserActivityTracker } from "./hooks/useUserActivityTracker";
 import AuthModal from "./components/AuthModal";
+import InactivityTimer from "./components/InactivityTimer";
 import ProductComparisonOverlay from "./components/ProductComparisonOverlay";
 import FloatingCompareBar from "./components/FloatingCompareBar";
 import BackToTop from "./components/BackToTop";
@@ -712,9 +713,10 @@ function StoreLayout() {
         </div>
       )}
 
-      {/* Product Comparison Overlay, Floating Bar & Back to Top */}
+      {/* Product Comparison Overlay, Floating Bar, Inactivity Timer & Back to Top */}
       <FloatingCompareBar />
       <ProductComparisonOverlay />
+      <InactivityTimer />
       <BackToTop />
 
       {/* Floating Toast Notification */}

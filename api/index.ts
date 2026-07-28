@@ -391,6 +391,40 @@ async function initAdminSDK() {
 
 initAdminSDK();
 
+// Security Headers Middleware to mitigate XSS, Clickjacking, MIME-sniffing, and unauthorized browser feature access
+app.use((req, res, next) => {
+  // 1. Content Security Policy (CSP)
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self' https:; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://apis.google.com https://js.paystack.co; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+    "font-src 'self' data: https://fonts.gstatic.com; " +
+    "img-src 'self' data: blob: https:; " +
+    "connect-src 'self' https: wss:; " +
+    "frame-src 'self' https:; " +
+    "object-src 'none'; " +
+    "base-uri 'self';"
+  );
+
+  // 2. X-Frame-Options
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+
+  // 3. X-Content-Type-Options
+  res.setHeader("X-Content-Type-Options", "nosniff");
+
+  // 4. Referrer-Policy
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+
+  // 5. Permissions-Policy
+  res.setHeader(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=(self), payment=(self)"
+  );
+
+  next();
+});
+
 app.use(express.json());
 
 // Initialize Google Gen AI

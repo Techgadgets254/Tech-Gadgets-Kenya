@@ -131,6 +131,7 @@ export default function AuditLogTable() {
               <option value="password_reset_request_generated">Password Reset Requested (15m Expiry)</option>
               <option value="password_reset_completed">Password Reset Completed</option>
               <option value="password_reset_expired">Password Reset Expired / Blocked</option>
+              <option value="auto_logout_inactivity">Auto-Logout (35m Inactivity)</option>
             </select>
             <Filter className="absolute right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40 pointer-events-none" />
           </div>
@@ -188,6 +189,7 @@ export default function AuditLogTable() {
                 if (ev.eventType === "password_reset_request_generated" || ev.eventType === "password_reset_email_sent") actionLabel = "Password Reset Email (15m Expiry)";
                 if (ev.eventType === "password_reset_completed" || ev.eventType === "password_reset_complete") actionLabel = "Password Reset Completed";
                 if (ev.eventType === "password_reset_expired") actionLabel = "Password Reset Expired (>15m)";
+                if (ev.eventType === "auto_logout_inactivity") actionLabel = "Auto-Logout (35m Idle)";
                 if (ev.eventType === "google_login") actionLabel = "Google SSO Auth";
 
                 return (
