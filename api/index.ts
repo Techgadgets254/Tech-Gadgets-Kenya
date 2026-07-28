@@ -3003,6 +3003,38 @@ app.post("/api/auth/send-reset-email", async (req, res) => {
   const cleanEmail = email.trim().toLowerCase();
 
   try {
+    // Backend Daily Rate Limit Check (Max 5 requests per 24 hours per email)
+    const twentyFourHoursAgoMs = Date.now() - 24 * 60 * 60 * 1000;
+    let dailyRequestsCount = 0;
+
+    if (adminDb && isAdminDbAuthorized) {
+      try {
+        const snap = await adminDb.collection("password_reset_requests")
+          .where("email", "==", cleanEmail)
+          .get();
+        snap.forEach((doc: any) => {
+          const data = doc.data();
+          const createdTime = data.expiresAtMs ? data.expiresAtMs - (15 * 60 * 1000) : new Date(data.createdAt).getTime();
+          if (createdTime >= twentyFourHoursAgoMs) {
+            dailyRequestsCount++;
+          }
+        });
+      } catch (err: any) {
+        console.warn("Firestore daily rate limit check error:", err?.message);
+      }
+    }
+
+    const memCount = inMemoryResetRequests.filter(
+      r => r.email === cleanEmail && (r.expiresAtMs - 15 * 60 * 1000) >= twentyFourHoursAgoMs
+    ).length;
+    dailyRequestsCount = Math.max(dailyRequestsCount, memCount);
+
+    if (dailyRequestsCount >= 5) {
+      return res.status(429).json({
+        error: "❌ Daily Rate Limit Exceeded: Maximum 5 password reset requests allowed per email address in a 24-hour window to protect against spam and abuse. Please try again later."
+      });
+    }
+
     // Generate a secure 6-digit verification code
     const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
     const createdAt = new Date().toISOString();

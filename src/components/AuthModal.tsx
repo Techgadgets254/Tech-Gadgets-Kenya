@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Mail, Lock, LogIn, AlertCircle, CheckCircle2, RefreshCw, UserPlus, HelpCircle, Eye, EyeOff, ShieldAlert, ShieldCheck } from "lucide-react";
+import { X, Mail, Lock, LogIn, AlertCircle, CheckCircle2, RefreshCw, UserPlus, HelpCircle, Eye, EyeOff, ShieldAlert, ShieldCheck, Check } from "lucide-react";
 import { auth, googleProvider, db } from "../firebase";
 import { 
   signInWithEmailAndPassword, 
@@ -72,10 +72,23 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
   const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
   const [lockoutTimeLeft, setLockoutTimeLeft] = useState<number>(0);
 
-  // Last sent password reset verification code
+  // Last sent password reset verification code & OTP states
   const [lastSentCode, setLastSentCode] = useState<string>("");
+  const [resendCooldown, setResendCooldown] = useState<number>(0);
+  const [otpDigits, setOtpDigits] = useState<string[]>(["", "", "", "", "", ""]);
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [isVerificationSuccess, setIsVerificationSuccess] = useState<boolean>(false);
 
   const isLight = theme === "light";
+
+  // Resend cooldown countdown timer effect (60s limit)
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const interval = setInterval(() => {
+      setResendCooldown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [resendCooldown]);
 
   // Account lockout countdown timer effect
   useEffect(() => {
@@ -108,6 +121,44 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const syncOtpDigits = (fullCode: string) => {
+    setResetCode(fullCode);
+    const digitsOnly = fullCode.replace(/\D/g, "");
+    const chars = digitsOnly.slice(0, 6).split("");
+    while (chars.length < 6) chars.push("");
+    setOtpDigits(chars);
+  };
+
+  const handleOtpBoxChange = (index: number, val: string) => {
+    const digitsOnly = val.replace(/\D/g, "");
+    if (digitsOnly.length > 1) {
+      const chars = digitsOnly.slice(0, 6).split("");
+      while (chars.length < 6) chars.push("");
+      setOtpDigits(chars);
+      setResetCode(chars.join(""));
+      otpInputRefs.current[Math.min(5, digitsOnly.length - 1)]?.focus();
+      return;
+    }
+
+    const singleChar = digitsOnly.slice(-1);
+    const updated = [...otpDigits];
+    updated[index] = singleChar;
+    setOtpDigits(updated);
+    setResetCode(updated.join(""));
+
+    if (singleChar && index < 5) {
+      otpInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpBoxKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace") {
+      if (!otpDigits[index] && index > 0) {
+        otpInputRefs.current[index - 1]?.focus();
+      }
+    }
   };
 
   const getPasswordStrength = (p: string) => {
@@ -223,6 +274,13 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
 
     if (isResetMode) {
       if (resetStep === "email") {
+        if (resendCooldown > 0) {
+          const msg = `⏳ Please wait ${resendCooldown} seconds before requesting a new password reset code.`;
+          setErrorMsg(msg);
+          setToast({ type: "error", message: msg });
+          return;
+        }
+
         setLoading(true);
         try {
           try {
@@ -242,12 +300,13 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
             const expiryTime = data.expiresAtMs || (Date.now() + 15 * 60 * 1000);
             setResetExpiresAt(expiryTime);
             setResetStep("verify");
+            setResendCooldown(60); // Trigger 60s resend cooldown
             if (data.code) {
               setLastSentCode(data.code);
-              setResetCode(data.code);
+              syncOtpDigits(data.code);
             }
             setShowResetSuccessModal(true);
-            setSuccessMsg(`✔ Password reset verification code dispatched to ${email}! Enter your code and new password to complete authorization.`);
+            setSuccessMsg(`✔ Password reset verification code dispatched to ${email}! Enter your 6-digit code and new password.`);
             setToast({ type: "success", message: "Verification code sent to email! Expiration window: 15 minutes." });
             await logAuthEvent("password_reset_email_sent", "success", email);
           } else {
@@ -267,7 +326,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
       }
 
       if (!resetCode.trim()) {
-        const msg = "Please enter the 15-minute verification code sent to your email.";
+        const msg = "Please enter the 6-digit verification code sent to your email.";
         setErrorMsg(msg);
         setToast({ type: "error", message: msg });
         return;
@@ -293,7 +352,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
       }
 
       if (resetExpiresAt && Date.now() > resetExpiresAt) {
-        const msg = "❌ Verification code has expired. Security rules enforce a 15-minute expiration for reset emails and codes. Please request a new email.";
+        const msg = "❌ Verification code has expired. Security rules enforce a 15-minute expiration for reset emails and codes. Please request a new code.";
         setErrorMsg(msg);
         setToast({ type: "error", message: msg });
         await logAuthEvent("password_reset_attempt", "failed", email, undefined, "Code expired");
@@ -315,16 +374,19 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
         const data = await res.json();
         if (res.ok && data.success) {
           await logAuthEvent("password_reset_complete", "success", email);
-          setSuccessMsg("✔ Passcode updated successfully! You can now log into your profile with your new password.");
+          setIsVerificationSuccess(true);
+          setSuccessMsg("✔ Code verified & passcode updated successfully! Proceeding to command deck.");
           setToast({ type: "success", message: "Passcode updated successfully! Proceeding." });
           setErrorMsg("");
           setTimeout(() => {
+            setIsVerificationSuccess(false);
             setIsResetMode(false);
             setResetStep("email");
             setResetCode("");
+            setOtpDigits(["", "", "", "", "", ""]);
             setNewPassword("");
             setConfirmPassword("");
-          }, 1500);
+          }, 2200);
         } else {
           const msg = data.error || "Verification failed. Please check your code.";
           setErrorMsg(msg);
@@ -1008,29 +1070,85 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                   </span>
                 </div>
 
-                {/* Verification Code Input */}
-                <div className="space-y-1.5">
-                  <label className={`text-[10px] font-mono uppercase tracking-wider block font-bold ${
-                    isLight ? "text-zinc-850 font-extrabold" : "text-white/40"
-                  }`}>
-                    15-Min Email Verification Code
-                  </label>
-                  <div className="relative flex items-center">
-                    <Lock className={`w-3.5 h-3.5 absolute left-3.5 ${isLight ? "text-zinc-650" : "text-white/30"}`} />
-                    <input 
-                      type="text"
-                      value={resetCode}
-                      onChange={(e) => setResetCode(e.target.value)}
-                      placeholder="Enter 6-digit code (e.g. 849201)"
-                      disabled={loading}
-                      maxLength={8}
-                      className={`w-full py-2.5 pl-10 pr-4 rounded-xl text-xs font-mono tracking-widest outline-none transition-all ${
-                        isLight 
-                          ? "bg-zinc-100/70 border-zinc-300 focus:border-[#C5A059] focus:bg-white text-zinc-950 placeholder-zinc-550 border" 
-                          : "bg-white/[0.02] border-white/10 focus:border-[#C5A059] focus:bg-[#151515] text-white placeholder-white/30 border"
+                {/* 6-Digit Individual OTP Verification Code Inputs */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className={`text-[10px] font-mono uppercase tracking-wider block font-bold ${
+                      isLight ? "text-zinc-850 font-extrabold" : "text-white/40"
+                    }`}>
+                      6-Digit Verification Code
+                    </label>
+                    <button
+                      type="button"
+                      disabled={loading || resendCooldown > 0}
+                      onClick={async () => {
+                        // Resend verification code in verify step
+                        if (resendCooldown > 0) return;
+                        setLoading(true);
+                        try {
+                          const res = await fetch("/api/auth/send-reset-email", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ email })
+                          });
+                          const data = await res.json();
+                          if (res.ok && data.success) {
+                            setResendCooldown(60);
+                            if (data.code) {
+                              setLastSentCode(data.code);
+                              syncOtpDigits(data.code);
+                            }
+                            setSuccessMsg(`✔ New verification code dispatched to ${email}! Check your inbox.`);
+                            setToast({ type: "success", message: "New code dispatched! Valid for 15 minutes." });
+                          } else {
+                            setErrorMsg(data.error || "Failed to resend verification code.");
+                            setToast({ type: "error", message: data.error || "Failed to resend code." });
+                          }
+                        } catch (err: any) {
+                          setErrorMsg("Failed to resend code.");
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      className={`text-[10px] font-mono font-bold uppercase transition-all ${
+                        resendCooldown > 0
+                          ? isLight ? "text-zinc-400 cursor-not-allowed" : "text-white/30 cursor-not-allowed"
+                          : "text-[#C5A059] hover:underline cursor-pointer"
                       }`}
-                      required
-                    />
+                    >
+                      {resendCooldown > 0 ? `Resend Code in ${resendCooldown}s` : "Didn't receive email? Resend Code"}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-6 gap-2">
+                    {[0, 1, 2, 3, 4, 5].map((idx) => (
+                      <input
+                        key={idx}
+                        ref={(el) => { otpInputRefs.current[idx] = el; }}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={1}
+                        value={otpDigits[idx] || ""}
+                        onChange={(e) => handleOtpBoxChange(idx, e.target.value)}
+                        onKeyDown={(e) => handleOtpBoxKeyDown(idx, e)}
+                        onPaste={(e) => {
+                          e.preventDefault();
+                          const pasted = e.clipboardData.getData("text");
+                          handleOtpBoxChange(idx, pasted);
+                        }}
+                        disabled={loading}
+                        className={`w-full h-11 rounded-xl text-center font-mono font-black text-lg outline-none transition-all ${
+                          otpDigits[idx]
+                            ? isLight
+                              ? "bg-amber-500/10 border-[#C5A059] text-zinc-950 shadow-sm border-2"
+                              : "bg-[#C5A059]/20 border-[#C5A059] text-white shadow-sm border-2"
+                            : isLight
+                              ? "bg-zinc-100/80 border-zinc-300 focus:border-[#C5A059] focus:bg-white text-zinc-950 border"
+                              : "bg-white/[0.03] border-white/10 focus:border-[#C5A059] focus:bg-[#151515] text-white border"
+                        }`}
+                      />
+                    ))}
                   </div>
                 </div>
 
@@ -1446,7 +1564,9 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
 
                 <button
                   type="button"
+                  disabled={loading || resendCooldown > 0}
                   onClick={async () => {
+                    if (resendCooldown > 0) return;
                     setShowResetSuccessModal(false);
                     setLoading(true);
                     try {
@@ -1459,8 +1579,16 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                       if (res.ok && data.success) {
                         const expiryTime = data.expiresAtMs || (Date.now() + 15 * 60 * 1000);
                         setResetExpiresAt(expiryTime);
+                        setResendCooldown(60);
+                        if (data.code) {
+                          setLastSentCode(data.code);
+                          syncOtpDigits(data.code);
+                        }
                         setShowResetSuccessModal(true);
-                        setSuccessMsg(`✔ Resent password reset email to ${email}. Code expires in 15 minutes.`);
+                        setSuccessMsg(`✔ Resent password reset code to ${email}. Code expires in 15 minutes.`);
+                      } else {
+                        setErrorMsg(data.error || "Failed to resend email.");
+                        setToast({ type: "error", message: data.error || "Failed to resend code." });
                       }
                     } catch (err) {
                       console.error("Resend error:", err);
@@ -1468,10 +1596,54 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                       setLoading(false);
                     }
                   }}
-                  className="w-full py-2 text-center text-[11px] text-white/50 hover:text-[#C5A059] transition-colors cursor-pointer font-sans"
+                  className={`w-full py-2 text-center text-[11px] font-sans transition-colors cursor-pointer ${
+                    resendCooldown > 0
+                      ? "text-white/30 cursor-not-allowed"
+                      : "text-white/50 hover:text-[#C5A059]"
+                  }`}
                 >
-                  Didn't receive the email? Resend reset email
+                  {resendCooldown > 0
+                    ? `Didn't receive code? Resend available in ${resendCooldown}s`
+                    : "Didn't receive the email? Resend reset code"}
                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* VERIFICATION SUCCESS MOTION ANIMATION OVERLAY */}
+      <AnimatePresence>
+        {isVerificationSuccess && (
+          <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, y: 10 }}
+              transition={{ type: "spring", stiffness: 350, damping: 22 }}
+              className="bg-[#0D0D0D] border border-emerald-500/40 rounded-3xl p-8 max-w-sm w-full text-center space-y-4 shadow-[0_0_50px_rgba(16,185,129,0.2)] text-white"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: [0, 1.25, 1] }}
+                transition={{ delay: 0.1, duration: 0.45 }}
+                className="w-16 h-16 mx-auto rounded-2xl bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center text-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.5)]"
+              >
+                <Check className="w-8 h-8 stroke-[3]" />
+              </motion.div>
+
+              <div className="space-y-1">
+                <h3 className="font-sans font-black text-xl text-emerald-300 tracking-tight">
+                  Verification Successful!
+                </h3>
+                <p className="text-xs text-zinc-300 font-sans leading-relaxed">
+                  Your 6-digit OTP verification code was verified and your new password passcode has been securely updated.
+                </p>
+              </div>
+
+              <div className="pt-2 flex items-center justify-center gap-2 text-[10px] font-mono text-emerald-400 font-extrabold uppercase tracking-widest bg-emerald-950/60 py-2.5 px-4 rounded-xl border border-emerald-500/30">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                <span>Redirecting to command portal...</span>
               </div>
             </motion.div>
           </div>
