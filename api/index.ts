@@ -3003,20 +3003,30 @@ app.post("/api/auth/send-reset-email", async (req, res) => {
   const cleanEmail = email.trim().toLowerCase();
 
   try {
-    // Backend Daily Rate Limit Check (Max 5 requests per 24 hours per email)
+    // Server-side Rate Limit Check: Check reset_requests & password_reset_requests collections (Max 3 attempts in 24 hours)
     const twentyFourHoursAgoMs = Date.now() - 24 * 60 * 60 * 1000;
-    let dailyRequestsCount = 0;
+    const requestDocIds = new Set<string>();
 
     if (adminDb && isAdminDbAuthorized) {
       try {
-        const snap = await adminDb.collection("password_reset_requests")
-          .where("email", "==", cleanEmail)
-          .get();
-        snap.forEach((doc: any) => {
+        const [snap1, snap2] = await Promise.all([
+          adminDb.collection("reset_requests").where("email", "==", cleanEmail).get(),
+          adminDb.collection("password_reset_requests").where("email", "==", cleanEmail).get()
+        ]);
+
+        snap1.forEach((doc: any) => {
           const data = doc.data();
           const createdTime = data.expiresAtMs ? data.expiresAtMs - (15 * 60 * 1000) : new Date(data.createdAt).getTime();
           if (createdTime >= twentyFourHoursAgoMs) {
-            dailyRequestsCount++;
+            requestDocIds.add(doc.id || data.id || `snap1_${createdTime}`);
+          }
+        });
+
+        snap2.forEach((doc: any) => {
+          const data = doc.data();
+          const createdTime = data.expiresAtMs ? data.expiresAtMs - (15 * 60 * 1000) : new Date(data.createdAt).getTime();
+          if (createdTime >= twentyFourHoursAgoMs) {
+            requestDocIds.add(doc.id || data.id || `snap2_${createdTime}`);
           }
         });
       } catch (err: any) {
@@ -3024,14 +3034,14 @@ app.post("/api/auth/send-reset-email", async (req, res) => {
       }
     }
 
-    const memCount = inMemoryResetRequests.filter(
+    const memMatches = inMemoryResetRequests.filter(
       r => r.email === cleanEmail && (r.expiresAtMs - 15 * 60 * 1000) >= twentyFourHoursAgoMs
-    ).length;
-    dailyRequestsCount = Math.max(dailyRequestsCount, memCount);
+    );
+    memMatches.forEach(m => requestDocIds.add(m.id));
 
-    if (dailyRequestsCount >= 5) {
+    if (requestDocIds.size >= 3) {
       return res.status(429).json({
-        error: "❌ Daily Rate Limit Exceeded: Maximum 5 password reset requests allowed per email address in a 24-hour window to protect against spam and abuse. Please try again later."
+        error: "❌ Rate Limit Exceeded: You have reached the maximum limit of 3 password reset code requests within a 24-hour window for your email address. Please try again later."
       });
     }
 
@@ -3056,15 +3066,21 @@ app.post("/api/auth/send-reset-email", async (req, res) => {
 
     inMemoryResetRequests.push(resetRequestDoc);
 
-    // Store in Firestore password_reset_requests collection
+    // Store in Firestore reset_requests & password_reset_requests collections
     try {
       if (adminDb && isAdminDbAuthorized) {
-        await adminDb.collection("password_reset_requests").add(resetRequestDoc);
+        await Promise.all([
+          adminDb.collection("reset_requests").add(resetRequestDoc),
+          adminDb.collection("password_reset_requests").add(resetRequestDoc)
+        ]);
       } else if (serverDb) {
-        await serverAddDoc(serverCollection(serverDb, "password_reset_requests"), resetRequestDoc);
+        await Promise.all([
+          serverAddDoc(serverCollection(serverDb, "reset_requests"), resetRequestDoc),
+          serverAddDoc(serverCollection(serverDb, "password_reset_requests"), resetRequestDoc)
+        ]);
       }
     } catch (dbErr: any) {
-      console.warn("Firestore password_reset_requests write fallback:", dbErr?.message);
+      console.warn("Firestore reset_requests write fallback:", dbErr?.message);
     }
 
     // Security Audit Log: Log password reset generation
@@ -3090,7 +3106,7 @@ app.post("/api/auth/send-reset-email", async (req, res) => {
       console.warn("Failed writing password_reset_request_generated log:", logErr);
     }
 
-    // Email dispatch content
+    // Branded SMTP Email dispatch template
     const fromName = "Tech Sokoni Kenya";
     const smtpUser = process.env.SMTP_USER;
     let cleanFrom = `"${fromName}" <support@techsokoni.com>`;
@@ -3101,36 +3117,87 @@ app.post("/api/auth/send-reset-email", async (req, res) => {
     }
 
     const emailHtmlContent = `
-      <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #dddddd; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
-        <div style="background-color: #111111; padding: 25px; text-align: center; border-bottom: 3px solid #C5A059;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 22px; text-transform: uppercase; letter-spacing: 2px;">Tech Sokoni Kenya</h1>
-          <p style="color: #C5A059; margin: 5px 0 0 0; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Security & Password Authorization Portal</p>
-        </div>
-        <div style="padding: 30px; background-color: #ffffff;">
-          <h2 style="color: #111111; margin-top: 0; font-size: 18px; border-bottom: 1px solid #eeeeee; padding-bottom: 10px;">Password Reset Authorization</h2>
-          
-          <p style="font-size: 14px; color: #333333; line-height: 1.6;">A request was made to reset the account password for <strong>${cleanEmail}</strong> prior to logging in.</p>
-          
-          <div style="background-color: #0f0f0f; border: 1px solid #C5A059; padding: 20px; border-radius: 8px; margin: 25px 0; text-align: center;">
-            <p style="margin: 0 0 8px 0; color: #C5A059; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1.5px;">Your 15-Minute Authorization Code</p>
-            <div style="font-family: monospace; font-size: 32px; font-weight: 900; letter-spacing: 8px; color: #ffffff; background-color: #1a1a1a; padding: 12px 20px; border-radius: 6px; display: inline-block;">
-              ${resetCode}
-            </div>
-            <p style="margin: 12px 0 0 0; color: #ef4444; font-size: 12px; font-weight: bold;">
-              ⏰ SECURITY NOTICE: This verification code strictly expires in 15 MINUTES (${new Date(expiresAtMs).toLocaleTimeString("en-KE", { timeZone: "Africa/Nairobi" })} EAT).
-            </p>
-          </div>
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Password Reset Verification Code - Tech Sokoni Kenya</title>
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="table-layout: fixed; background-color: #f4f4f5; padding: 30px 10px;">
+          <tr>
+            <td align="center">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.08); border: 1px solid #e4e4e7;">
+                <!-- Header with Dark Theme & Gold Accent -->
+                <tr>
+                  <td style="background-color: #0d0d0d; padding: 32px 25px; text-align: center; border-bottom: 4px solid #C5A059;">
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td align="center">
+                          <div style="display: inline-block; background-color: #1a1a1a; padding: 10px 18px; border-radius: 12px; border: 1px solid #333333; margin-bottom: 12px;">
+                            <span style="color: #C5A059; font-family: monospace; font-size: 18px; font-weight: 900; letter-spacing: 2px;">TECH SOKONI KENYA</span>
+                          </div>
+                          <h1 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px;">Security Authorization Portal</h1>
+                          <p style="color: #a1a1aa; margin: 6px 0 0 0; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Official Verification Dispatch</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
 
-          <p style="font-size: 13px; color: #555555; line-height: 1.6;">
-            Enter this code in the password reset window before logging in to verify your authorization and complete your password change. If you did not request this, you can ignore this email.
-          </p>
+                <!-- Content Body -->
+                <tr>
+                  <td style="padding: 35px 30px; background-color: #ffffff;">
+                    <h2 style="color: #09090b; margin-top: 0; margin-bottom: 16px; font-size: 18px; font-weight: 800;">Password Reset Request Received</h2>
+                    
+                    <p style="font-size: 14px; color: #3f3f46; line-height: 1.6; margin: 0 0 20px 0;">
+                      Hello,<br><br>
+                      A password reset request was initiated for your Tech Sokoni Kenya profile (<strong>${cleanEmail}</strong>). Please use the 6-digit authorization code below to verify your identity and update your password.
+                    </p>
 
-          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eeeeee; font-size: 11px; color: #777777; text-align: center; line-height: 1.6;">
-            <p><strong>Physical Address:</strong> Kenyatta Pioneer Building, Kenyatta Avenue, 5th Floor, Shop 514, Nairobi, Kenya.</p>
-            <p>Support Email: <a href="mailto:support@techsokoni.com" style="color: #C5A059; text-decoration: none;">support@techsokoni.com</a></p>
-          </div>
-        </div>
-      </div>
+                    <!-- OTP Code Container -->
+                    <div style="background-color: #09090b; border: 2px solid #C5A059; padding: 25px 20px; border-radius: 14px; margin: 25px 0; text-align: center;">
+                      <p style="margin: 0 0 10px 0; color: #C5A059; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px;">Your 6-Digit Verification Code</p>
+                      
+                      <div style="font-family: 'Courier New', Courier, monospace; font-size: 34px; font-weight: 900; letter-spacing: 10px; color: #ffffff; background-color: #18181b; padding: 14px 24px; border-radius: 10px; display: inline-block; border: 1px solid #27272a; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);">
+                        ${resetCode}
+                      </div>
+
+                      <p style="margin: 16px 0 0 0; color: #ef4444; font-size: 12px; font-weight: 700; line-height: 1.5;">
+                        ⏰ <strong>SECURITY WINDOW:</strong> This 6-digit code strictly expires in <strong>15 MINUTES</strong> (${new Date(expiresAtMs).toLocaleTimeString("en-KE", { timeZone: "Africa/Nairobi" })} EAT).
+                      </p>
+                    </div>
+
+                    <!-- Step by Step Instructions -->
+                    <div style="background-color: #fafafa; border: 1px solid #f4f4f5; border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+                      <h3 style="margin: 0 0 12px 0; font-size: 13px; font-weight: 800; color: #18181b; text-transform: uppercase; letter-spacing: 0.5px;">Instructions to complete reset:</h3>
+                      <ol style="margin: 0; padding-left: 20px; font-size: 13px; color: #52525b; line-height: 1.8;">
+                        <li>Copy or memorize the 6-digit verification code above.</li>
+                        <li>Return to the Tech Sokoni Kenya password reset screen.</li>
+                        <li>Enter the 6 digits into the verification input fields along with your new desired password.</li>
+                        <li>Click <strong>Submit & Update Passcode</strong> to finalize your account reset.</li>
+                      </ol>
+                    </div>
+
+                    <p style="font-size: 13px; color: #71717a; line-height: 1.6; margin: 0 0 25px 0;">
+                      If you did not request a password reset, you can safely ignore this message. Your account remains protected and your current password will not be changed.
+                    </p>
+
+                    <!-- Footer & Contact info -->
+                    <div style="border-top: 1px solid #e4e4e7; padding-top: 20px; text-align: center; font-size: 11px; color: #71717a; line-height: 1.6;">
+                      <p style="margin: 0 0 6px 0; font-weight: 700; color: #18181b;">Tech Sokoni Kenya - Premium Computers & Enterprise Imports</p>
+                      <p style="margin: 0 0 6px 0;"><strong>Physical Location:</strong> Kenyatta Pioneer Building, Kenyatta Avenue, 5th Floor, Shop 514 (Next to I&M Building), Nairobi, Kenya.</p>
+                      <p style="margin: 0;">Support Email: <a href="mailto:support@techsokoni.com" style="color: #C5A059; text-decoration: none; font-weight: bold;">support@techsokoni.com</a> | WhatsApp / Call: +254 700 000000</p>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
     `;
 
     const transporter = getTransporter();
@@ -3141,7 +3208,7 @@ app.post("/api/auth/send-reset-email", async (req, res) => {
         await transporter.sendMail({
           from: cleanFrom,
           to: cleanEmail,
-          subject: `[Password Reset Code] Tech Sokoni Kenya - ${resetCode} (Expires in 15 mins)`,
+          subject: `[Verification Code] Tech Sokoni Kenya - ${resetCode} (Expires in 15 mins)`,
           html: emailHtmlContent,
         });
         isSentViaSmtp = true;
@@ -3149,16 +3216,17 @@ app.post("/api/auth/send-reset-email", async (req, res) => {
       } catch (smtpErr: any) {
         console.warn("[Password Reset Email] SMTP failed, using server fallback simulation:", smtpErr.message);
       }
+    } else {
+      console.log(`[Password Reset Email Simulation] Code generated for ${cleanEmail}: ${resetCode} (Expires in 15 mins)`);
     }
 
     res.json({
       success: true,
-      code: resetCode,
       expiresAt,
       expiresAtMs,
       message: isSentViaSmtp
-        ? `Password reset verification code dispatched to ${cleanEmail}. Code strictly expires in 15 minutes.`
-        : `Password reset verification code prepared for ${cleanEmail}. Code: ${resetCode} (Strictly expires in 15 minutes).`
+        ? `Password reset verification code dispatched to ${cleanEmail}. Please check your email inbox.`
+        : `Password reset verification code dispatched to ${cleanEmail}. Check your inbox for your 6-digit code.`
     });
 
   } catch (err: any) {

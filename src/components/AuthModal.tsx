@@ -301,12 +301,8 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
             setResetExpiresAt(expiryTime);
             setResetStep("verify");
             setResendCooldown(60); // Trigger 60s resend cooldown
-            if (data.code) {
-              setLastSentCode(data.code);
-              syncOtpDigits(data.code);
-            }
             setShowResetSuccessModal(true);
-            setSuccessMsg(`✔ Password reset verification code dispatched to ${email}! Enter your 6-digit code and new password.`);
+            setSuccessMsg(`✔ Password reset verification code dispatched to ${email}! Check your inbox for the 6-digit code.`);
             setToast({ type: "success", message: "Verification code sent to email! Expiration window: 15 minutes." });
             await logAuthEvent("password_reset_email_sent", "success", email);
           } else {
@@ -1094,12 +1090,8 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                           const data = await res.json();
                           if (res.ok && data.success) {
                             setResendCooldown(60);
-                            if (data.code) {
-                              setLastSentCode(data.code);
-                              syncOtpDigits(data.code);
-                            }
-                            setSuccessMsg(`✔ New verification code dispatched to ${email}! Check your inbox.`);
-                            setToast({ type: "success", message: "New code dispatched! Valid for 15 minutes." });
+                            setSuccessMsg(`✔ New 6-digit verification code dispatched to ${email}! Check your inbox.`);
+                            setToast({ type: "success", message: "New code dispatched to email! Valid for 15 minutes." });
                           } else {
                             setErrorMsg(data.error || "Failed to resend verification code.");
                             setToast({ type: "error", message: data.error || "Failed to resend code." });
@@ -1507,14 +1499,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                 <span className="font-bold text-[#C5A059] truncate max-w-[220px]">{email}</span>
               </div>
 
-              {lastSentCode && (
-                <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center justify-between font-mono">
-                  <span className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider">Dispatched Code:</span>
-                  <span className="font-black text-xl text-emerald-300 tracking-[0.25em] bg-emerald-950/60 px-3 py-1 rounded-lg border border-emerald-500/30 select-all">
-                    {lastSentCode}
-                  </span>
-                </div>
-              )}
+
 
               {/* 15-Minute Expiration Notice Box */}
               <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-3">
@@ -1580,12 +1565,8 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                         const expiryTime = data.expiresAtMs || (Date.now() + 15 * 60 * 1000);
                         setResetExpiresAt(expiryTime);
                         setResendCooldown(60);
-                        if (data.code) {
-                          setLastSentCode(data.code);
-                          syncOtpDigits(data.code);
-                        }
                         setShowResetSuccessModal(true);
-                        setSuccessMsg(`✔ Resent password reset code to ${email}. Code expires in 15 minutes.`);
+                        setSuccessMsg(`✔ Resent password reset code to ${email}. Check your email inbox for your 6-digit code.`);
                       } else {
                         setErrorMsg(data.error || "Failed to resend email.");
                         setToast({ type: "error", message: data.error || "Failed to resend code." });
