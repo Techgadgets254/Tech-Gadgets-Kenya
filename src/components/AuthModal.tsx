@@ -5,7 +5,6 @@ import { auth, googleProvider, db } from "../firebase";
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
-  sendPasswordResetEmail,
   updateProfile
 } from "firebase/auth";
 import { collection, addDoc } from "firebase/firestore";
@@ -283,12 +282,6 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
 
         setLoading(true);
         try {
-          try {
-            await sendPasswordResetEmail(auth, email);
-          } catch (fbErr: any) {
-            console.warn("Firebase Auth password reset email notice:", fbErr?.message);
-          }
-
           const res = await fetch("/api/auth/send-reset-email", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
