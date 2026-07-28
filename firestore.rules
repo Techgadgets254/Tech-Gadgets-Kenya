@@ -456,6 +456,21 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    // Password Reset Requests collection:
+    // - Only administrators or server-side API can access password reset tokens and verification codes
+    match /password_reset_requests/{requestId} {
+      allow read, write, get, list: if isAdmin();
+    }
+
+    // User Activity Tracking collection:
+    // - Anyone can log user activity events (create)
+    // - Only administrators can read, list, or delete user activity records
+    match /user_activity/{activityId} {
+      allow create: if true;
+      allow read, list, get, delete: if isAdmin();
+      allow update: if false;
+    }
+
     // Product Restock Requests collection:
     // - Anyone can submit a restock request for out-of-stock products
     // - Only administrators can read, list, update, or delete

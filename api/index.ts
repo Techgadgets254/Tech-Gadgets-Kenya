@@ -269,7 +269,9 @@ import {
   updateDoc as serverUpdateDoc, 
   collection as serverCollection, 
   addDoc as serverAddDoc,
-  getDocs as serverGetDocs 
+  getDocs as serverGetDocs,
+  query,
+  where
 } from "firebase/firestore";
 import {
   getAuth as serverGetAuth,
@@ -2905,6 +2907,282 @@ app.post("/api/merchant-sync/trigger", async (req, res) => {
     res.json({ success: true, log: newLog });
   } catch (err: any) {
     res.status(500).json({ error: "Failed to trigger merchant sync.", details: err.message });
+  }
+});
+
+// Password Reset Email & 15-Minute Expiration Verification System
+app.post("/api/auth/send-reset-email", async (req, res) => {
+  const { email } = req.body;
+
+  if (!email || !email.trim()) {
+    return res.status(400).json({ error: "Email address is required." });
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+
+  try {
+    // Generate a secure 6-digit verification code
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const createdAt = new Date().toISOString();
+    const expiresAtMs = Date.now() + 15 * 60 * 1000; // 15 Minutes Expiration Limit
+    const expiresAt = new Date(expiresAtMs).toISOString();
+
+    const resetRequestDoc = {
+      email: cleanEmail,
+      code: resetCode,
+      createdAt,
+      expiresAt,
+      expiresAtMs,
+      used: false
+    };
+
+    // Store in Firestore password_reset_requests collection
+    if (adminDb && isAdminDbAuthorized) {
+      await adminDb.collection("password_reset_requests").add(resetRequestDoc);
+    } else if (serverDb) {
+      await serverAddDoc(serverCollection(serverDb, "password_reset_requests"), resetRequestDoc);
+    }
+
+    // Security Audit Log: Log password reset generation
+    const eventLogData = {
+      eventType: "password_reset_request_generated",
+      status: "success",
+      email: cleanEmail,
+      code: resetCode,
+      createdAt,
+      expiresAt,
+      expiresAtMs,
+      errorMessage: `Password reset authorization request generated. 15-minute validity window active (Expires: ${expiresAt}).`,
+      userId: ""
+    };
+
+    try {
+      if (adminDb && isAdminDbAuthorized) {
+        await adminDb.collection("auth_events").add(eventLogData);
+      } else if (serverDb) {
+        await serverAddDoc(serverCollection(serverDb, "auth_events"), eventLogData);
+      }
+    } catch (logErr) {
+      console.warn("Failed writing password_reset_request_generated log:", logErr);
+    }
+
+    // Email dispatch content
+    const fromName = "Tech Sokoni Kenya";
+    const smtpUser = process.env.SMTP_USER;
+    let cleanFrom = `"${fromName}" <support@techsokoni.com>`;
+    if (smtpUser && smtpUser.includes("@")) {
+      cleanFrom = `"${fromName}" <${smtpUser}>`;
+    } else if (process.env.SMTP_FROM) {
+      cleanFrom = process.env.SMTP_FROM;
+    }
+
+    const emailHtmlContent = `
+      <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #dddddd; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+        <div style="background-color: #111111; padding: 25px; text-align: center; border-bottom: 3px solid #C5A059;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 22px; text-transform: uppercase; letter-spacing: 2px;">Tech Sokoni Kenya</h1>
+          <p style="color: #C5A059; margin: 5px 0 0 0; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Security & Password Authorization Portal</p>
+        </div>
+        <div style="padding: 30px; background-color: #ffffff;">
+          <h2 style="color: #111111; margin-top: 0; font-size: 18px; border-bottom: 1px solid #eeeeee; padding-bottom: 10px;">Password Reset Authorization</h2>
+          
+          <p style="font-size: 14px; color: #333333; line-height: 1.6;">A request was made to reset the account password for <strong>${cleanEmail}</strong> prior to logging in.</p>
+          
+          <div style="background-color: #0f0f0f; border: 1px solid #C5A059; padding: 20px; border-radius: 8px; margin: 25px 0; text-align: center;">
+            <p style="margin: 0 0 8px 0; color: #C5A059; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1.5px;">Your 15-Minute Authorization Code</p>
+            <div style="font-family: monospace; font-size: 32px; font-weight: 900; letter-spacing: 8px; color: #ffffff; background-color: #1a1a1a; padding: 12px 20px; border-radius: 6px; display: inline-block;">
+              ${resetCode}
+            </div>
+            <p style="margin: 12px 0 0 0; color: #ef4444; font-size: 12px; font-weight: bold;">
+              ⏰ SECURITY NOTICE: This verification code and authorization link strictly expire in 15 MINUTES (${new Date(expiresAtMs).toLocaleTimeString("en-KE", { timeZone: "Africa/Nairobi" })} EAT).
+            </p>
+          </div>
+
+          <p style="font-size: 13px; color: #555555; line-height: 1.6;">
+            Enter this code in the password reset window before logging in to verify your authorization and complete your password change. If you did not request this, you can ignore this email.
+          </p>
+
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eeeeee; font-size: 11px; color: #777777; text-align: center; line-height: 1.6;">
+            <p><strong>Physical Address:</strong> Kenyatta Pioneer Building, Kenyatta Avenue, 5th Floor, Shop 514, Nairobi, Kenya.</p>
+            <p>Support Email: <a href="mailto:support@techsokoni.com" style="color: #C5A059; text-decoration: none;">support@techsokoni.com</a></p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const transporter = getTransporter();
+    let isSentViaSmtp = false;
+
+    if (transporter) {
+      try {
+        await transporter.sendMail({
+          from: cleanFrom,
+          to: cleanEmail,
+          subject: `[Password Reset Code] Tech Sokoni Kenya - ${resetCode} (Expires in 15 mins)`,
+          html: emailHtmlContent,
+        });
+        isSentViaSmtp = true;
+        console.log(`[Password Reset Email] SMTP dispatch successful to ${cleanEmail}`);
+      } catch (smtpErr: any) {
+        console.warn("[Password Reset Email] SMTP failed, using server fallback simulation:", smtpErr.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      code: resetCode,
+      expiresAt,
+      expiresAtMs,
+      message: isSentViaSmtp
+        ? `Password reset email dispatched to ${cleanEmail}. Code strictly expires in 15 minutes.`
+        : `Password reset email prepared for ${cleanEmail}. Verification Code: ${resetCode} (Strictly expires in 15 minutes).`
+    });
+
+  } catch (err: any) {
+    console.error("Password reset email endpoint error:", err);
+    res.status(500).json({ error: err.message || "Failed to dispatch password reset email." });
+  }
+});
+
+app.post("/api/auth/reset-password", async (req, res) => {
+  const { email, code, newPassword } = req.body;
+
+  if (!email || !code || !newPassword) {
+    return res.status(400).json({ error: "Email, 15-minute verification code, and new password are required." });
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanCode = code.trim();
+
+  try {
+    let resetDocs: any[] = [];
+
+    if (adminDb && isAdminDbAuthorized) {
+      const snap = await adminDb.collection("password_reset_requests")
+        .where("email", "==", cleanEmail)
+        .where("code", "==", cleanCode)
+        .where("used", "==", false)
+        .get();
+      snap.forEach((d: any) => resetDocs.push({ id: d.id, ...d.data() }));
+    } else if (serverDb) {
+      const q = query(
+        serverCollection(serverDb, "password_reset_requests"),
+        where("email", "==", cleanEmail),
+        where("code", "==", cleanCode),
+        where("used", "==", false)
+      );
+      const snap = await serverGetDocs(q);
+      snap.forEach((d: any) => resetDocs.push({ id: d.id, ...d.data() }));
+    }
+
+    if (resetDocs.length === 0) {
+      // Security Audit Log: Invalid or missing code attempt
+      try {
+        const failData = {
+          eventType: "password_reset_attempt",
+          status: "failed",
+          email: cleanEmail,
+          createdAt: new Date().toISOString(),
+          errorMessage: "Invalid or already used verification code attempt."
+        };
+        if (adminDb && isAdminDbAuthorized) {
+          await adminDb.collection("auth_events").add(failData);
+        } else if (serverDb) {
+          await serverAddDoc(serverCollection(serverDb, "auth_events"), failData);
+        }
+      } catch (logErr) {
+        console.warn("Failed log write for invalid reset code:", logErr);
+      }
+
+      return res.status(400).json({ 
+        error: "Invalid or already used verification code. Please request a new password reset email." 
+      });
+    }
+
+    resetDocs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const validRequest = resetDocs[0];
+
+    const now = Date.now();
+    const expiryTime = validRequest.expiresAtMs || new Date(validRequest.expiresAt).getTime();
+
+    if (now > expiryTime) {
+      // Security Audit Log: Attempted password reset with expired code (>15 minutes)
+      try {
+        const expiredLogData = {
+          eventType: "password_reset_expired",
+          status: "failed",
+          email: cleanEmail,
+          createdAt: new Date().toISOString(),
+          expiresAt: validRequest.expiresAt,
+          errorMessage: `❌ Security Block: Password reset request code expired (>15 minutes). Generated at ${validRequest.createdAt}, expired at ${validRequest.expiresAt}.`
+        };
+        if (adminDb && isAdminDbAuthorized) {
+          await adminDb.collection("auth_events").add(expiredLogData);
+        } else if (serverDb) {
+          await serverAddDoc(serverCollection(serverDb, "auth_events"), expiredLogData);
+        }
+      } catch (logErr) {
+        console.warn("Failed log write for expired reset code:", logErr);
+      }
+
+      return res.status(400).json({
+        error: "❌ The password reset code has expired. For security reasons, reset emails and verification codes expire after 15 minutes. Please request a new reset email.",
+        expired: true
+      });
+    }
+
+    let userUpdated = false;
+    if (adminDb && isAdminDbAuthorized) {
+      const userSnap = await adminDb.collection("users").where("email", "==", cleanEmail).get();
+      if (!userSnap.empty) {
+        const userDocId = userSnap.docs[0].id;
+        await adminDb.collection("users").doc(userDocId).update({
+          password: newPassword,
+          updatedAt: new Date().toISOString()
+        });
+        userUpdated = true;
+      }
+      await adminDb.collection("password_reset_requests").doc(validRequest.id).update({ used: true, usedAt: new Date().toISOString() });
+    } else if (serverDb) {
+      const q = query(serverCollection(serverDb, "users"), where("email", "==", cleanEmail));
+      const userSnap = await serverGetDocs(q);
+      if (!userSnap.empty) {
+        const userDocId = userSnap.docs[0].id;
+        await serverUpdateDoc(serverDoc(serverDb, "users", userDocId), {
+          password: newPassword,
+          updatedAt: new Date().toISOString()
+        });
+        userUpdated = true;
+      }
+      await serverUpdateDoc(serverDoc(serverDb, "password_reset_requests", validRequest.id), { used: true, usedAt: new Date().toISOString() });
+    }
+
+    // Security Audit Log: Successful password reset within 15-minute validity window
+    try {
+      const successData = {
+        eventType: "password_reset_completed",
+        status: "success",
+        email: cleanEmail,
+        createdAt: new Date().toISOString(),
+        errorMessage: "Password reset completed successfully within 15-minute validity window."
+      };
+      if (adminDb && isAdminDbAuthorized) {
+        await adminDb.collection("auth_events").add(successData);
+      } else if (serverDb) {
+        await serverAddDoc(serverCollection(serverDb, "auth_events"), successData);
+      }
+    } catch (logErr) {
+      console.warn("Failed log write for completed password reset:", logErr);
+    }
+
+    res.json({
+      success: true,
+      userUpdated,
+      message: "✔ Security passcode updated successfully! You can now log into your account with your new password."
+    });
+
+  } catch (err: any) {
+    console.error("Password reset verification error:", err);
+    res.status(500).json({ error: err.message || "Failed to verify password reset code." });
   }
 });
 

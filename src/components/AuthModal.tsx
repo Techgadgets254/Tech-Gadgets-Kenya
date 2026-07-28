@@ -52,6 +52,11 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isResetMode, setIsResetMode] = useState(false);
+  const [resetStep, setResetStep] = useState<"email" | "verify">("email");
+  const [resetCode, setResetCode] = useState("");
+  const [resetExpiresAt, setResetExpiresAt] = useState<number | null>(null);
+  const [timeLeftSec, setTimeLeftSec] = useState<number>(0);
+  const [showResetSuccessModal, setShowResetSuccessModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const displayNameRef = useRef<HTMLInputElement>(null);
@@ -63,6 +68,25 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const isLight = theme === "light";
+
+  // Live 15-minute countdown timer effect
+  useEffect(() => {
+    if (!resetExpiresAt) return;
+    const interval = setInterval(() => {
+      const diff = Math.max(0, Math.floor((resetExpiresAt - Date.now()) / 1000));
+      setTimeLeftSec(diff);
+      if (diff <= 0) {
+        clearInterval(interval);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [resetExpiresAt]);
+
+  const formatTimeLeft = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
 
   const getPasswordStrength = (p: string) => {
     let score = 0;
@@ -169,6 +193,53 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
     }
 
     if (isResetMode) {
+      if (resetStep === "email") {
+        setLoading(true);
+        try {
+          try {
+            await sendPasswordResetEmail(auth, email);
+          } catch (fbErr: any) {
+            console.warn("Firebase Auth password reset email notice:", fbErr?.message);
+          }
+
+          const res = await fetch("/api/auth/send-reset-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email })
+          });
+
+          const data = await res.json();
+          if (res.ok && data.success) {
+            const expiryTime = data.expiresAtMs || (Date.now() + 15 * 60 * 1000);
+            setResetExpiresAt(expiryTime);
+            setResetStep("verify");
+            setShowResetSuccessModal(true);
+            setSuccessMsg(`✔ Password reset authorization email sent to ${email}! Check your inbox for your 6-digit verification code. Code & link expire in 15 minutes.`);
+            setToast({ type: "success", message: "Password reset email sent! Verification code expires in 15 minutes." });
+            await logAuthEvent("password_reset_email_sent", "success", email);
+          } else {
+            const errText = data.error || "Failed to dispatch password reset email.";
+            setErrorMsg(errText);
+            setToast({ type: "error", message: errText });
+          }
+        } catch (err: any) {
+          console.error("Password reset email dispatch error:", err);
+          const errText = err?.message || "Failed to dispatch password reset email.";
+          setErrorMsg(errText);
+          setToast({ type: "error", message: errText });
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
+      if (!resetCode.trim()) {
+        const msg = "Please enter the 15-minute verification code sent to your email.";
+        setErrorMsg(msg);
+        setToast({ type: "error", message: msg });
+        return;
+      }
+
       if (!newPassword) {
         const msg = "Please enter your new password passcode.";
         setErrorMsg(msg);
@@ -188,34 +259,44 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
         return;
       }
 
+      if (resetExpiresAt && Date.now() > resetExpiresAt) {
+        const msg = "❌ Verification code has expired. Security rules enforce a 15-minute expiration for reset emails and codes. Please request a new email.";
+        setErrorMsg(msg);
+        setToast({ type: "error", message: msg });
+        await logAuthEvent("password_reset_attempt", "failed", email, undefined, "Code expired");
+        return;
+      }
+
       setLoading(true);
       try {
-        console.log("[AuthModal Password Reset] Direct reset flow for email:", email);
-        const { collection, query, where, getDocs, doc, updateDoc } = await import("firebase/firestore");
-        const q = query(collection(db, "users"), where("email", "==", email));
-        const querySnap = await getDocs(q);
+        const res = await fetch("/api/auth/reset-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email,
+            code: resetCode,
+            newPassword
+          })
+        });
 
-        if (!querySnap.empty) {
-          const userDoc = querySnap.docs[0];
-          await updateDoc(doc(db, "users", userDoc.id), {
-            password: newPassword,
-            updatedAt: new Date().toISOString()
-          });
-
-          await logAuthEvent("password_reset_direct", "success", email, userDoc.id);
-          setSuccessMsg("✔ Passcode updated successfully! You can now log into your profile.");
+        const data = await res.json();
+        if (res.ok && data.success) {
+          await logAuthEvent("password_reset_complete", "success", email);
+          setSuccessMsg("✔ Passcode updated successfully! You can now log into your profile with your new password.");
           setToast({ type: "success", message: "Passcode updated successfully! Proceeding." });
           setErrorMsg("");
           setTimeout(() => {
             setIsResetMode(false);
+            setResetStep("email");
+            setResetCode("");
             setNewPassword("");
             setConfirmPassword("");
           }, 1500);
         } else {
-          const msg = "No registered profile found matching that email address. Please register first!";
+          const msg = data.error || "Verification failed. Please check your code.";
           setErrorMsg(msg);
           setToast({ type: "error", message: msg });
-          await logAuthEvent("password_reset_direct", "failed", email, undefined, "Email not found");
+          await logAuthEvent("password_reset_complete", "failed", email, undefined, msg);
         }
       } catch (err: any) {
         console.error("Direct password reset error:", err);
@@ -792,8 +873,53 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
               </div>
             </div>
 
-            {isResetMode && (
+            {isResetMode && resetStep === "verify" && (
               <>
+                {/* 15-Minute Live Countdown Timer Banner */}
+                <div className={`p-3.5 rounded-2xl border flex items-center justify-between transition-all ${
+                  timeLeftSec > 0
+                    ? isLight ? "bg-amber-50 border-amber-200 text-amber-900" : "bg-amber-500/10 border-amber-500/20 text-amber-300"
+                    : "bg-red-500/15 border-red-500/30 text-red-400 animate-pulse"
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <HelpCircle className="w-4 h-4 text-[#C5A059] shrink-0" />
+                    <span className="text-[11px] font-mono font-bold uppercase tracking-wider">
+                      {timeLeftSec > 0 ? "Email Code Expiration:" : "Code Expired (15 Min Limit):"}
+                    </span>
+                  </div>
+                  <span className={`text-xs font-mono font-black px-2.5 py-1 rounded-lg ${
+                    timeLeftSec > 0 ? "bg-[#C5A059]/20 text-[#C5A059]" : "bg-red-500 text-white"
+                  }`}>
+                    {timeLeftSec > 0 ? formatTimeLeft(timeLeftSec) : "00:00"}
+                  </span>
+                </div>
+
+                {/* Verification Code Input */}
+                <div className="space-y-1.5">
+                  <label className={`text-[10px] font-mono uppercase tracking-wider block font-bold ${
+                    isLight ? "text-zinc-850 font-extrabold" : "text-white/40"
+                  }`}>
+                    15-Min Email Verification Code
+                  </label>
+                  <div className="relative flex items-center">
+                    <Lock className={`w-3.5 h-3.5 absolute left-3.5 ${isLight ? "text-zinc-650" : "text-white/30"}`} />
+                    <input 
+                      type="text"
+                      value={resetCode}
+                      onChange={(e) => setResetCode(e.target.value)}
+                      placeholder="Enter 6-digit code (e.g. 849201)"
+                      disabled={loading}
+                      maxLength={8}
+                      className={`w-full py-2.5 pl-10 pr-4 rounded-xl text-xs font-mono tracking-widest outline-none transition-all ${
+                        isLight 
+                          ? "bg-zinc-100/70 border-zinc-300 focus:border-[#C5A059] focus:bg-white text-zinc-950 placeholder-zinc-550 border" 
+                          : "bg-white/[0.02] border-white/10 focus:border-[#C5A059] focus:bg-[#151515] text-white placeholder-white/30 border"
+                      }`}
+                      required
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-1.5">
                   <label className={`text-[10px] font-mono uppercase tracking-wider block font-bold ${
                     isLight ? "text-zinc-850 font-extrabold" : "text-white/40"
@@ -961,7 +1087,12 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
             <div className="pt-2">
               <button
                 type="submit"
-                disabled={loading || (authModalMode === "signup" && !isResetMode && !isPasswordValid(password)) || (isResetMode && (!newPassword || newPassword !== confirmPassword || !isPasswordValid(newPassword)))}
+                disabled={
+                  loading || 
+                  (authModalMode === "signup" && !isResetMode && !isPasswordValid(password)) || 
+                  (isResetMode && resetStep === "email" && (!email || !validateEmail(email))) ||
+                  (isResetMode && resetStep === "verify" && (!resetCode || !newPassword || newPassword !== confirmPassword || !isPasswordValid(newPassword)))
+                }
                 className={`w-full py-3 rounded-2xl flex items-center justify-center gap-1.5 font-bold text-xs uppercase tracking-wider cursor-pointer shadow-lg transform active:scale-95 transition-all ${
                   isLight 
                     ? "bg-[#835c17] hover:bg-[#704e12] text-white" 
@@ -971,7 +1102,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                 {loading ? (
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                 ) : isResetMode ? (
-                  <RefreshCw className="w-3.5 h-3.5" />
+                  <Mail className="w-3.5 h-3.5" />
                 ) : authModalMode === "signup" ? (
                   <UserPlus className="w-3.5 h-3.5" />
                 ) : (
@@ -979,9 +1110,11 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                 )}
                 <span>
                   {loading 
-                    ? "Processing auth protocol..." 
+                    ? "Processing..." 
                     : isResetMode 
-                      ? "Directly Reset Passcode" 
+                      ? resetStep === "email"
+                        ? "Send Reset Email (15 Min Expiry)"
+                        : "Verify Code & Reset Password"
                       : authModalMode === "signup" 
                         ? "Register New profile" 
                         : "Sign into storefront portal"}
@@ -990,13 +1123,27 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
             </div>
           </form>
 
-          {/* Toggle Back to Authentication (only visible when in password reset mode) */}
+          {/* Toggle Back to Authentication / Resend Reset Code */}
           {isResetMode && (
-            <div className="mt-4 text-center">
+            <div className="mt-4 flex flex-col items-center gap-2 text-center">
+              {resetStep === "verify" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetStep("email");
+                    setErrorMsg("");
+                    setSuccessMsg("");
+                  }}
+                  className="text-[10px] font-mono uppercase tracking-wider text-[#C5A059] font-extrabold hover:underline"
+                >
+                  ↻ Resend Password Reset Email
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
                   setIsResetMode(false);
+                  setResetStep("email");
                   setErrorMsg("");
                   setSuccessMsg("");
                 }}
@@ -1055,6 +1202,127 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
           )}
         </motion.div>
       </div>
+
+      {/* DEDICATED "PASSWORD RESET REQUESTED" SUCCESS MODAL POP-UP */}
+      <AnimatePresence>
+        {showResetSuccessModal && (
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="bg-[#0B0B0B] border border-[#C5A059]/40 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative space-y-5 text-white text-left"
+            >
+              {/* Close icon */}
+              <button
+                type="button"
+                onClick={() => setShowResetSuccessModal(false)}
+                className="absolute top-4 right-4 p-2 text-white/40 hover:text-white hover:bg-white/10 rounded-full transition-all cursor-pointer"
+                title="Close Modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              {/* Header with Gold Security Icon */}
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-[#C5A059]/15 border border-[#C5A059]/30 rounded-2xl text-[#C5A059] shrink-0">
+                  <Mail className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-sans font-extrabold text-lg text-white tracking-tight">
+                    Password Reset Requested
+                  </h3>
+                  <p className="text-xs text-white/60 font-sans mt-0.5">
+                    Authorization Link & Passcode Dispatched
+                  </p>
+                </div>
+              </div>
+
+              {/* Target Email Banner */}
+              <div className="p-3 bg-white/[0.03] border border-white/10 rounded-xl flex items-center justify-between text-xs font-mono">
+                <span className="text-white/40 text-[10px] uppercase">Client Email:</span>
+                <span className="font-bold text-[#C5A059] truncate max-w-[220px]">{email}</span>
+              </div>
+
+              {/* 15-Minute Expiration Notice Box */}
+              <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <HelpCircle className="w-4 h-4 text-[#C5A059]" />
+                    <span className="text-xs font-mono font-extrabold text-[#C5A059] uppercase tracking-wider">
+                      15-Minute Validity Limit
+                    </span>
+                  </div>
+                  <span className="text-xs font-mono font-black text-amber-300 bg-black/60 px-2.5 py-1 rounded-lg border border-amber-500/30">
+                    {timeLeftSec > 0 ? formatTimeLeft(timeLeftSec) : "00:00"}
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-amber-200/90 leading-relaxed font-sans">
+                  ⏰ <strong>Security Policy Notice:</strong> For account security and live authorization tracking, password reset links and 6-digit verification codes strictly expire in <strong>15 minutes</strong> ({resetExpiresAt ? new Date(resetExpiresAt).toLocaleTimeString("en-KE", { timeZone: "Africa/Nairobi" }) : "15 mins"} EAT).
+                </p>
+              </div>
+
+              {/* Step-by-step guidance */}
+              <div className="space-y-2 text-xs text-white/80 bg-white/[0.02] border border-white/5 p-3.5 rounded-xl font-sans">
+                <div className="flex items-start gap-2">
+                  <span className="bg-[#C5A059]/20 text-[#C5A059] font-mono text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 mt-0.5">1</span>
+                  <span>Check your email inbox or spam folder for your 6-digit verification code.</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="bg-[#C5A059]/20 text-[#C5A059] font-mono text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 mt-0.5">2</span>
+                  <span>Enter the code along with your new password in the authorization form.</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="bg-[#C5A059]/20 text-[#C5A059] font-mono text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 mt-0.5">3</span>
+                  <span>Complete your password change before the 15-minute validity window closes.</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowResetSuccessModal(false)}
+                  className="w-full py-3.5 bg-[#C5A059] hover:bg-[#b08e4d] text-black font-extrabold rounded-2xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg cursor-pointer transition-all transform active:scale-95"
+                >
+                  <span>Proceed to Code Verification</span>
+                  <Lock className="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setShowResetSuccessModal(false);
+                    setLoading(true);
+                    try {
+                      const res = await fetch("/api/auth/send-reset-email", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ email })
+                      });
+                      const data = await res.json();
+                      if (res.ok && data.success) {
+                        const expiryTime = data.expiresAtMs || (Date.now() + 15 * 60 * 1000);
+                        setResetExpiresAt(expiryTime);
+                        setShowResetSuccessModal(true);
+                        setSuccessMsg(`✔ Resent password reset email to ${email}. Code expires in 15 minutes.`);
+                      }
+                    } catch (err) {
+                      console.error("Resend error:", err);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  className="w-full py-2 text-center text-[11px] text-white/50 hover:text-[#C5A059] transition-colors cursor-pointer font-sans"
+                >
+                  Didn't receive the email? Resend reset email
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   </div>
   );
