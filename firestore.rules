@@ -494,6 +494,19 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /password_reset_otps/{otpId} {
+      allow read, get, list: if isAdmin();
+      allow create: if (isAdmin() || (
+        isValidPasswordResetRequest(incoming()) && 
+        incoming().used == false
+      ));
+      allow update: if isAdmin() || (
+        existing().used == false &&
+        isValidPasswordResetRequest(incoming())
+      );
+      allow delete: if isAdmin();
+    }
+
     // User Activity Tracking collection:
     // - Anyone can log user activity events (create)
     // - Only administrators can read, list, or delete user activity records

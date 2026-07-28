@@ -3009,9 +3009,10 @@ app.post("/api/auth/send-reset-email", async (req, res) => {
 
     if (adminDb && isAdminDbAuthorized) {
       try {
-        const [snap1, snap2] = await Promise.all([
+        const [snap1, snap2, snap3] = await Promise.all([
           adminDb.collection("reset_requests").where("email", "==", cleanEmail).get(),
-          adminDb.collection("password_reset_requests").where("email", "==", cleanEmail).get()
+          adminDb.collection("password_reset_requests").where("email", "==", cleanEmail).get(),
+          adminDb.collection("password_reset_otps").where("email", "==", cleanEmail).get()
         ]);
 
         snap1.forEach((doc: any) => {
@@ -3027,6 +3028,14 @@ app.post("/api/auth/send-reset-email", async (req, res) => {
           const createdTime = data.expiresAtMs ? data.expiresAtMs - (15 * 60 * 1000) : new Date(data.createdAt).getTime();
           if (createdTime >= twentyFourHoursAgoMs) {
             requestDocIds.add(doc.id || data.id || `snap2_${createdTime}`);
+          }
+        });
+
+        snap3.forEach((doc: any) => {
+          const data = doc.data();
+          const createdTime = data.expiresAtMs ? data.expiresAtMs - (15 * 60 * 1000) : new Date(data.createdAt).getTime();
+          if (createdTime >= twentyFourHoursAgoMs) {
+            requestDocIds.add(doc.id || data.id || `snap3_${createdTime}`);
           }
         });
       } catch (err: any) {
@@ -3066,15 +3075,17 @@ app.post("/api/auth/send-reset-email", async (req, res) => {
 
     inMemoryResetRequests.push(resetRequestDoc);
 
-    // Store in Firestore reset_requests & password_reset_requests collections
+    // Store in Firestore password_reset_otps, reset_requests & password_reset_requests collections
     try {
       if (adminDb && isAdminDbAuthorized) {
         await Promise.all([
+          adminDb.collection("password_reset_otps").add(resetRequestDoc),
           adminDb.collection("reset_requests").add(resetRequestDoc),
           adminDb.collection("password_reset_requests").add(resetRequestDoc)
         ]);
       } else if (serverDb) {
         await Promise.all([
+          serverAddDoc(serverCollection(serverDb, "password_reset_otps"), resetRequestDoc),
           serverAddDoc(serverCollection(serverDb, "reset_requests"), resetRequestDoc),
           serverAddDoc(serverCollection(serverDb, "password_reset_requests"), resetRequestDoc)
         ]);
@@ -3250,23 +3261,32 @@ app.post("/api/auth/reset-password", async (req, res) => {
 
     if (adminDb && isAdminDbAuthorized) {
       try {
-        const snap = await adminDb.collection("password_reset_requests")
-          .where("email", "==", cleanEmail)
-          .where("used", "==", false)
-          .get();
-        snap.forEach((d: any) => resetDocs.push({ id: d.id, ...d.data() }));
+        const [snap1, snap2, snap3] = await Promise.all([
+          adminDb.collection("password_reset_otps").where("email", "==", cleanEmail).where("used", "==", false).get(),
+          adminDb.collection("password_reset_requests").where("email", "==", cleanEmail).where("used", "==", false).get(),
+          adminDb.collection("reset_requests").where("email", "==", cleanEmail).where("used", "==", false).get()
+        ]);
+        snap1.forEach((d: any) => resetDocs.push({ id: d.id, ...d.data() }));
+        snap2.forEach((d: any) => {
+          if (!resetDocs.some(existing => existing.id === d.id)) resetDocs.push({ id: d.id, ...d.data() });
+        });
+        snap3.forEach((d: any) => {
+          if (!resetDocs.some(existing => existing.id === d.id)) resetDocs.push({ id: d.id, ...d.data() });
+        });
       } catch (dbErr: any) {
         console.warn("Firestore query error for active reset request:", dbErr?.message);
       }
     } else if (serverDb) {
       try {
-        const q = query(
-          serverCollection(serverDb, "password_reset_requests"),
-          where("email", "==", cleanEmail),
-          where("used", "==", false)
-        );
-        const snap = await serverGetDocs(q);
-        snap.forEach((d: any) => resetDocs.push({ id: d.id, ...d.data() }));
+        const [q1, q2] = [
+          query(serverCollection(serverDb, "password_reset_otps"), where("email", "==", cleanEmail), where("used", "==", false)),
+          query(serverCollection(serverDb, "password_reset_requests"), where("email", "==", cleanEmail), where("used", "==", false))
+        ];
+        const [snap1, snap2] = await Promise.all([serverGetDocs(q1), serverGetDocs(q2)]);
+        snap1.forEach((d: any) => resetDocs.push({ id: d.id, ...d.data() }));
+        snap2.forEach((d: any) => {
+          if (!resetDocs.some(existing => existing.id === d.id)) resetDocs.push({ id: d.id, ...d.data() });
+        });
       } catch (dbErr: any) {
         console.warn("ServerDb query error for active reset request:", dbErr?.message);
       }
