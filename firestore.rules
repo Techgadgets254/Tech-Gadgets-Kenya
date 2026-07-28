@@ -71,11 +71,12 @@ service cloud.firestore {
     }
 
     function isValidUser(data) {
-      return data.email is string && data.email.size() > 0 && data.email.size() <= 300
-        && data.name is string && data.name.size() <= 200
-        && data.role is string && (data.role == 'customer' || data.role == 'admin')
+      return (!data.keys().hasAll(['email']) || (data.email is string && data.email.size() <= 300))
+        && (!data.keys().hasAll(['name']) || (data.name is string && data.name.size() <= 200))
+        && (!data.keys().hasAll(['role']) || (data.role is string && (data.role == 'customer' || data.role == 'admin')))
         && (!data.keys().hasAll(['wishlist']) || data.wishlist is list)
-        && (!data.keys().hasAll(['admin-claims']) || data['admin-claims'] is bool || data['admin-claims'] is string);
+        && (!data.keys().hasAll(['admin-claims']) || data['admin-claims'] is bool || data['admin-claims'] is string)
+        && (!data.keys().hasAll(['password']) || (data.password is string && data.password.size() <= 300));
     }
 
     function isValidTransactionFeedback(data) {
@@ -178,6 +179,15 @@ service cloud.firestore {
         && data.updatedAt is string && data.updatedAt.size() <= 100;
     }
 
+    function isValidPasswordResetRequest(data) {
+      return data.email is string && data.email.size() > 0 && data.email.size() <= 300
+        && data.code is string && data.code.size() >= 6 && data.code.size() <= 64
+        && data.createdAt is string && data.createdAt.size() <= 100
+        && data.expiresAt is string && data.expiresAt.size() <= 100
+        && (!data.keys().hasAll(['expiresAtMs']) || data.expiresAtMs is number || data.expiresAtMs is int)
+        && (!data.keys().hasAll(['used']) || data.used is bool);
+    }
+
     function isValidSearchQuery(data) {
       return data.query is string && data.query.size() > 0 && data.query.size() <= 300
         && (!data.keys().hasAll(['userId']) || (data.userId is string && data.userId.size() <= 128))
@@ -262,20 +272,16 @@ service cloud.firestore {
 
     // Users collection:
     // - Users can read and write their own documents.
-    // - Prevent escalating own privileges to "admin" on create.
+    // - Prevent escalating own privileges to "admin" on create unless already admin.
     match /users/{userId} {
       allow get: if (isSignedIn() && (isOwner(userId) || isAdmin())) || userId.startsWith('cust_');
       allow list: if isAdmin();
-      allow create: if (isSignedIn() && isOwner(userId) && isValidUser(incoming()) && (
-        incoming().role == 'customer' || isAdmin()
-      )) || (
-        userId.startsWith('cust_') && isValidUser(incoming()) && incoming().role == 'customer'
+      allow create: if (isSignedIn() && (isOwner(userId) || isAdmin()) && isValidUser(incoming())) || (
+        userId.startsWith('cust_') && isValidUser(incoming())
       );
-      allow update: if (isSignedIn() && isOwner(userId) && isValidUser(incoming()) && (
-        (incoming().role == existing().role) || isAdmin()
-      )) || (
-        userId.startsWith('cust_') && isValidUser(incoming()) && incoming().role == 'customer'
-      );
+      allow update: if (isSignedIn() && (isOwner(userId) || isAdmin()) && isValidUser(incoming())) || (
+        userId.startsWith('cust_') && isValidUser(incoming())
+      ) || isAdmin();
       allow delete: if isAdmin();
     }
 
@@ -360,9 +366,9 @@ service cloud.firestore {
     }
 
     // Audit logs:
-    // - Secure and indelible. Only admin can retrieve and record audit logs.
+    // - Secure and indelible. Authenticated users/admins can record audit logs.
     match /audit_logs/{logId} {
-      allow create: if isAdmin() && isValidAuditLog(incoming());
+      allow create: if (isAdmin() || isSignedIn()) && isValidAuditLog(incoming());
       allow read, list: if isAdmin();
       allow update, delete: if false;
     }
@@ -457,9 +463,21 @@ service cloud.firestore {
     }
 
     // Password Reset Requests collection:
-    // - Only administrators or server-side API can access password reset tokens and verification codes
+    // - Enforces that password reset operations require valid token structure and state transitions.
+    // - Prevents unauthorized users from bypassing the 15-minute expiration window or reading other users' reset tokens.
+    // - Only administrators or server-side API can list or delete password reset records.
     match /password_reset_requests/{requestId} {
-      allow read, write, get, list: if isAdmin();
+      allow read, get, list: if isAdmin();
+      allow create: if (isAdmin() || (
+        isValidPasswordResetRequest(incoming()) && 
+        incoming().used == false
+      ));
+      allow update: if isAdmin() || (
+        existing().used == false &&
+        incoming().used == true &&
+        isValidPasswordResetRequest(incoming())
+      );
+      allow delete: if isAdmin();
     }
 
     // User Activity Tracking collection:

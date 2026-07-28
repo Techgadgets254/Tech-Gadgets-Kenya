@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Mail, Lock, LogIn, AlertCircle, CheckCircle2, RefreshCw, UserPlus, HelpCircle, Eye, EyeOff } from "lucide-react";
+import { X, Mail, Lock, LogIn, AlertCircle, CheckCircle2, RefreshCw, UserPlus, HelpCircle, Eye, EyeOff, ShieldAlert, ShieldCheck } from "lucide-react";
 import { auth, googleProvider, db } from "../firebase";
 import { 
   signInWithEmailAndPassword, 
@@ -67,7 +67,26 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
   const [successMsg, setSuccessMsg] = useState("");
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
+  // Account Lockout protection states
+  const [failedAttempts, setFailedAttempts] = useState<number>(0);
+  const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
+  const [lockoutTimeLeft, setLockoutTimeLeft] = useState<number>(0);
+
   const isLight = theme === "light";
+
+  // Account lockout countdown timer effect
+  useEffect(() => {
+    if (!lockoutUntil) return;
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((lockoutUntil - Date.now()) / 1000));
+      setLockoutTimeLeft(remaining);
+      if (remaining <= 0) {
+        setLockoutUntil(null);
+        clearInterval(interval);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutUntil]);
 
   // Live 15-minute countdown timer effect
   useEffect(() => {
@@ -174,6 +193,13 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return;
+
+    if (lockoutTimeLeft > 0) {
+      const lockMsg = `🔒 Account is temporarily locked due to repeated failed login attempts. Please wait ${lockoutTimeLeft}s before trying again or use Password Reset.`;
+      setErrorMsg(lockMsg);
+      setToast({ type: "error", message: lockMsg });
+      return;
+    }
 
     setErrorMsg("");
     setSuccessMsg("");
@@ -478,6 +504,9 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
         try {
           const userCred = await signInWithEmailAndPassword(auth, email, password);
           await logAuthEvent("login", "success", email, userCred.user.uid);
+          setFailedAttempts(0);
+          setLockoutUntil(null);
+          setLockoutTimeLeft(0);
           setSuccessMsg("✔ Authentication successful! Back to the command deck.");
           setToast({ type: "success", message: "Welcome back! Authentication successful." });
           setTimeout(() => {
@@ -493,13 +522,26 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
               const userData = querySnap.docs[0].data() as any;
               
               if (userData.password && userData.password !== password) {
-                const msg = "Invalid passcode. Please check your credentials.";
+                const nextFailed = failedAttempts + 1;
+                setFailedAttempts(nextFailed);
+                let msg = "Invalid passcode. Please check your credentials.";
+                if (nextFailed >= 5) {
+                  const lockMs = 30 * 1000;
+                  setLockoutUntil(Date.now() + lockMs);
+                  setLockoutTimeLeft(30);
+                  msg = "🔒 ACCOUNT LOCKOUT ACTIVATED: 5 failed login attempts detected. Temporary security block active for 30s.";
+                } else if (nextFailed >= 3) {
+                  msg = `⚠️ ACCOUNT LOCKOUT WARNING: ${nextFailed} failed login attempts recorded. Lockout triggers after 5 failed attempts.`;
+                }
                 setErrorMsg(msg);
                 setToast({ type: "error", message: msg });
                 return;
               }
               
               await logAuthEvent("login_fallback", "success", email, userData.uid);
+              setFailedAttempts(0);
+              setLockoutUntil(null);
+              setLockoutTimeLeft(0);
               
               localStorage.setItem("tgk_custom_user", JSON.stringify(userData));
               setUser({ uid: userData.uid, email: email, displayName: userData.name } as any);
@@ -539,6 +581,20 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
       } else if (err?.code === "auth/weak-password" || err?.code === "weak-password") {
         errMsg = "The password passcode does not satisfy deep firewall strength parameters. Please provide a stronger password.";
       }
+
+      if (!isSignUp && !isResetMode) {
+        const nextFailed = failedAttempts + 1;
+        setFailedAttempts(nextFailed);
+        if (nextFailed >= 5) {
+          const lockMs = 30 * 1000;
+          setLockoutUntil(Date.now() + lockMs);
+          setLockoutTimeLeft(30);
+          errMsg = "🔒 ACCOUNT LOCKOUT ACTIVATED: 5 failed login attempts detected. Temporary security block active for 30s. Please reset your password or verify credentials.";
+        } else if (nextFailed >= 3) {
+          errMsg = `⚠️ ACCOUNT LOCKOUT WARNING: ${nextFailed} failed login attempts recorded. Account lockout will trigger after 5 failed attempts.`;
+        }
+      }
+
       setErrorMsg(errMsg);
       setToast({ type: "error", message: errMsg });
     } finally {
@@ -787,8 +843,59 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
             </div>
           )}
 
-          {/* Alert messages feedback */}
+          {/* Alert messages feedback & Account Lockout Warning Banner */}
           <AnimatePresence mode="wait">
+            {(failedAttempts >= 3 || lockoutTimeLeft > 0) && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                className={`p-4 mb-4 rounded-2xl border ${
+                  lockoutTimeLeft > 0 
+                    ? "bg-rose-500/15 border-rose-500/40 text-rose-300 dark:text-rose-200" 
+                    : "bg-amber-500/15 border-amber-500/40 text-amber-800 dark:text-amber-300"
+                } space-y-2 shadow-lg`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0 animate-pulse" />
+                    <span className="font-mono text-[11px] font-extrabold uppercase tracking-wider">
+                      {lockoutTimeLeft > 0 ? "Account Lockout Protection Active" : "Account Lockout Warning"}
+                    </span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                    {failedAttempts} / 5 Failed
+                  </span>
+                </div>
+                <p className="text-[11px] font-sans leading-relaxed">
+                  {lockoutTimeLeft > 0 ? (
+                    <>
+                      Multiple unsuccessful authentication attempts detected. Requests are temporarily blocked for <strong className="font-mono font-bold underline">{lockoutTimeLeft}s</strong> to safeguard your account against brute-force attacks.
+                    </>
+                  ) : (
+                    <>
+                      Security Alert: <strong className="font-bold">{failedAttempts} unsuccessful authentication attempts</strong> logged. Reaching 5 failed attempts will trigger a 30-second security block.
+                    </>
+                  )}
+                </p>
+                {lockoutTimeLeft === 0 && (
+                  <div className="pt-1 flex items-center justify-between text-[10px] font-mono">
+                    <span className={isLight ? "text-amber-800 font-bold" : "text-amber-400"}>Forgot your passcode?</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsResetMode(true);
+                        setErrorMsg("");
+                      }}
+                      className="text-[#C5A059] hover:underline font-extrabold uppercase cursor-pointer"
+                    >
+                      Reset Password →
+                    </button>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
             {errorMsg && (
               <motion.div 
                 initial={{ opacity: 0, y: -8 }}
@@ -952,6 +1059,32 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                       {showPassword ? <EyeOff className="w-4 h-4 shrink-0" /> : <Eye className="w-4 h-4 shrink-0" />}
                     </button>
                   </div>
+
+                  {newPassword && (
+                    <div className="space-y-1.5 mt-2">
+                      <div className="flex justify-between items-center text-[9px] font-mono font-bold uppercase tracking-wider">
+                        <span className={isLight ? "text-zinc-500" : "text-white/40"}>Password Strength:</span>
+                        <span 
+                          className="font-black"
+                          style={{ 
+                            color: getPasswordStrength(newPassword).text === "Strong" 
+                              ? "#10b981" 
+                              : getPasswordStrength(newPassword).text === "Fair" 
+                                ? "#f59e0b" 
+                                : "#ef4444" 
+                          }}
+                        >
+                          {getPasswordStrength(newPassword).text}
+                        </span>
+                      </div>
+                      <div className={`w-full h-1.5 rounded-full overflow-hidden ${isLight ? "bg-zinc-200" : "bg-white/10"}`}>
+                        <div 
+                          className={`h-full transition-all duration-300 ${getPasswordStrength(newPassword).color}`}
+                          style={{ width: `${getPasswordStrength(newPassword).percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -1089,6 +1222,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                 type="submit"
                 disabled={
                   loading || 
+                  lockoutTimeLeft > 0 ||
                   (authModalMode === "signup" && !isResetMode && !isPasswordValid(password)) || 
                   (isResetMode && resetStep === "email" && (!email || !validateEmail(email))) ||
                   (isResetMode && resetStep === "verify" && (!resetCode || !newPassword || newPassword !== confirmPassword || !isPasswordValid(newPassword)))
@@ -1101,6 +1235,8 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
               >
                 {loading ? (
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : lockoutTimeLeft > 0 ? (
+                  <ShieldAlert className="w-3.5 h-3.5" />
                 ) : isResetMode ? (
                   <Mail className="w-3.5 h-3.5" />
                 ) : authModalMode === "signup" ? (
@@ -1111,13 +1247,15 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                 <span>
                   {loading 
                     ? "Processing..." 
-                    : isResetMode 
-                      ? resetStep === "email"
-                        ? "Send Reset Email (15 Min Expiry)"
-                        : "Verify Code & Reset Password"
-                      : authModalMode === "signup" 
-                        ? "Register New profile" 
-                        : "Sign into storefront portal"}
+                    : lockoutTimeLeft > 0
+                      ? `🔒 Account Locked (${lockoutTimeLeft}s)`
+                      : isResetMode 
+                        ? resetStep === "email"
+                          ? "Send Reset Email (15 Min Expiry)"
+                          : "Verify Code & Reset Password"
+                        : authModalMode === "signup" 
+                          ? "Register New profile" 
+                          : "Sign into storefront portal"}
                 </span>
               </button>
             </div>

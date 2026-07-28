@@ -102,22 +102,24 @@ export default function LiveOrderTracker({ initialOrderId = "", onNavigateToShop
     }
   };
 
-  const getStepNumber = (status: string) => {
-    const s = (status || "").toLowerCase();
-    if (s === "processing" || s === "pending") return 1;
-    if (s === "shipped") return 2;
-    if (s === "out for delivery" || s === "out_for_delivery") return 3;
-    if (s === "delivered") return 4;
+  const getStepNumber = (shippingStatus: string, paymentStatus?: string) => {
+    const s = (shippingStatus || "").toLowerCase();
+    const p = (paymentStatus || "").toLowerCase();
+    if (s === "delivered") return 5;
+    if (s === "shipped" || s === "out for delivery" || s === "out_for_delivery") return 4;
+    if (s === "processing") return 3;
+    if (p === "paid" || p === "verified") return 2;
     return 1;
   };
 
-  const activeStep = trackedOrder ? getStepNumber(trackedOrder.shippingStatus) : 1;
+  const activeStep = trackedOrder ? getStepNumber(trackedOrder.shippingStatus, trackedOrder.paymentStatus) : 1;
 
   const steps = [
-    { num: 1, label: "Processing", desc: "Warehouse preparing your package", icon: Package },
-    { num: 2, label: "Shipped", desc: "Left our Kenyatta Avenue Depot", icon: Truck },
-    { num: 3, label: "Out For Delivery", desc: "Express courier dispatcher in transit", icon: MapPin },
-    { num: 4, label: "Delivered", desc: "Successfully delivered & verified", icon: CheckCircle }
+    { num: 1, label: "Order Placed", desc: "Logged & registered in system", icon: Clock },
+    { num: 2, label: "Payment Verified", desc: "M-Pesa / Card payment confirmed", icon: CreditCard },
+    { num: 3, label: "Processing", desc: "Warehouse inspecting & preparing package", icon: Package },
+    { num: 4, label: "Out for Delivery", desc: "Express courier dispatcher in transit", icon: Truck },
+    { num: 5, label: "Delivered", desc: "Successfully delivered & signed off", icon: CheckCircle }
   ];
 
   const handleDownloadInvoicePDF = async () => {
@@ -462,10 +464,10 @@ export default function LiveOrderTracker({ initialOrderId = "", onNavigateToShop
             {/* Horizontal Timeline on desktop, vertical on mobile */}
             <div className="relative flex flex-col md:flex-row justify-between gap-8 md:gap-4">
               {/* Connector line (desktop) */}
-              <div className="hidden md:block absolute top-4 left-[12.5%] right-[12.5%] h-0.5 bg-white/5 z-0">
+              <div className="hidden md:block absolute top-4 left-[10%] right-[10%] h-0.5 bg-white/5 z-0">
                 <div 
                   className="h-full bg-emerald-500 transition-all duration-1000 ease-out"
-                  style={{ width: `${((activeStep - 1) / 3) * 100}%` }}
+                  style={{ width: `${((activeStep - 1) / 4) * 100}%` }}
                 />
               </div>
 

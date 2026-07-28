@@ -1416,30 +1416,42 @@ export default function ClientDashboard() {
 
                       {[
                         {
-                          key: "received",
-                          title: "Order Received",
+                          key: "placed",
+                          title: "Order Placed",
                           time: "Instant",
                           icon: Clock,
                           description: "Your hardware order has been successfully logged and queued in our fulfillment system.",
-                          check: (status: string) => true
+                          check: () => true
                         },
                         {
-                          key: "processing",
-                          title: "Processing & Configuration",
-                          time: "1-2 Hours",
-                          icon: Package,
-                          description: "Our configuration laboratory is cleaning, testing, and preparing secure packaging.",
-                          check: (status: string) => {
+                          key: "payment_verified",
+                          title: "Payment Verified",
+                          time: "Authorized",
+                          icon: CreditCard,
+                          description: "M-Pesa or Card payment authorization confirmed and reconciled.",
+                          check: (status: string, payStatus?: string) => {
+                            const p = (payStatus || "").toLowerCase();
                             const s = (status || "").toLowerCase();
-                            return s !== "pending" && s !== "received";
+                            return p === "paid" || p === "verified" || (s !== "pending" && s !== "order received");
                           }
                         },
                         {
-                          key: "dispatched",
-                          title: "Dispatched",
-                          time: "Within 2 Hours",
+                          key: "processing",
+                          title: "Processing",
+                          time: "1-2 Hours",
+                          icon: Package,
+                          description: "Our configuration laboratory is testing, inspecting, and preparing secure packaging.",
+                          check: (status: string) => {
+                            const s = (status || "").toLowerCase();
+                            return s === "processing" || s === "shipped" || s === "out for delivery" || s === "out_for_delivery" || s === "delivered";
+                          }
+                        },
+                        {
+                          key: "out_for_delivery",
+                          title: "Out for Delivery",
+                          time: "In Transit",
                           icon: Truck,
-                          description: "Handed over to courier service for dispatch / local Nairobi delivery dispatch.",
+                          description: "Handed over to express courier for Nairobi CBD & regional dispatch.",
                           check: (status: string) => {
                             const s = (status || "").toLowerCase();
                             return s === "shipped" || s === "out for delivery" || s === "out_for_delivery" || s === "delivered";
@@ -1450,7 +1462,7 @@ export default function ClientDashboard() {
                           title: "Delivered",
                           time: "Completed",
                           icon: CheckCircle,
-                          description: "Product hand-delivered and receipt signed off by the client.",
+                          description: "Consignment hand-delivered and official sign-off completed.",
                           check: (status: string) => {
                             const s = (status || "").toLowerCase();
                             return s === "delivered";
@@ -1458,10 +1470,11 @@ export default function ClientDashboard() {
                         }
                       ].map((step, idx, arr) => {
                         const statusStr = activeOrder.shippingStatus || "Processing";
-                        const isCompleted = step.check(statusStr);
+                        const payStr = activeOrder.paymentStatus || "Pending";
+                        const isCompleted = step.check(statusStr, payStr);
                         
                         // Active check: it is the first step in the list that is not completed, or we are at the last completed step
-                        const currentStepIndex = arr.findIndex(s => !s.check(statusStr));
+                        const currentStepIndex = arr.findIndex(s => !s.check(statusStr, payStr));
                         const isActive = currentStepIndex === idx || (currentStepIndex === -1 && idx === arr.length - 1);
 
                         const StepIcon = step.icon;

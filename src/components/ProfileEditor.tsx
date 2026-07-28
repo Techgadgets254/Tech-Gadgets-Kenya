@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useStore } from "../StoreContext";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { User, Phone, MapPin, CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
 
@@ -40,12 +40,14 @@ export default function ProfileEditor() {
 
     try {
       const userRef = doc(db, "users", user.uid);
-      await updateDoc(userRef, {
+      await setDoc(userRef, {
+        email: user.email || "",
+        role: "customer",
         name: name.trim(),
         phone: phone.trim(),
         address: address.trim(),
         updatedAt: new Date().toISOString()
-      });
+      }, { merge: true });
       setSuccessMsg("Profile updated and synchronized successfully!");
       setTimeout(() => setSuccessMsg(""), 4000);
     } catch (err: any) {

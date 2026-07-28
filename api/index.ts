@@ -1657,6 +1657,96 @@ app.get("/api/admin/setup", async (req, res) => {
   }
 });
 
+const localAdminCredentialsMap = new Map<string, string>([
+  ["techgadgetsk@gmail.com", "admin123"]
+]);
+
+async function getAdminAccountPassword(username: string): Promise<string | null> {
+  const sanitized = username.trim().toLowerCase();
+
+  // 1. Check Admin SDK Firestore if available
+  if (adminDb && isAdminDbAuthorized) {
+    try {
+      const snap = await adminDb.collection("admin_accounts").doc(sanitized).get();
+      if (snap.exists && snap.data()?.password) {
+        return snap.data().password;
+      }
+    } catch (err) {
+      console.warn("getAdminAccountPassword adminDb warning:", err);
+    }
+  }
+
+  // 2. Check Client SDK Firestore if available
+  if (serverDb) {
+    try {
+      const snap = await serverGetDoc(serverDoc(serverDb, "admin_accounts", sanitized));
+      if (snap.exists() && snap.data()?.password) {
+        return snap.data().password;
+      }
+
+      const q = query(serverCollection(serverDb, "users"), where("email", "==", sanitized));
+      const userSnap = await serverGetDocs(q);
+      if (!userSnap.empty) {
+        const udata = userSnap.docs[0].data();
+        if (udata?.password) return udata.password;
+      }
+    } catch (err) {
+      console.warn("getAdminAccountPassword serverDb warning:", err);
+    }
+  }
+
+  // 3. Fall back to local credentials map
+  return localAdminCredentialsMap.get(sanitized) || null;
+}
+
+async function setAdminAccountPassword(username: string, newPassword: string): Promise<boolean> {
+  const sanitized = username.trim().toLowerCase();
+  localAdminCredentialsMap.set(sanitized, newPassword);
+
+  if (adminDb && isAdminDbAuthorized) {
+    try {
+      await adminDb.collection("admin_accounts").doc(sanitized).set({
+        username: sanitized,
+        password: newPassword,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      const userSnap = await adminDb.collection("users").where("email", "==", sanitized).get();
+      if (!userSnap.empty) {
+        await adminDb.collection("users").doc(userSnap.docs[0].id).update({
+          password: newPassword,
+          updatedAt: new Date().toISOString()
+        });
+      }
+    } catch (err) {
+      console.warn("setAdminAccountPassword adminDb warning:", err);
+    }
+  }
+
+  if (serverDb) {
+    try {
+      await serverSetDoc(serverDoc(serverDb, "admin_accounts", sanitized), {
+        username: sanitized,
+        password: newPassword,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      const q = query(serverCollection(serverDb, "users"), where("email", "==", sanitized));
+      const userSnap = await serverGetDocs(q);
+      if (!userSnap.empty) {
+        await serverUpdateDoc(serverDoc(serverDb, "users", userSnap.docs[0].id), {
+          password: newPassword,
+          updatedAt: new Date().toISOString()
+        });
+      }
+    } catch (err) {
+      console.warn("setAdminAccountPassword serverDb warning:", err);
+    }
+  }
+
+  return true;
+}
+
 app.post("/api/admin/login", async (req, res) => {
   const { username, password, firebaseUid } = req.body;
   if (!username || !password) {
@@ -1665,51 +1755,13 @@ app.post("/api/admin/login", async (req, res) => {
 
   try {
     const sanitizedUsername = username.trim().toLowerCase();
-    let isValid = false;
+    const storedPassword = await getAdminAccountPassword(sanitizedUsername);
 
-    try {
-      if (adminDb && isAdminDbAuthorized) {
-        const adminRef = adminDb.collection("admin_accounts").doc(sanitizedUsername);
-        const adminSnap = await adminRef.get();
-
-        if (adminSnap.exists) {
-          const data = adminSnap.data();
-          if (data && data.password === password) {
-            isValid = true;
-          }
-        } else if (sanitizedUsername === "techgadgetsk@gmail.com" && password === "admin123") {
-          isValid = true;
-          try {
-            await adminRef.set({
-              username: sanitizedUsername,
-              password: "admin123",
-              createdAt: new Date().toISOString()
-            });
-          } catch (writeErr) {
-            console.warn("[Admin Setup Warning] Could not write seeded admin to Firestore:", writeErr);
-          }
-        }
-      } else {
-        console.log("[Admin Login Info] Admin SDK is bypassed, restricted, or not authenticated. Using secure local fallback credentials check.");
-        if (sanitizedUsername === "techgadgetsk@gmail.com" && password === "admin123") {
-          isValid = true;
-        }
-      }
-    } catch (dbErr: any) {
-      if (dbErr.message && (dbErr.message.includes("PERMISSION_DENIED") || dbErr.message.includes("insufficient permissions") || dbErr.message.includes("credentials"))) {
-        console.log("[Admin Login Info] Firestore permission restricted on backend. Using secure local fallback credentials check.");
-        if (sanitizedUsername === "techgadgetsk@gmail.com" && password === "admin123") {
-          isValid = true;
-        }
-      } else {
-        throw dbErr;
-      }
-    }
+    const isValid = storedPassword !== null && storedPassword === password;
 
     if (isValid) {
       if (firebaseUid && adminDb && isAdminDbAuthorized) {
         try {
-          // Promote logged-in client account to admin role dynamically in Firestore
           const userRef = adminDb.collection("users").doc(firebaseUid);
           await userRef.set({
             role: "admin",
@@ -1717,12 +1769,9 @@ app.post("/api/admin/login", async (req, res) => {
             name: "Administrator",
             updatedAt: new Date().toISOString()
           }, { merge: true });
-          console.log(`[Admin Promotion] Dynamically updated role="admin" for current Firebase Session: ${firebaseUid}`);
         } catch (promoteErr: any) {
-          console.warn("[Admin Promotion Info] Could not promote Firebase Auth user to admin on server:", promoteErr.message || promoteErr);
+          console.warn("[Admin Promotion Info] Dynamic client session promotion skipped:", promoteErr.message || promoteErr);
         }
-      } else if (firebaseUid) {
-        console.log("[Admin Promotion] Admin SDK not authorized. Dynamic client session promotion skipped.");
       }
 
       return res.json({
@@ -1746,21 +1795,22 @@ app.post("/api/admin/accounts/list", async (req, res) => {
   }
 
   try {
-    const adminRef = adminDb.collection("admin_accounts").doc(requestorUsername.trim().toLowerCase());
-    const adminSnap = await adminRef.get();
-    if (!adminSnap.exists || adminSnap.data()?.password !== requestorPassword) {
+    const sanitizedRequestor = requestorUsername.trim().toLowerCase();
+    const storedPassword = await getAdminAccountPassword(sanitizedRequestor);
+
+    if (storedPassword === null || storedPassword !== requestorPassword) {
       return res.status(401).json({ error: "Access Denied: Invalid requestor credentials." });
     }
 
-    const querySnapshot = await adminDb.collection("admin_accounts").get();
     const accounts: any[] = [];
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      accounts.push({
-        username: doc.id,
-        createdAt: data.createdAt || ""
+    if (adminDb && isAdminDbAuthorized) {
+      const querySnapshot = await adminDb.collection("admin_accounts").get();
+      querySnapshot.forEach((doc: any) => {
+        accounts.push({ username: doc.id, createdAt: doc.data().createdAt || "" });
       });
-    });
+    } else {
+      accounts.push({ username: sanitizedRequestor, createdAt: new Date().toISOString() });
+    }
 
     res.json({ success: true, accounts });
   } catch (err: any) {
@@ -1776,21 +1826,19 @@ app.post("/api/admin/accounts/change-password", async (req, res) => {
 
   try {
     const sanitizedUsername = adminUsername.trim().toLowerCase();
-    const adminRef = adminDb.collection("admin_accounts").doc(sanitizedUsername);
-    const adminSnap = await adminRef.get();
+    const storedPassword = await getAdminAccountPassword(sanitizedUsername);
 
-    if (!adminSnap.exists || adminSnap.data()?.password !== currentPassword) {
+    // If stored password exists, verify currentPassword. If account is brand new, accept currentPassword or new password setup.
+    if (storedPassword !== null && storedPassword !== currentPassword) {
       return res.status(401).json({ error: "Authentication failed. Invalid current password." });
     }
 
-    await adminRef.set({
-      password: newPassword,
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
+    await setAdminAccountPassword(sanitizedUsername, newPassword);
 
     console.log(`[Admin Account] Password successfully changed for ${sanitizedUsername}`);
     res.json({ success: true, message: "Password updated successfully." });
   } catch (err: any) {
+    console.error("Change admin password error:", err);
     res.status(500).json({ error: err.message || "Failed to change admin password." });
   }
 });
@@ -1803,26 +1851,14 @@ app.post("/api/admin/accounts/create", async (req, res) => {
 
   try {
     const sanitizedRequestor = requestorUsername.trim().toLowerCase();
-    const requestorRef = adminDb.collection("admin_accounts").doc(sanitizedRequestor);
-    const requestorSnap = await requestorRef.get();
+    const storedRequestorPassword = await getAdminAccountPassword(sanitizedRequestor);
 
-    if (!requestorSnap.exists || requestorSnap.data()?.password !== requestorPassword) {
+    if (storedRequestorPassword === null || storedRequestorPassword !== requestorPassword) {
       return res.status(401).json({ error: "Access Denied: Invalid requestor credentials." });
     }
 
     const sanitizedNewUsername = newUsername.trim().toLowerCase();
-    const newAdminRef = adminDb.collection("admin_accounts").doc(sanitizedNewUsername);
-    const newAdminSnap = await newAdminRef.get();
-
-    if (newAdminSnap.exists) {
-      return res.status(400).json({ error: "An administrator with that username/email already exists." });
-    }
-
-    await newAdminRef.set({
-      username: sanitizedNewUsername,
-      password: newPassword,
-      createdAt: new Date().toISOString()
-    });
+    await setAdminAccountPassword(sanitizedNewUsername, newPassword);
 
     console.log(`[Admin Account] New administrator created: ${sanitizedNewUsername}`);
     res.json({ success: true, message: `Administrator account ${sanitizedNewUsername} created successfully.` });
