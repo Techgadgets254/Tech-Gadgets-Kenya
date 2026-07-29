@@ -292,6 +292,7 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
           if (res.ok && data.success) {
             const expiryTime = data.expiresAtMs || (Date.now() + 15 * 60 * 1000);
             setResetExpiresAt(expiryTime);
+            setTimeLeftSec(Math.max(0, Math.floor((expiryTime - Date.now()) / 1000)));
             setResetStep("verify");
             setResendCooldown(60); // Trigger 60s resend cooldown
             setShowResetSuccessModal(true);
@@ -1082,7 +1083,13 @@ export default function AuthModal({ onGoogleLogin }: AuthModalProps) {
                           });
                           const data = await res.json();
                           if (res.ok && data.success) {
+                            const expiryTime = data.expiresAtMs || (Date.now() + 15 * 60 * 1000);
+                            setResetExpiresAt(expiryTime);
+                            setTimeLeftSec(Math.max(0, Math.floor((expiryTime - Date.now()) / 1000)));
                             setResendCooldown(60);
+                            setResetCode("");
+                            setOtpDigits(["", "", "", "", "", ""]);
+                            setErrorMsg("");
                             setSuccessMsg(`✔ New 6-digit verification code dispatched to ${email}! Check your inbox.`);
                             setToast({ type: "success", message: "New code dispatched to email! Valid for 15 minutes." });
                           } else {

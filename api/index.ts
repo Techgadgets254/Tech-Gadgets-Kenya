@@ -427,6 +427,99 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
+// SMTP Diagnostic & Status Check Endpoint
+app.get("/api/email/smtp-status", async (req, res) => {
+  const host = process.env.SMTP_HOST;
+  const port = process.env.SMTP_PORT || "587";
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  const isConfigured = !!(host && user && pass);
+
+  if (!isConfigured) {
+    return res.json({
+      configured: false,
+      connected: false,
+      message: "SMTP server credentials are NOT configured in the environment (SMTP_HOST, SMTP_USER, or SMTP_PASS missing). Emails run in SIMULATION MODE.",
+      details: {
+        SMTP_HOST: host || "NOT_SET",
+        SMTP_PORT: port,
+        SMTP_USER: user ? `${user.substring(0, 3)}***` : "NOT_SET",
+        SMTP_PASS: pass ? "****** (Set)" : "NOT_SET",
+        SMTP_FROM: process.env.SMTP_FROM || "Tech Sokoni Kenya <support@techsokoni.com>"
+      }
+    });
+  }
+
+  try {
+    const transporter = getTransporter();
+    if (!transporter) {
+      return res.status(500).json({ configured: false, connected: false, error: "Transporter creation failed." });
+    }
+    await transporter.verify();
+    return res.json({
+      configured: true,
+      connected: true,
+      message: "SMTP connection verified successfully! Real email dispatches are operational.",
+      details: {
+        SMTP_HOST: host,
+        SMTP_PORT: port,
+        SMTP_USER: `${user.substring(0, 3)}***@***`,
+        SMTP_FROM: process.env.SMTP_FROM || `Tech Sokoni Kenya <${user}>`
+      }
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      configured: true,
+      connected: false,
+      error: err.message || "Failed to verify SMTP connection.",
+      message: `SMTP credentials configured, but connection/auth failed: ${err.message}`,
+      details: {
+        SMTP_HOST: host,
+        SMTP_PORT: port,
+        SMTP_USER: `${user.substring(0, 3)}***`
+      }
+    });
+  }
+});
+
+app.post("/api/email/send-test", async (req, res) => {
+  const { to } = req.body;
+  if (!to || !to.includes("@")) {
+    return res.status(400).json({ error: "Valid recipient email 'to' is required." });
+  }
+
+  const transporter = getTransporter();
+  if (!transporter) {
+    return res.json({
+      success: false,
+      simulated: true,
+      message: "SMTP credentials are missing. Dispatch simulated."
+    });
+  }
+
+  try {
+    const smtpUser = process.env.SMTP_USER;
+    let cleanFrom = `"Tech Sokoni Kenya" <support@techsokoni.com>`;
+    if (smtpUser && smtpUser.includes("@")) {
+      cleanFrom = `"Tech Sokoni Kenya" <${smtpUser}>`;
+    } else if (process.env.SMTP_FROM) {
+      cleanFrom = process.env.SMTP_FROM;
+    }
+
+    await transporter.sendMail({
+      from: cleanFrom,
+      to,
+      subject: "Test Email - Tech Sokoni Kenya System Diagnostics",
+      text: "This is a test email confirming your SMTP configuration is operational."
+    });
+
+    return res.json({ success: true, message: `Test email successfully dispatched to ${to} via SMTP!` });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message || "SMTP dispatch failed." });
+  }
+});
+
 // Initialize Google Gen AI
 const apiKey = process.env.GEMINI_API_KEY;
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
