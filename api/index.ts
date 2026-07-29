@@ -3306,6 +3306,7 @@ app.post("/api/auth/send-reset-email", async (req, res) => {
 
     const transporter = getTransporter();
     let isSentViaSmtp = false;
+    let smtpErrorDetails = "";
 
     if (transporter) {
       try {
@@ -3318,19 +3319,23 @@ app.post("/api/auth/send-reset-email", async (req, res) => {
         isSentViaSmtp = true;
         console.log(`[Password Reset Email] SMTP dispatch successful to ${cleanEmail}`);
       } catch (smtpErr: any) {
-        console.warn("[Password Reset Email] SMTP failed, using server fallback simulation:", smtpErr.message);
+        smtpErrorDetails = smtpErr?.message || "SMTP dispatch failed";
+        console.error("[Password Reset Email] SMTP failed to send email:", smtpErr);
       }
     } else {
-      console.log(`[Password Reset Email Simulation] Code generated for ${cleanEmail}: ${resetCode} (Expires in 15 mins)`);
+      console.log(`[Password Reset Email Simulation] Code generated for ${cleanEmail}: ${resetCode} (Expires in 15 mins). SMTP credentials not configured.`);
     }
 
     res.json({
       success: true,
       expiresAt,
       expiresAtMs,
+      deliveredViaSmtp: isSentViaSmtp,
+      smtpConfigured: !!transporter,
+      smtpError: smtpErrorDetails || null,
       message: isSentViaSmtp
         ? `Password reset verification code dispatched to ${cleanEmail}. Please check your email inbox.`
-        : `Password reset verification code dispatched to ${cleanEmail}. Check your inbox for your 6-digit code.`
+        : `Verification code generated for ${cleanEmail}.${!transporter ? " (Note: SMTP credentials not set in environment; running in simulation mode. Check /api/email/smtp-status)." : smtpErrorDetails ? ` (SMTP Delivery Warning: ${smtpErrorDetails})` : ""}`
     });
 
   } catch (err: any) {
