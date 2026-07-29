@@ -361,16 +361,60 @@ html.light-theme *:focus {
   outline-offset: 1px !important;
 }
 
-/* Print mode invoice utility for ClientDashboard */
+/* Print mode invoice utility for ClientDashboard & PrintView */
 @media print {
-  body, html, main, #root, [id="client-dashboard-print-area"] {
+  body, html, main, #root, [id="client-dashboard-print-area"], #print-invoice-area {
     background-color: #ffffff !important;
     background-image: none !important;
     color: #000000 !important;
   }
   
+  /* Make sure invoice modal wrapper is fully visible and positioned at top left */
+  .print-modal-wrapper {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 100% !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    z-index: 99999 !important;
+  }
+
+  .print-modal-content {
+    max-width: 100% !important;
+    max-height: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
+
+  #print-invoice-area,
+  #print-invoice-area * {
+    visibility: visible !important;
+  }
+
+  #print-invoice-area {
+    position: relative !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 1cm !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11px !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+
   /* Ensure all nested text in print area is pure black and background is transparent/white */
-  [id="client-dashboard-print-area"] * {
+  [id="client-dashboard-print-area"] *,
+  #print-invoice-area * {
     background-color: transparent !important;
     background-image: none !important;
     color: #000000 !important;

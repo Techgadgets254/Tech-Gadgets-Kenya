@@ -7,6 +7,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useStore } from "../StoreContext";
 import PrintView from "./PrintView";
+import { printInvoiceIframe } from "../utils/printInvoice";
 import { 
   ShoppingBag, 
   Printer, 
@@ -666,9 +667,13 @@ export default function ClientDashboard() {
     }
   }, [activeOrder, invoiceOrderId, setInvoiceOrderId]);
 
-  // Trigger browser-native PDF/Print dialog leveraging customized print CSS rules
+  // Trigger hidden iframe printing for isolated, clean invoice PDF output
   const handlePrintInvoice = () => {
-    window.print();
+    if (activeOrder) {
+      printInvoiceIframe(activeOrder);
+    } else {
+      window.print();
+    }
   };
 
   // If user is not authenticated, prompt them to sign in to access their client profile
@@ -1338,6 +1343,16 @@ export default function ClientDashboard() {
                       <span>Track Dispatch</span>
                     </button>
 
+                    {/* Print Receipt Button */}
+                    <button
+                      type="button"
+                      onClick={handlePrintInvoice}
+                      className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-black text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-black" />
+                      <span>Print Receipt</span>
+                    </button>
+
                     {/* Preview Invoice PDF Button */}
                     <button
                       type="button"
@@ -1345,9 +1360,9 @@ export default function ClientDashboard() {
                         setPreviewOrder(activeOrder);
                         setIsPreviewModalOpen(true);
                       }}
-                      className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-black text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                      className="bg-white/10 hover:bg-white/15 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer border border-white/10"
                     >
-                      <FileText className="w-3.5 h-3.5 text-black" />
+                      <FileText className="w-3.5 h-3.5 text-white" />
                       <span>Preview Invoice</span>
                     </button>
 
@@ -1388,7 +1403,7 @@ export default function ClientDashboard() {
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-6 pb-4 border-b border-white/5">
                     <div>
                       <span className="font-mono text-[10px] text-white/40 uppercase tracking-widest block">Live Status tracking timeline</span>
-                      <h3 className="font-sans font-bold text-lg text-white mt-1">Real-Time Dispatch Journey</h3>
+                      <h3 className="font-sans font-bold text-lg text-white mt-1">Track Dispatch Journey</h3>
                     </div>
                     <span className={`font-mono text-xs px-3 py-1 rounded-md uppercase font-bold tracking-wider ${
                       activeOrder.shippingStatus?.toLowerCase() === "cancelled"
@@ -1559,8 +1574,8 @@ export default function ClientDashboard() {
                       <div className="mt-4 text-[10px] text-white/40 print:text-black/60 font-mono leading-relaxed">
                         <p className="font-semibold text-white/60 print:text-black">Kenyatta Pioneer Building, along Kenyatta Avenue,</p>
                         <p className="font-semibold text-white/50 print:text-black/70">5th Floor, Shop Number 514 (Next to I&M Building)</p>
-                        <p>Postal Acc ID: support@techsokoni.com</p>
-                        <p>M-Pesa Till No: 9309020 | Buy Goods</p>
+                        <p className="text-[#C5A059] font-bold">Phone: 0792620789 / +254 792 620 789</p>
+                        <p>Email: shop@techsokoni.com</p>
                       </div>
                     </div>
 
@@ -1718,6 +1733,39 @@ export default function ClientDashboard() {
                       </div>
                     </div>
 
+                  </div>
+
+                  {/* Store Policies & Fiscal Clearance Section */}
+                  <div className="mt-8 pt-6 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-4 text-[10px] text-white/60">
+                    <div className="p-3 bg-white/[0.02] rounded-xl border border-white/5 space-y-1">
+                      <p className="font-bold text-white flex items-center gap-1 text-xs">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                        3-Day Return & Testing
+                      </p>
+                      <p className="text-white/40 leading-normal">
+                        Clients are granted a strict 3-day testing window from date of receipt/delivery. Returned items must be in original packaging with intact security seals.
+                      </p>
+                    </div>
+                    
+                    <div className="p-3 bg-white/[0.02] rounded-xl border border-white/5 space-y-1">
+                      <p className="font-bold text-white flex items-center gap-1 text-xs">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                        Hardware Warranty Policy
+                      </p>
+                      <p className="text-white/40 leading-normal">
+                        All laptops and hardware carry standard manufacturer/store warranty against technical defects. Physical, power surge, or liquid damage voids coverage.
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-white/[0.02] rounded-xl border border-white/5 space-y-1">
+                      <p className="font-bold text-white flex items-center gap-1 text-xs">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                        Official Store Fiscal Clearance
+                      </p>
+                      <p className="text-white/40 leading-normal">
+                        Tax Invoice with verified official transaction clearance. Contact 0792620789 / shop@techsokoni.com for support.
+                      </p>
+                    </div>
                   </div>
 
                   {/* Footnote details */}
@@ -2064,7 +2112,7 @@ export default function ClientDashboard() {
             <PrintView 
               order={previewOrder} 
               onClose={() => setIsPreviewModalOpen(false)} 
-              onPrint={() => window.print()} 
+              onPrint={() => printInvoiceIframe(previewOrder)} 
             />
           )}
       </AnimatePresence>,

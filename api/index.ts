@@ -148,14 +148,15 @@ export async function sendReceiptEmail(email: string, orderId: string, order: Or
         </div>
 
         <div style="margin-top: 40px; padding: 20px; background-color: #fffbeb; border: 1px solid #fef3c7; border-radius: 6px; font-size: 12px; color: #92400e; line-height: 1.6;">
-          <h4 style="margin: 0 0 8px 0; font-size: 13px; font-weight: bold; text-transform: uppercase;">Official Warranty Notice</h4>
-          <p style="margin: 0;">This document guarantees a 12-month hardware warranty on all enterprise/refurbished motherboard components. Keyboard, screen, and battery are covered under a 30-day diagnostic window. Returns or exchanges must be initiated within 3 calendar days of delivery.</p>
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; font-weight: bold; text-transform: uppercase;">Official Guarantee & Return Policies</h4>
+          <p style="margin: 0 0 6px 0;"><strong>• 3-Day Return &amp; Testing Window:</strong> Clients are granted a strict 3-day testing window from date of receipt/delivery. Returned items must be in original packaging with intact security seals.</p>
+          <p style="margin: 0;"><strong>• Hardware Warranty:</strong> Standard manufacturer/store warranty covers internal technical defects. Physical, power surge, or liquid damage voids coverage.</p>
         </div>
 
         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eeeeee; font-size: 11px; color: #777777; text-align: center; line-height: 1.6;">
-          <p><strong>Physical Address:</strong> Kenyatta Pioneer Building, Kenyatta Avenue, 5th Floor, Shop 514 (Next to I&M Building), Nairobi, Kenya.</p>
-          <p>Contact Email: <a href="mailto:support@techsokoni.com" style="color: #C5A059; text-decoration: none;">support@techsokoni.com</a> | M-Pesa Till No: 9309020</p>
-          <p style="margin-top: 10px; font-weight: bold; color: #333333;">This invoice copy is verified electronically. Thank you for your business!</p>
+          <p><strong>Physical Store:</strong> Kenyatta Pioneer Building, 5th Floor, Shop 514 (Next to I&amp;M Building), Kenyatta Ave, Nairobi CBD, Kenya.</p>
+          <p>Phone: <strong>0792620789</strong> / +254 792 620 789 | Email: <a href="mailto:shop@techsokoni.com" style="color: #C5A059; text-decoration: none; font-weight: bold;">shop@techsokoni.com</a></p>
+          <p style="margin-top: 10px; font-weight: bold; color: #333333;">This tax receipt is verified electronically. Thank you for your business!</p>
         </div>
       </div>
     </div>

@@ -56,7 +56,6 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import AdminCredentialManager from "./AdminCredentialManager";
 import AuditLogTable from "./AuditLogTable";
 import MetadataEditor from "./MetadataEditor";
-import SocialMediaHub from "./SocialMediaHub";
 import { useAdminStore } from "./AdminStore";
 import { collection, getDocs, onSnapshot, addDoc, setDoc, deleteDoc, doc, query, orderBy, limit } from "firebase/firestore";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, ComposedChart, Area } from "recharts";
@@ -743,11 +742,11 @@ export default function AdminDashboard() {
     });
   }, [orders, orderSortField, orderSortDirection, orderSearchQuery, orderStatusFilter]);
 
-  // Active sub-view ("overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "whatsapp_catalog" | "flash_offers" | "social_hub" | "diagnostics")
-  const [activeSubTab, setActiveSubTab] = useState<"overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "whatsapp_catalog" | "flash_offers" | "social_hub" | "diagnostics">(() => {
+  // Active sub-view ("overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "whatsapp_catalog" | "flash_offers" | "diagnostics")
+  const [activeSubTab, setActiveSubTab] = useState<"overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "whatsapp_catalog" | "flash_offers" | "diagnostics">(() => {
     try {
       const saved = localStorage.getItem("tsk_active_admin_subtab");
-      const validTabs = ["overview", "inventory", "orders", "newsletters", "trash", "affiliates", "price_alerts", "intelligence", "admin_settings", "audit_logs", "auth_audit", "seo_settings", "whatsapp_catalog", "flash_offers", "social_hub", "diagnostics"];
+      const validTabs = ["overview", "inventory", "orders", "newsletters", "trash", "affiliates", "price_alerts", "intelligence", "admin_settings", "audit_logs", "auth_audit", "seo_settings", "whatsapp_catalog", "flash_offers", "diagnostics"];
       if (saved && validTabs.includes(saved)) {
         return saved as any;
       }
@@ -2947,7 +2946,6 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
             { id: "auth_audit", label: "Security Auth Log" },
             { id: "seo_settings", label: "SEO Settings" },
             { id: "whatsapp_catalog", label: "WhatsApp Catalog 💬" },
-            { id: "social_hub", label: "Social Media Hub 📢" },
             { id: "diagnostics", label: "System Diagnostics" },
             { id: "trash", label: `Trash Bin (${trashItems.length})` }
           ].map(tab => (
@@ -6910,12 +6908,6 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
 
         );
       })()}
-
-      {activeSubTab === "social_hub" && (
-        <div id="admin-social-hub-tab" className="space-y-8 animate-fadeIn">
-          <SocialMediaHub />
-        </div>
-      )}
 
       {activeSubTab === "diagnostics" && (
         <div id="admin-diagnostics-tab" className="space-y-8 animate-fadeIn text-[#E0E0E0] font-sans">

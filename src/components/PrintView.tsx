@@ -1,6 +1,7 @@
 import React from "react";
 import { Order } from "../types";
 import { Printer, ShieldCheck, MapPin, Phone, Mail } from "lucide-react";
+import { printInvoiceIframe } from "../utils/printInvoice";
 
 interface PrintViewProps {
   order: Order;
@@ -13,7 +14,7 @@ export const PrintView: React.FC<PrintViewProps> = ({ order, onClose, onPrint })
     if (onPrint) {
       onPrint();
     } else {
-      window.print();
+      printInvoiceIframe(order);
     }
   };
 
@@ -29,13 +30,13 @@ export const PrintView: React.FC<PrintViewProps> = ({ order, onClose, onPrint })
   const totalAmount = order.totalAmount || subtotal;
 
   return (
-    <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[9999] flex items-center justify-center p-2 sm:p-4 overflow-y-auto no-print">
-      <div className="bg-white text-zinc-900 w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[9999] flex items-center justify-center p-2 sm:p-4 overflow-y-auto print-modal-wrapper">
+      <div className="bg-white text-zinc-900 w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] print-modal-content">
         {/* Top Control Bar (Hidden when printed) */}
         <div className="bg-zinc-900 text-white p-4 flex items-center justify-between no-print border-b border-zinc-800">
           <div className="flex items-center gap-2">
             <Printer className="w-5 h-5 text-[#C5A059]" />
-            <span className="font-bold text-sm tracking-wide">Tax Invoice & Order Summary Preview</span>
+            <span className="font-bold text-sm tracking-wide">Official Tax Invoice & Order Receipt Preview</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -78,23 +79,23 @@ export const PrintView: React.FC<PrintViewProps> = ({ order, onClose, onPrint })
                   <MapPin className="w-3.5 h-3.5 text-zinc-500" />
                   <span>Kenyatta Pioneer Building, 5th Floor, Shop 514</span>
                 </p>
-                <p className="pl-4">Kenyatta Avenue, Nairobi CBD, Kenya</p>
-                <p className="pl-4 flex items-center gap-3 mt-1 text-zinc-500">
-                  <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> +254 700 000 000</span>
-                  <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> sales@techsokoni.com</span>
+                <p className="pl-4">Kenyatta Avenue (Next to I&M Building), Nairobi CBD, Kenya</p>
+                <p className="pl-4 flex items-center gap-3 mt-1 text-zinc-700 font-medium">
+                  <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5 text-zinc-800" /> 0792620789 / +254 792 620 789</span>
+                  <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5 text-zinc-800" /> shop@techsokoni.com</span>
                 </p>
               </div>
             </div>
 
             <div className="text-left sm:text-right w-full sm:w-auto bg-zinc-50 p-4 rounded-xl border border-zinc-200">
-              <div className="text-xs font-mono font-bold text-zinc-400 uppercase tracking-wider">OFFICIAL TAX INVOICE</div>
+              <div className="text-xs font-mono font-bold text-zinc-400 uppercase tracking-wider">OFFICIAL TAX RECEIPT / INVOICE</div>
               <div className="text-lg font-black text-zinc-900 font-mono mt-0.5">#{order.id ? order.id.slice(0, 10).toUpperCase() : "TS-ORD"}</div>
               <div className="mt-2 text-xs text-zinc-600 space-y-0.5">
                 <p><strong className="text-zinc-800">Date Issued:</strong> {formattedDate}</p>
-                <p><strong className="text-zinc-800">Payment Provider:</strong> {order.paymentProvider || "M-Pesa STK Push"}</p>
+                <p><strong className="text-zinc-800">Payment Provider:</strong> {order.paymentProvider || "M-Pesa / Paystack"}</p>
                 {order.receiptNo && (
                   <p className="text-emerald-700 font-semibold font-mono">
-                    <strong>M-Pesa Clear Ref:</strong> {order.receiptNo}
+                    <strong>Payment Clear Ref:</strong> {order.receiptNo}
                   </p>
                 )}
               </div>
@@ -107,12 +108,12 @@ export const PrintView: React.FC<PrintViewProps> = ({ order, onClose, onPrint })
               <span className="text-zinc-400 uppercase font-mono font-bold tracking-wider text-[10px] block mb-1">Billed To</span>
               <p className="font-bold text-sm text-zinc-900">{order.customerName || "Valued Client"}</p>
               <p className="text-zinc-600 mt-0.5">{order.customerEmail}</p>
-              <p className="text-zinc-600">{order.customerPhone || order.mpesaPhone || "+254 Client Contact"}</p>
+              <p className="text-zinc-600">{order.customerPhone || order.mpesaPhone || "+254 792 620 789"}</p>
             </div>
 
             <div>
               <span className="text-zinc-400 uppercase font-mono font-bold tracking-wider text-[10px] block mb-1">Shipping & Dispatch Location</span>
-              <p className="font-semibold text-zinc-800">{order.shippingAddress || "Standard Nairobi Express Courier Dispatch"}</p>
+              <p className="font-semibold text-zinc-800">{order.shippingAddress || "Nairobi CBD Store Pickup / Express Courier Dispatch"}</p>
               <p className="text-zinc-500 mt-1">Delivery Status: <span className="font-bold text-emerald-700 uppercase">{order.shippingStatus || "Processing"}</span> | Payment Status: <span className="font-bold text-emerald-700 uppercase">{order.paymentStatus || "Paid"}</span></p>
             </div>
           </div>
@@ -157,7 +158,7 @@ export const PrintView: React.FC<PrintViewProps> = ({ order, onClose, onPrint })
                   <span>Authorized Merchant Guarantee</span>
                 </div>
                 <p className="text-[10px] text-zinc-500 leading-snug">
-                  All devices sold by Tech Sokoni Kenya include standard manufacturer warranty and serialized registration.
+                  All devices sold by Tech Sokoni Kenya include standard manufacturer/store warranty and serialized registration.
                 </p>
               </div>
             </div>
@@ -178,11 +179,44 @@ export const PrintView: React.FC<PrintViewProps> = ({ order, onClose, onPrint })
             </div>
           </div>
 
+          {/* Store Policies & Fiscal Clearance Section */}
+          <div className="mt-8 pt-6 border-t-2 border-zinc-200 grid grid-cols-1 sm:grid-cols-3 gap-4 text-[10px] text-zinc-600">
+            <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 space-y-1">
+              <p className="font-bold text-zinc-900 flex items-center gap-1 text-xs">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                3-Day Return & Testing Window
+              </p>
+              <p className="text-zinc-500 leading-normal">
+                Clients are granted a strict 3-day testing window from date of receipt/delivery. Returned items must be in original packaging with intact security seals.
+              </p>
+            </div>
+            
+            <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 space-y-1">
+              <p className="font-bold text-zinc-900 flex items-center gap-1 text-xs">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                Hardware Warranty Policy
+              </p>
+              <p className="text-zinc-500 leading-normal">
+                All laptops and hardware carry standard manufacturer/store warranty against technical defects. Physical, power surge, or liquid damage voids coverage.
+              </p>
+            </div>
+
+            <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 space-y-1">
+              <p className="font-bold text-zinc-900 flex items-center gap-1 text-xs">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                Official Store & Tax Clearance
+              </p>
+              <p className="text-zinc-500 leading-normal">
+                Tax Invoice with verified clearance. Persistent invoice logs remain saved inside your client account profile.
+              </p>
+            </div>
+          </div>
+
           {/* Footer & Signature Line */}
-          <div className="mt-12 pt-6 border-t border-zinc-200 flex flex-col sm:flex-row justify-between items-end text-[10px] text-zinc-500">
+          <div className="mt-8 pt-6 border-t border-zinc-200 flex flex-col sm:flex-row justify-between items-end text-[10px] text-zinc-500">
             <div>
               <p className="font-bold text-zinc-700">Tech Sokoni Kenya Limited</p>
-              <p>Kenyatta Avenue, Nairobi CBD • KRA PIN: P0512839401Z</p>
+              <p>Kenyatta Pioneer Building, 5th Floor Shop 514, Kenyatta Ave, Nairobi CBD • Phone: 0792620789 • Email: shop@techsokoni.com</p>
               <p className="mt-1 italic">Thank you for choosing Tech Sokoni Kenya for your technology hardware needs.</p>
             </div>
 
@@ -190,7 +224,7 @@ export const PrintView: React.FC<PrintViewProps> = ({ order, onClose, onPrint })
               <div className="w-40 border-b border-zinc-400 mb-1 h-8 flex items-end justify-center font-serif italic text-xs text-zinc-700">
                 Authorized Signature
               </div>
-              <p className="text-[9px] uppercase tracking-wider text-zinc-400">Dispatch & Stamp</p>
+              <p className="text-[9px] uppercase tracking-wider text-zinc-400">Dispatch & Official Stamp</p>
             </div>
           </div>
         </div>
