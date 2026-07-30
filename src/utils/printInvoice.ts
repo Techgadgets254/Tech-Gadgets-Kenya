@@ -329,7 +329,7 @@ export function generateInvoiceHtml(order: Order): string {
         <div class="invoice-number">#${order.id ? order.id.slice(0, 10).toUpperCase() : "TS-ORD"}</div>
         <div style="margin-top: 4px; font-size: 10px; color: #4b5563;">
           <p><strong>Date Issued:</strong> ${formattedDate}</p>
-          <p><strong>Payment Method:</strong> ${order.paymentProvider || "M-Pesa / Paystack"}</p>
+          <p><strong>Payment Method:</strong> ${order.paymentProvider || "M-Pesa Express"}</p>
           ${order.receiptNo ? `<p style="color: #047857; font-weight: 700;"><strong>Clearance Ref:</strong> ${order.receiptNo}</p>` : ""}
         </div>
         <div class="status-tags">
@@ -377,7 +377,7 @@ export function generateInvoiceHtml(order: Order): string {
       <div class="clearance-box">
         <div class="clearance-title">✓ Verified Payment & Gateway Security</div>
         <p>Payment Status: <strong>${(order.paymentStatus || "Paid").toUpperCase()}</strong></p>
-        <p>Gateway Carrier: <strong>${order.paymentProvider || "Paystack Direct"}</strong></p>
+        <p>Gateway Carrier: <strong>${order.paymentProvider || "M-Pesa Express"}</strong></p>
         ${order.receiptNo ? `<p>Clearance Ref: <strong>${order.receiptNo}</strong></p>` : ""}
         <p style="margin-top: 4px; font-size: 8.5px; opacity: 0.8;">Certified electronic transaction record logged with Tech Sokoni Kenya.</p>
       </div>

@@ -94,8 +94,8 @@ export default function HomeView() {
 
   const faqData = [
     {
-      q: "How does the Paystack payment gateway work?",
-      a: "When checking out, select Paystack as your payment method. You can securely clear payments instantly using your credit/debit cards or mobile money channels. Real-time encryption verifies the transaction instantly and updates your orders list directly on your client dashboard."
+      q: "How does the M-Pesa Express payment gateway work?",
+      a: "When checking out, select M-Pesa Express as your payment method. An instant STK push prompt is sent to your phone screen where you enter your M-Pesa PIN. Real-time verification confirms the payment instantly and updates your order status on your client dashboard."
     },
     {
       q: "What is the delivery timeline and coverage?",

@@ -763,10 +763,10 @@ Where "id_1, id_2" are the raw matching IDs of the products from the live databa
                 💰 Under KES 10,000
               </button>
               <button 
-                onClick={() => handleSuggestQuery("Do you accept Paystack? How long is the delivery?")}
+                onClick={() => handleSuggestQuery("Do you accept M-Pesa Express? How long is delivery?")}
                 className="bg-white/[0.02] border border-white/10 hover:border-[#C5A059]/50 text-white/60 hover:text-white text-[10px] px-2.5 py-1.5 rounded-lg shrink-0 cursor-pointer"
               >
-                🚀 Delivery & Paystack
+                🚀 Delivery & M-Pesa
               </button>
             </div>
 

@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Shield, Sparkles, CheckCircle2, AlertTriangle, Loader2, CreditCard } from "lucide-react";
+import { Shield, Sparkles, CheckCircle2, AlertTriangle, Loader2, Phone, Smartphone, Check } from "lucide-react";
 
 interface PaymentHandlerProps {
   isOpen: boolean;
   onClose: () => void;
   orderId: string;
   customerEmail: string;
+  customerPhone?: string;
   totalAmount: number;
   onSuccess: (reference: string) => void;
   onCancel: () => void;
-  initializeMegaPayTransaction?: (orderId: string, email: string, amount: number) => Promise<{
+  initializeMegaPayTransaction?: (orderId: string, email: string, amount: number, phone?: string) => Promise<{
     success: boolean;
     mode: "real" | "simulated";
     authUrl?: string;
@@ -21,7 +22,7 @@ interface PaymentHandlerProps {
     success: boolean;
     message?: string;
   }>;
-  initializePaystackTransaction?: (orderId: string, email: string, amount: number) => Promise<{
+  initializePaystackTransaction?: (orderId: string, email: string, amount: number, phone?: string) => Promise<{
     success: boolean;
     mode: "real" | "simulated";
     authUrl?: string;
@@ -39,6 +40,7 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
   onClose,
   orderId,
   customerEmail,
+  customerPhone = "",
   totalAmount,
   onSuccess,
   onCancel,
@@ -50,19 +52,25 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
   const initPayment = initializeMegaPayTransaction || initializePaystackTransaction!;
   const verifyPayment = verifyMegaPayTransaction || verifyPaystackTransaction!;
 
-  const [step, setStep] = useState<"checking" | "ready" | "initializing" | "processing_real" | "completed" | "failed">("checking");
+  const [step, setStep] = useState<"ready" | "initializing" | "prompt_sent" | "completed" | "failed">("ready");
+  const [phoneNumber, setPhoneNumber] = useState<string>(customerPhone);
   const [logs, setLogs] = useState<string[]>([]);
   const [isKeyDefined, setIsKeyDefined] = useState<boolean | null>(null);
   const [transactionData, setTransactionData] = useState<{ reference?: string; authUrl?: string; mode?: "real" | "simulated" } | null>(null);
   const [pollAttempts, setPollAttempts] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string>("");
 
+  useEffect(() => {
+    if (customerPhone && !phoneNumber) {
+      setPhoneNumber(customerPhone);
+    }
+  }, [customerPhone]);
+
   const addLog = (message: string) => {
-    console.log(`[PaymentHandler] ${message}`);
+    console.log(`[M-Pesa Express] ${message}`);
     setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`]);
   };
 
-  // Perform pre-flight validations and remote API key configurations checks before any endpoint calls
   useEffect(() => {
     if (isOpen) {
       runPreFlightChecks();
@@ -71,82 +79,60 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
 
   const runPreFlightChecks = async () => {
     setLogs([]);
-    setStep("checking");
+    setStep("ready");
     setErrorMessage("");
     setTransactionData(null);
     setPollAttempts(0);
 
-    addLog("Initiating MegaPay Pre-flight Validation...");
-    
-    // Explicit Validation Check 1: Internet online state
+    addLog("Initiating M-Pesa Express checkout validation...");
+
     if (!navigator.onLine) {
-      addLog("ERROR: Device detected as offline.");
-      setErrorMessage("Network connection is unavailable. Verify internet status before continuing.");
-      setStep("failed");
-      return;
-    }
-    
-    // Explicit Validation Check 2: Correct payload parameters
-    if (!orderId) {
-      addLog("ERROR: Missing purchase orderId reference document.");
-      setErrorMessage("Invalid payment payload: Transaction order ID reference is empty.");
-      setStep("failed");
-      return;
-    }
-    
-    if (totalAmount <= 0) {
-      addLog(`ERROR: Invalid transaction total sum (KES ${totalAmount}).`);
-      setErrorMessage("Invalid payment payload: Total sum must be strictly positive.");
+      addLog("ERROR: Device is offline.");
+      setErrorMessage("Network unavailable. Please check your internet connection.");
       setStep("failed");
       return;
     }
 
-    if (!customerEmail || !customerEmail.includes("@")) {
-      addLog(`ERROR: Invalid format for receipt recipient email: '${customerEmail}'`);
-      setErrorMessage("Invalid billing parameters: Valid customer email address is mandatory.");
+    if (!orderId || totalAmount <= 0) {
+      setErrorMessage("Invalid payment details.");
       setStep("failed");
       return;
     }
-
-    addLog("Pre-flight parameters verified. Performing secure backend credentials audit...");
 
     try {
-      // Connect to our secure check endpoint
       const configRes = await fetch("/api/megapay/check-config");
-      if (!configRes.ok) {
-        throw new Error(`Config audit returned HTTP error ${configRes.status}`);
-      }
-      
-      const configData = await configRes.json();
-      setIsKeyDefined(configData.configured);
-      
-      if (configData.configured) {
-        addLog("Security Check: Live MEGAPAY_API_KEY verified in server environment.");
-        addLog("MegaPay production gateway loaded. Transitioning to payment session initialization.");
+      if (configRes.ok) {
+        const configData = await configRes.json();
+        setIsKeyDefined(configData.configured);
+        if (configData.configured) {
+          addLog("M-Pesa Live STK Gateway authenticated.");
+        } else {
+          addLog("M-Pesa Gateway active in Sandbox mode.");
+        }
       } else {
-        addLog("Notice: MEGAPAY_API_KEY is undefined or pending configuration in environment variables.");
-        addLog("Sandbox Safe-Mode Active. Transaction will proceed in Simulated MegaPay Mode.");
+        setIsKeyDefined(false);
       }
-      
-      setStep("ready");
     } catch (err: any) {
-      addLog(`ERROR: Failed completing environment security check: ${err.message}`);
-      addLog("Config connection timeout. Defaulting safety check to sandbox simulation mode.");
       setIsKeyDefined(false);
-      setStep("ready");
     }
   };
 
-  const handleStartPayment = async () => {
+  const handleSendStkPush = async () => {
+    if (!phoneNumber || phoneNumber.trim().length < 9) {
+      setErrorMessage("Please enter a valid Safaricom M-Pesa phone number.");
+      return;
+    }
+
     setStep("initializing");
-    addLog(`Contacting Tech Sokoni MegaPay transaction bridge for Order ${orderId}...`);
-    addLog(`Authenticating currency parameters and invoice sum: KES ${totalAmount.toLocaleString()}`);
+    setErrorMessage("");
+    addLog(`Initiating M-Pesa STK Push prompt for KES ${totalAmount.toLocaleString()}...`);
+    addLog(`Target M-Pesa Phone Number: ${phoneNumber}`);
 
     try {
-      const initRes = await initPayment(orderId, customerEmail, totalAmount);
-      
+      const initRes = await initPayment(orderId, customerEmail, totalAmount, phoneNumber);
+
       if (initRes.success) {
-        addLog(`Handshake completed! Reference identifier acquired: ${initRes.reference}`);
+        addLog(`STK Push Request Dispatched! Reference: ${initRes.reference}`);
         setTransactionData({
           reference: initRes.reference,
           authUrl: initRes.authUrl,
@@ -154,148 +140,98 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
         });
 
         if (initRes.mode === "real") {
-          setStep("processing_real");
-          addLog("Production MegaPay transaction active.");
-          addLog("System starting background polling loop to track invoice settlement on MegaPay network.");
-          
-          if (initRes.authUrl) {
-            window.open(initRes.authUrl, "_blank");
-          }
+          setStep("prompt_sent");
+          addLog("M-Pesa STK Push popup sent to phone screen. Waiting for user PIN input...");
         } else {
-          addLog("Simulated sandbox context ready. Waiting for user simulated choice confirmation.");
+          addLog("Simulated Sandbox Mode Active.");
+          setStep("prompt_sent");
         }
       } else {
-        throw new Error(initRes.message || "Failed initializing transaction on MegaPay backend server.");
+        throw new Error(initRes.message || "Could not trigger M-Pesa STK push. Try again.");
       }
     } catch (err: any) {
-      addLog(`Handshake Error: ${err.message}`);
-      setErrorMessage(err.message || "Endpoint error encountered while starting transaction flow.");
+      addLog(`Initialization Error: ${err.message}`);
+      setErrorMessage(err.message || "Failed to trigger M-Pesa push prompt.");
       setStep("failed");
     }
   };
 
-  // Safe simulated checkout choices
-  const handleSimulatedPay = async (status: "success" | "fail") => {
+  const handleSimulatedPayment = async (status: "success" | "fail") => {
     if (!transactionData?.reference) return;
-    
-    setStep("initializing");
-    addLog(`Processing simulated action: [${status.toUpperCase()}] for reference ${transactionData.reference}...`);
 
     if (status === "success") {
-      addLog("Verifying simulation settlement status on MegaPay Sandbox node...");
+      addLog("Verifying simulated M-Pesa PIN authorization...");
       try {
         const verifyRes = await verifyPayment(orderId, transactionData.reference);
         if (verifyRes.success) {
-          addLog("INVOICE SETTLED: MegaPay payment verified successfully.");
+          addLog("PAYMENT CONFIRMED: M-Pesa receipt generated!");
           setStep("completed");
           setTimeout(() => {
             onSuccess(transactionData.reference!);
           }, 1500);
         } else {
-          throw new Error(verifyRes.message || "MegaPay Sandbox verification node rejected the transaction.");
+          throw new Error(verifyRes.message || "Payment verification failed.");
         }
       } catch (err: any) {
-        addLog(`Verification Failure: ${err.message}`);
         setErrorMessage(err.message);
         setStep("failed");
       }
     } else {
-      addLog("SIMULATED ERROR: Customer cancelled checkout operations or balance exceeded.");
-      setErrorMessage("Simulated MegaPay Payment Error: Invoice cancelled by user.");
+      addLog("M-Pesa payment cancelled or wrong PIN entered.");
+      setErrorMessage("M-Pesa transaction cancelled by user.");
       setStep("failed");
     }
   };
 
   const triggerManualVerification = async () => {
     if (!transactionData?.reference) return;
-    addLog("[User Action] Initiating immediate MegaPay status lookup check...");
+    addLog("Checking M-Pesa payment status directly with gateway...");
     try {
       const res = await verifyPayment(orderId, transactionData.reference);
       if (res.success) {
-        addLog(`TRANSACTION COMMITTED: Payment Reference ${transactionData.reference} verified!`);
+        addLog(`PAYMENT CONFIRMED: Reference ${transactionData.reference}`);
         setStep("completed");
         setTimeout(() => {
           onSuccess(transactionData.reference!);
-        }, 1500);
+        }, 1200);
       } else {
-        addLog(`Manual Verification Check Status: ${res.message || "Pending/Unsettled"}`);
-        const lowerMsg = (res.message || "").toLowerCase();
-        const isDefinitiveFailure = 
-          lowerMsg.includes("fail") || 
-          lowerMsg.includes("cancel") || 
-          lowerMsg.includes("abandon") || 
-          lowerMsg.includes("reject") ||
-          lowerMsg.includes("invalid") ||
-          lowerMsg.includes("expired") ||
-          lowerMsg.includes("declined");
-
-        if (isDefinitiveFailure) {
-          addLog("TRANSACTION DECLARED FAILED: Checked and found a terminal state with MegaPay gateway.");
-          setErrorMessage(res.message || "Payment transaction was rejected or cancelled at the gateway.");
-          setStep("failed");
-        } else {
-          alert(`Verification Status: "${res.message || 'Payment is still pending on MegaPay'}"\n\nIf you completed the secure payment, please wait a moment or click again.`);
-        }
+        alert(`Status: ${res.message || "Pending. If you've entered your PIN, please wait a few seconds and try again."}`);
       }
     } catch (err: any) {
-      addLog(`Status check query warning: ${err.message}`);
-      alert(`Could not verify payment: ${err.message}`);
+      alert(`Status check error: ${err.message}`);
     }
   };
 
-  // Continuous loop monitoring real MegaPay transaction
+  // Continuous background polling when STK prompt is sent
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (step === "processing_real" && transactionData?.reference) {
-      const maxPollAttempts = 40;
+    if (step === "prompt_sent" && transactionData?.reference && transactionData.mode === "real") {
+      const maxPolls = 30;
       interval = setInterval(async () => {
         setPollAttempts((prev) => {
           const next = prev + 1;
-          addLog(`Polling MegaPay network validation node... Attempt ${next}/${maxPollAttempts}`);
-          
+          addLog(`Checking M-Pesa payment status... Attempt ${next}/${maxPolls}`);
+
           verifyPayment(orderId, transactionData.reference!)
             .then((res) => {
               if (res.success) {
-                addLog(`TRANSACTION COMMITTED: Payment Reference ${transactionData.reference} verified!`);
+                addLog("M-PESA PAYMENT VERIFIED AND CONFIRMED!");
                 clearInterval(interval);
                 setStep("completed");
                 setTimeout(() => {
                   onSuccess(transactionData.reference!);
-                }, 1500);
-              } else {
-                const lowerMsg = (res.message || "").toLowerCase();
-                const isDefinitiveFailure = 
-                  lowerMsg.includes("fail") || 
-                  lowerMsg.includes("cancel") || 
-                  lowerMsg.includes("abandon") || 
-                  lowerMsg.includes("reject") ||
-                  lowerMsg.includes("invalid") ||
-                  lowerMsg.includes("expired") ||
-                  lowerMsg.includes("declined");
-
-                if (isDefinitiveFailure) {
-                  addLog(`TRANSACTION STALL TERMINATED: ${res.message || 'MegaPay reported transaction failed'}`);
-                  clearInterval(interval);
-                  setErrorMessage(res.message || "The payment transaction was cancelled, expired, or rejected by MegaPay.");
-                  setStep("failed");
-                } else {
-                  addLog(`MegaPay reported: Payment is still pending (Hold state)...`);
-                }
+                }, 1200);
               }
             })
-            .catch((err) => {
-              addLog(`Network lookup warning: ${err.message}`);
-            });
+            .catch(() => {});
 
-          if (next >= maxPollAttempts) {
+          if (next >= maxPolls) {
             clearInterval(interval);
-            addLog("ERROR: High timeout threshold exceeded verifying MegaPay status.");
-            setErrorMessage("Query timeout exceeded. If you completed payment, check your client order logs.");
-            setStep("failed");
+            addLog("Polling threshold reached. User can verify manually.");
           }
           return next;
         });
-      }, 4000);
+      }, 3500);
     }
     return () => clearInterval(interval);
   }, [step, transactionData]);
@@ -309,212 +245,199 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          className="relative w-full max-w-lg bg-[#121212] border border-[#C5A059]/30 rounded-2xl overflow-hidden shadow-2xl"
+          className="relative w-full max-w-md bg-[#121212] border border-emerald-500/30 rounded-2xl overflow-hidden shadow-2xl"
         >
-          {/* Header Banner */}
-          <div className="px-6 py-4 bg-gradient-to-r from-[#1E1A12] via-[#151515] to-[#121212] border-b border-[#C5A059]/20 flex items-center justify-between">
+          {/* Green Header */}
+          <div className="px-6 py-4 bg-gradient-to-r from-emerald-950 via-[#121212] to-[#121212] border-b border-emerald-500/20 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#C5A059] to-[#8C6D2D] p-0.5 flex items-center justify-center shadow-lg">
-                <CreditCard className="w-4 h-4 text-black font-bold" />
+              <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center text-black font-extrabold text-sm shadow-md shadow-emerald-500/20">
+                M
               </div>
               <div>
                 <h3 className="text-sm font-bold tracking-wide text-white font-sans flex items-center gap-1.5">
-                  MegaPay Gateway
-                  <span className="text-[10px] bg-[#C5A059]/20 text-[#C5A059] font-mono px-1.5 py-0.2 rounded border border-[#C5A059]/30">v1.0</span>
+                  M-Pesa Express Checkout
                 </h3>
-                <p className="text-[10px] text-white/50 font-mono">Secure Card & Mobile Payment Settlement</p>
+                <p className="text-[10px] text-emerald-400 font-mono">Instant STK Push Settlement</p>
               </div>
             </div>
             {isKeyDefined !== null && (
               <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded font-bold ${
-                isKeyDefined ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" : "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+                isKeyDefined ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
               }`}>
-                {isKeyDefined ? "MegaPay Live" : "MegaPay Sandbox"}
+                {isKeyDefined ? "M-Pesa Live" : "M-Pesa Sandbox"}
               </span>
             )}
           </div>
 
           <div className="p-6 space-y-5">
-            {/* Amount Visualizer */}
+            {/* Amount Summary */}
             <div className="p-4 bg-[#181818] border border-white/5 rounded-xl flex justify-between items-center shadow-inner">
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono">Order Invoice Ref</p>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono">Order Reference</p>
                 <p className="font-mono text-xs text-white mt-0.5 font-bold">{orderId}</p>
               </div>
               <div className="text-right">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono font-medium">Invoice Sum</p>
-                <p className="text-lg font-semibold text-[#C5A059] font-mono mt-0.5">KES {totalAmount.toLocaleString()}/=</p>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono font-medium">Total Amount</p>
+                <p className="text-xl font-extrabold text-emerald-400 font-mono mt-0.5">KES {totalAmount.toLocaleString()}</p>
               </div>
             </div>
 
-            {/* Animation state controls */}
-            {step === "checking" && (
-              <div className="py-6 flex flex-col items-center justify-center space-y-3">
-                <Loader2 className="w-8 h-8 text-[#C5A059] animate-spin" />
-                <p className="text-xs text-muted-foreground font-mono">Performing MegaPay client parameters & network audit...</p>
-              </div>
-            )}
-
+            {/* STEP 1: Phone Entry & Prompt Button */}
             {step === "ready" && (
-              <div className="space-y-4 py-2">
-                <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-xs leading-relaxed text-[#D2D2D2]">
-                  {isKeyDefined ? (
-                    <p className="flex items-start gap-2">
-                      <Sparkles className="w-4 h-4 text-[#C5A059] shrink-0 mt-0.5" />
-                      <span>Ready to trigger Live MegaPay billing connection. You'll be redirected securely to finalize the balance.</span>
-                    </p>
-                  ) : (
-                    <p className="flex items-start gap-2 text-amber-400/90">
-                      <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                      <span>Server is presently conducting payments via MegaPay Simulation (Sandbox Mode) while API keys are configured.</span>
-                    </p>
-                  )}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-white/80 mb-1 font-mono">
+                    Safaricom M-Pesa Phone Number
+                  </label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-emerald-400 absolute left-3 top-3.5" />
+                    <input
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="e.g. 0712345678 or 254712345678"
+                      className="w-full bg-black/60 border border-white/10 focus:border-emerald-500 rounded-xl py-2.5 pl-10 pr-4 text-white text-sm font-mono placeholder:text-white/30 outline-none transition-all"
+                    />
+                  </div>
+                  <p className="text-[10.5px] text-white/50 mt-1.5 leading-snug">
+                    An M-Pesa PIN prompt (STK Push) will pop up on your phone screen automatically.
+                  </p>
                 </div>
+
+                {errorMessage && (
+                  <p className="text-xs text-rose-400 font-mono bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20">
+                    {errorMessage}
+                  </p>
+                )}
+
                 <div className="flex gap-3 pt-2">
                   <button
+                    type="button"
                     onClick={onCancel}
-                    className="flex-1 py-2.5 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-medium text-white transition-all font-mono"
+                    className="flex-1 py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-medium text-white transition-all font-mono"
                   >
-                    Modify Order
+                    Cancel
                   </button>
                   <button
-                    onClick={handleStartPayment}
-                    className="flex-1 py-2.5 px-4 bg-gradient-to-r from-[#C5A059] to-[#9E7A37] hover:from-[#B38F48] hover:to-[#8C6B2D] active:scale-95 text-black font-bold text-xs rounded-xl transition-all font-mono shadow-lg shadow-[#C5A059]/20 flex items-center justify-center gap-2"
+                    type="button"
+                    onClick={handleSendStkPush}
+                    className="flex-1 py-3 px-4 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-bold text-xs rounded-xl transition-all font-mono shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
                   >
-                    <Shield className="w-3.5 h-3.5" />
-                    Initiate MegaPay Gateway
+                    <Smartphone className="w-4 h-4" />
+                    Send M-Pesa Prompt
                   </button>
                 </div>
               </div>
             )}
 
-            {step === "initializing" && (!transactionData || transactionData.mode !== "simulated") && (
-              <div className="py-4 flex flex-col items-center justify-center space-y-3">
-                <Loader2 className="w-8 h-8 text-[#C5A059] animate-spin" />
-                <p className="text-xs text-muted-foreground font-mono">Negotiating MegaPay server checkout token...</p>
+            {/* STEP 2: Initializing Push */}
+            {step === "initializing" && (
+              <div className="py-8 flex flex-col items-center justify-center space-y-3">
+                <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
+                <p className="text-xs text-white/80 font-mono">Sending M-Pesa STK Push to {phoneNumber}...</p>
               </div>
             )}
 
-            {/* Simulated Choice popup */}
-            {step === "initializing" && transactionData?.mode === "simulated" && (
-              <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-3 mt-4">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-400" />
-                  <p className="text-xs font-semibold text-amber-300 font-mono">MegaPay Simulation Sandbox Console</p>
+            {/* STEP 3: Prompt Sent & Waiting for PIN */}
+            {step === "prompt_sent" && (
+              <div className="space-y-4">
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl space-y-2 text-center">
+                  <div className="w-10 h-10 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto text-emerald-400">
+                    <Smartphone className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <h4 className="text-sm font-bold text-emerald-300 font-sans">Check Your Phone Screen!</h4>
+                  <p className="text-xs text-white/80 leading-relaxed font-sans">
+                    An M-Pesa STK push prompt has been sent to <strong>{phoneNumber}</strong>.
+                    Please enter your <strong>M-Pesa PIN</strong> to complete payment.
+                  </p>
                 </div>
-                <p className="text-xs text-[#BCBCBC] leading-relaxed">
-                  Choose a sandbox resolution to simulate direct MegaPay integration response:
-                </p>
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <button
-                    onClick={() => handleSimulatedPay("success")}
-                    className="py-2.5 px-3 bg-emerald-500/20 hover:bg-emerald-500/35 border border-emerald-500/30 text-emerald-400 text-xs font-semibold rounded-lg font-mono transition-colors flex items-center justify-center gap-1.5"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Simulate Paid (Verify)
-                  </button>
-                  <button
-                    onClick={() => handleSimulatedPay("fail")}
-                    className="py-2.5 px-3 bg-rose-500/20 hover:bg-rose-500/35 border border-rose-500/30 text-rose-400 text-xs font-semibold rounded-lg font-mono transition-colors"
-                  >
-                    Simulate Cancel
-                  </button>
-                </div>
-              </div>
-            )}
 
-            {step === "processing_real" && (
-              <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl space-y-4">
-                <div className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
-                  <p className="text-xs font-semibold text-emerald-300 font-mono">MegaPay Production Checkout Active</p>
-                </div>
-                <p className="text-xs text-[#CCCCCC] leading-relaxed">
-                  We've successfully created the MegaPay checkout session. If the MegaPay payment window didn't open automatically, use the button below to launch it:
-                </p>
-                
-                <div className="flex flex-col gap-2">
-                  {transactionData?.authUrl && (
-                    <button
-                      onClick={() => window.open(transactionData.authUrl, "_blank")}
-                      className="w-full py-2.5 px-4 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-200 text-xs font-semibold rounded-lg transition-all font-mono text-center flex items-center justify-center gap-2"
-                    >
-                      <CreditCard className="w-4 h-4" />
-                      Open MegaPay Payment Window
-                    </button>
-                  )}
-                  
+                {/* Simulated Mode Controls if Sandbox */}
+                {transactionData?.mode === "simulated" && (
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-2 text-xs">
+                    <p className="text-amber-300 font-mono font-semibold">Sandbox Quick Test Controls:</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => handleSimulatedPayment("success")}
+                        className="py-2 px-3 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-300 rounded-lg font-mono font-bold flex items-center justify-center gap-1"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        Simulate Success
+                      </button>
+                      <button
+                        onClick={() => handleSimulatedPayment("fail")}
+                        className="py-2 px-3 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30 text-rose-300 rounded-lg font-mono"
+                      >
+                        Simulate Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={triggerManualVerification}
+                  className="w-full py-3 px-4 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold text-xs rounded-xl transition-all font-mono shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  I've Entered My M-Pesa PIN (Verify Now)
+                </button>
+
+                <div className="pt-1 flex justify-between items-center text-[10px] text-white/40 font-mono">
+                  <span>Polling status... {pollAttempts}s</span>
                   <button
-                    onClick={triggerManualVerification}
-                    className="w-full py-2.5 px-4 bg-[#C5A059] hover:bg-[#B38F48] active:scale-95 text-black font-semibold text-xs rounded-lg transition-all font-mono text-center shadow-md shadow-[#C5A059]/20"
+                    onClick={() => setStep("ready")}
+                    className="underline hover:text-white"
                   >
-                    ⚡ I Have Completed Payment (Verify Instantly!)
-                  </button>
-                </div>
-                <div className="pt-2 flex justify-between items-center">
-                  <span className="text-[10px] text-muted-foreground font-mono">Polling MegaPay Node: {pollAttempts} requests</span>
-                  <button
-                    onClick={() => {
-                      setStep("ready");
-                      addLog("MegaPay monitor paused by user request.");
-                    }}
-                    className="text-[10px] text-muted-foreground hover:text-white font-mono underline"
-                  >
-                    Cancel Monitor
+                    Change Phone Number
                   </button>
                 </div>
               </div>
             )}
 
+            {/* STEP 4: Payment Confirmed */}
             {step === "completed" && (
-              <div className="py-6 flex flex-col items-center justify-center space-y-3">
+              <div className="py-8 flex flex-col items-center justify-center space-y-3">
                 <CheckCircle2 className="w-12 h-12 text-emerald-400 animate-bounce" />
-                <p className="text-sm font-semibold text-emerald-300 font-mono uppercase tracking-wider">MegaPay Payment Validated!</p>
-                <p className="text-xs text-muted-foreground font-mono">Synchronizing order logs to database...</p>
+                <p className="text-sm font-bold text-emerald-300 font-mono uppercase tracking-wider">M-Pesa Payment Confirmed!</p>
+                <p className="text-xs text-white/60 font-mono">Updating order details & redirecting...</p>
               </div>
             )}
 
+            {/* STEP 5: Payment Failed */}
             {step === "failed" && (
-              <div className="space-y-4 p-4 bg-rose-500/5 border border-rose-500/10 rounded-xl">
+              <div className="space-y-4 p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl">
                 <div className="flex items-center gap-2 text-rose-400">
                   <AlertTriangle className="w-5 h-5 shrink-0" />
-                  <h4 className="text-xs font-semibold uppercase tracking-wider font-mono">MegaPay Transaction Halt</h4>
+                  <h4 className="text-xs font-bold font-mono">Payment Issue</h4>
                 </div>
-                <p className="text-xs text-[#DFDFDF] leading-relaxed font-mono bg-black/40 p-3 rounded-lg border border-white/5">
-                  {errorMessage || "An unexpected error interrupted secure checkout operations."}
+                <p className="text-xs text-white/80 font-mono">
+                  {errorMessage || "Transaction could not be completed. Please try again."}
                 </p>
-                <div className="flex gap-3 pt-2">
+                <div className="flex gap-2 pt-2">
                   <button
-                    onClick={runPreFlightChecks}
-                    className="flex-1 py-2 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-mono text-white transition-all text-center"
+                    onClick={() => setStep("ready")}
+                    className="flex-1 py-2.5 px-3 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-mono text-white transition-all"
                   >
-                    Retry Verification
+                    Try Again
                   </button>
                   <button
                     onClick={onCancel}
-                    className="flex-1 py-2 px-3 bg-rose-500/20 hover:bg-rose-500/35 border border-rose-500/30 text-rose-300 text-xs font-mono rounded-lg transition-all text-center font-semibold"
+                    className="flex-1 py-2.5 px-3 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 rounded-lg text-xs font-mono"
                   >
-                    Cancel Order
+                    Close
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Real-time Explicit Logger */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">
-                MegaPay Operation Audit Logs
-              </label>
-              <div className="h-32 overflow-y-auto bg-black border border-white/5 p-3 rounded-xl font-mono text-[9px] text-[#A0A0A0] space-y-1.5 scrollbar-thin scrollbar-thumb-white/10">
-                {logs.length === 0 ? (
-                  <p className="text-muted-foreground italic select-none">No active operations in progress.</p>
-                ) : (
-                  logs.map((log, index) => (
-                    <p key={index} className="leading-normal break-words whitespace-pre-wrap select-all selection:bg-white/20">
-                      {log}
-                    </p>
-                  ))
-                )}
+            {/* Audit Logs expander */}
+            <div className="space-y-1 pt-2">
+              <span className="text-[9px] text-white/40 font-mono uppercase tracking-wider">Transaction Diagnostics</span>
+              <div className="h-20 overflow-y-auto bg-black/60 border border-white/5 p-2 rounded-lg font-mono text-[9px] text-white/50 space-y-1">
+                {logs.map((log, i) => (
+                  <p key={i}>{log}</p>
+                ))}
               </div>
             </div>
           </div>

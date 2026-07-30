@@ -100,9 +100,9 @@ interface StoreContextType {
     referralCode?: string;
     paymentProvider?: string;
   }) => Promise<Order | null>;
-  initializeMegaPayTransaction: (orderId: string, email: string, amount: number) => Promise<{ success: boolean; mode: "real" | "simulated"; authUrl?: string; reference?: string; message?: string }>;
+  initializeMegaPayTransaction: (orderId: string, email: string, amount: number, phone?: string) => Promise<{ success: boolean; mode: "real" | "simulated"; authUrl?: string; reference?: string; message?: string }>;
   verifyMegaPayTransaction: (orderId: string, reference: string) => Promise<{ success: boolean; receiptNo?: string; message: string }>;
-  initializePaystackTransaction: (orderId: string, email: string, amount: number) => Promise<{ success: boolean; mode: "real" | "simulated"; authUrl?: string; reference?: string; message?: string }>;
+  initializePaystackTransaction: (orderId: string, email: string, amount: number, phone?: string) => Promise<{ success: boolean; mode: "real" | "simulated"; authUrl?: string; reference?: string; message?: string }>;
   verifyPaystackTransaction: (orderId: string, reference: string) => Promise<{ success: boolean; receiptNo?: string; message: string }>;
   
   // Admin Product Actions
@@ -1169,12 +1169,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   // MegaPay transaction initializer
-  const initializeMegaPayTransaction = async (orderId: string, email: string, amount: number) => {
+  const initializeMegaPayTransaction = async (orderId: string, email: string, amount: number, phone?: string) => {
     try {
       const response = await fetch("/api/megapay/initialize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, amount, orderId })
+        body: JSON.stringify({ email, amount, orderId, phone: phone || "" })
       });
 
       const text = await response.text();

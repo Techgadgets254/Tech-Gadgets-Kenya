@@ -19,11 +19,13 @@ import {
   Copy,
   Check,
   QrCode,
-  Zap
+  Zap,
+  Smartphone
 } from "lucide-react";
 import { KENYAN_COUNTIES } from "../data";
 import { PaymentHandler } from "./PaymentHandler";
 import MpesaStatusMonitor from "./MpesaStatusMonitor";
+import { initializeMegaPayPayment, verifyMegaPayPayment } from "../lib/megapay";
 
 export const getSafaricomValidation = (phone: string) => {
   const digits = phone.replace(/\D/g, "");
@@ -532,94 +534,37 @@ export default function CheckoutView() {
 
     try {
       if (isNairobi) {
-        // Mpesa QR payment handler
-        if (paymentMethod === "mpesa_qr") {
-          // Strict error prevention check
-          if (!safaricomCheck.isValid) {
-            alert(`A valid Safaricom phone number is required for Lipa Na M-Pesa. Detected: ${safaricomCheck.network}. Please change "RECIPIENT CONTACT PHONE" to a valid Safaricom line (e.g. starting with 07xx, 011x) to ensure smooth prompt delivery.`);
-            return;
-          }
+        const shippingFullAddress = `${deliveryDetails}, ${selectedCounty} County, Kenya (Nairobi - Free Delivery)`;
+        
+        setIsSTKProcessing(true);
+        setStkLogs([]);
+        updateSTKLog("Initiating M-Pesa Express Checkout...", 100);
 
-          const shippingFullAddress = `${deliveryDetails}, ${selectedCounty} County, Kenya (Nairobi - Free Delivery)`;
-          
-          setIsSTKProcessing(true);
-          setStkLogs([]);
-          updateSTKLog("Generating dynamic M-Pesa QR payments pipeline...", 100);
+        const orderObj = await createCheckoutOrder({
+          customerName,
+          customerEmail: activeEmail,
+          customerPhone,
+          shippingAddress: shippingFullAddress,
+          mpesaPhone: customerPhone,
+          totalAmount: Math.max(0, getCartTotal() + deliveryFee - discount),
+          referralCode: appliedPromo || undefined,
+          paymentProvider: "M-Pesa Express"
+        });
 
-          const amount = Math.max(0, getCartTotal() + deliveryFee - discount);
-          const orderObj = await createCheckoutOrder({
-            customerName,
-            customerEmail: activeEmail,
-            customerPhone: safaricomCheck.apiFormatted, // standardized format
-            shippingAddress: shippingFullAddress,
-            mpesaPhone: safaricomCheck.apiFormatted,
-            totalAmount: amount,
-            referralCode: appliedPromo || undefined,
-            paymentProvider: "Mpesa-QR"
-          });
-
-          if (!orderObj) {
-            setIsSTKProcessing(false);
-            alert("Encountered access authorization limit creating database record.");
-            return;
-          }
-
-          setCurrentCreatedOrder(orderObj);
-
+        if (!orderObj) {
           setIsSTKProcessing(false);
-          setMpesaQrOrderId(orderObj.id);
-          setMpesaQrAmount(amount);
-          setMpesaTransactionCode("");
-          setMpesaError("");
-          setShowMpesaQrScreen(true);
-
-          // Auto-trigger the physical Sim ToolKit / M-Pesa PIN prompt simulator after 1.8 seconds!
-          setMpesaPushStep("prompt");
-          setMpesaPushPin("");
-          setMpesaPushError("");
-          setTimeout(() => {
-            setShowMpesaPushModal(true);
-          }, 1800);
+          alert("Could not create database record for order. Please try again.");
           return;
         }
 
-        // Nairobi requires immediate Payment Before Delivery
-        if (paymentMethod === "megapay" || paymentMethod === "paystack") {
-          const shippingFullAddress = `${deliveryDetails}, ${selectedCounty} County, Kenya (Nairobi - Free Delivery)`;
-          
-          // Show immediate spinner/loading state
-          setIsSTKProcessing(true);
-          setStkLogs([]);
-          updateSTKLog("Starting Secure Ordering pipeline...", 100);
+        setCurrentCreatedOrder(orderObj);
+        setIsSTKProcessing(false);
 
-          const orderObj = await createCheckoutOrder({
-            customerName,
-            customerEmail: activeEmail,
-            customerPhone,
-            shippingAddress: shippingFullAddress,
-            mpesaPhone: customerPhone, // Stores customer billing contact to satisfy Firestore layout
-            totalAmount: Math.max(0, getCartTotal() + deliveryFee - discount),
-            referralCode: appliedPromo || undefined,
-            paymentProvider: "MegaPay"
-          });
-
-          if (!orderObj) {
-            setIsSTKProcessing(false);
-            alert("Encountered access authorization limit creating database record.");
-            return;
-          }
-
-          setCurrentCreatedOrder(orderObj);
-
-          // Clean older states
-          setIsSTKProcessing(false);
-
-          // Open our high-integrity PaymentHandler modal
-          setActivePaymentOrderId(orderObj.id);
-          setActivePaymentEmail(activeEmail || "techgadgetsk@gmail.com");
-          setActivePaymentAmount(orderObj.totalAmount);
-          setIsPaymentHandlerOpen(true);
-        }
+        // Open M-Pesa Express Payment Handler
+        setActivePaymentOrderId(orderObj.id);
+        setActivePaymentEmail(activeEmail || "techgadgetsk@gmail.com");
+        setActivePaymentAmount(orderObj.totalAmount);
+        setIsPaymentHandlerOpen(true);
       } else {
         // OUTSIDE NAIROBI: "no payment before delivery"
         setIsSTKProcessing(true);
@@ -1356,7 +1301,7 @@ export default function CheckoutView() {
                         </span>
                         <p className="text-xs text-white font-semibold">Payment Before Delivery Required</p>
                         <p className="text-[10.5px] text-white/40 leading-relaxed font-sans">
-                          Nairobi addresses qualify for <strong>Free Delivery Promo</strong>. Settlement is mandated prior to vehicle dispatch through MegaPay.
+                          Nairobi addresses qualify for <strong>Free Delivery Promo</strong>. Settlement is completed via M-Pesa prior to vehicle dispatch.
                         </p>
                       </div>
                     ) : (
@@ -1377,73 +1322,35 @@ export default function CheckoutView() {
                   {/* PAYMENT TAB METHODS (Only enabled or relevant if Nairobi) */}
                   {isNairobi ? (
                     <div className="border-t border-white/5 pt-5 mt-6 space-y-4">
-                      <span className="font-mono text-[10px] text-white/30 font-bold uppercase tracking-wider">SELECT PAYMENT METHOD</span>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {/* Option 1: MegaPay */}
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod("megapay")}
-                          className={`flex items-start gap-3 p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-                            paymentMethod === "megapay" || paymentMethod === "paystack"
-                              ? "bg-emerald-950/10 border-emerald-500/40 text-white"
-                              : "bg-[#0A0A0A] border-white/5 text-white/60 hover:border-white/10"
-                          }`}
-                        >
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${
-                            paymentMethod === "megapay" || paymentMethod === "paystack"
-                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                              : "bg-white/5 text-white/40 border-white/5"
-                          }`}>
-                            <CreditCard className="w-4 h-4 text-[#C5A059]" />
+                      <span className="font-mono text-[10px] text-emerald-400 font-bold uppercase tracking-wider">SELECT PAYMENT METHOD</span>
+                      <div className="grid grid-cols-1 gap-3">
+                        {/* Option 1: M-Pesa Express */}
+                        <div className="flex items-start gap-3 p-4 rounded-2xl border bg-emerald-950/20 border-emerald-500/40 text-white">
+                          <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0 text-black font-extrabold text-sm shadow-md shadow-emerald-500/20">
+                            M
                           </div>
                           <div className="flex-1">
-                            <h4 className={`text-xs font-semibold font-sans ${paymentMethod === "megapay" || paymentMethod === "paystack" ? "text-emerald-400" : "text-white"}`}>MegaPay Gateway</h4>
-                            <p className="text-[10px] text-white/40 mt-1 leading-normal font-sans">
-                              Secure card, M-Pesa, and mobile money.
+                            <h4 className="text-xs font-bold font-sans text-emerald-400 flex items-center gap-2">
+                              M-Pesa Express Checkout
+                              <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-mono px-2 py-0.5 rounded-full border border-emerald-500/30 font-semibold">STK Push</span>
+                            </h4>
+                            <p className="text-[10.5px] text-white/60 mt-1 leading-normal font-sans">
+                              Receive an instant M-Pesa payment prompt on your phone screen to enter your PIN.
                             </p>
                           </div>
-                        </button>
-
-                        {/* Option 2: M-Pesa QR */}
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod("mpesa_qr")}
-                          className={`flex items-start gap-3 p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-                            paymentMethod === "mpesa_qr"
-                              ? "bg-emerald-950/10 border-emerald-500/40 text-white"
-                              : "bg-[#0A0A0A] border-white/5 text-white/60 hover:border-white/10"
-                          }`}
-                        >
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${
-                            paymentMethod === "mpesa_qr"
-                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                              : "bg-white/5 text-white/40 border-white/5"
-                          }`}>
-                            <QrCode className="w-4 h-4 text-emerald-400" />
-                          </div>
-                          <div className="flex-1">
-                            <h4 className={`text-xs font-semibold font-sans ${paymentMethod === "mpesa_qr" ? "text-emerald-400" : "text-white"}`}>M-Pesa Live QR</h4>
-                            <p className="text-[10px] text-white/40 mt-1 leading-normal font-sans">
-                              Scan dynamic QR for Lipa Na M-Pesa.
-                            </p>
-                          </div>
-                        </button>
+                        </div>
                       </div>
                     </div>
                   ) : null}
 
                   <button
                     type="submit"
-                    className="w-full bg-[#C5A059] hover:bg-[#C5A059]/90 text-black font-sans font-bold py-3.5 px-4 rounded-xl shadow-xs transition-all mt-4 flex items-center justify-center gap-2 cursor-pointer text-sm transform hover:scale-101 duration-200"
+                    className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-sans font-extrabold py-3.5 px-4 rounded-xl shadow-lg transition-all mt-6 flex items-center justify-center gap-2 cursor-pointer text-sm transform hover:scale-[1.01] duration-200"
                   >
-                    {paymentMethod === "mpesa_qr" && isNairobi ? (
-                      <QrCode className="w-5 h-5 text-black shrink-0" />
-                    ) : (
-                      <CreditCard className="w-5 h-5 text-black shrink-0" />
-                    )}
+                    <Smartphone className="w-5 h-5 text-black shrink-0" />
                     <span>
                       {isNairobi 
-                        ? (paymentMethod === "mpesa_qr" ? "Proceed to Pay via M-Pesa QR" : "Proceed to Pay via Paystack")
+                        ? "Proceed to Pay via M-Pesa Express"
                         : "Place Order (Pay on Delivery)"
                       }
                     </span>
@@ -1566,6 +1473,7 @@ export default function CheckoutView() {
         onClose={() => setIsPaymentHandlerOpen(false)}
         orderId={activePaymentOrderId}
         customerEmail={activePaymentEmail}
+        customerPhone={customerPhone}
         totalAmount={activePaymentAmount}
         onSuccess={(reference) => {
           setIsPaymentHandlerOpen(false);
@@ -1577,10 +1485,8 @@ export default function CheckoutView() {
         onCancel={() => {
           setIsPaymentHandlerOpen(false);
         }}
-        initializeMegaPayTransaction={initializeMegaPayTransaction || initializePaystackTransaction}
-        verifyMegaPayTransaction={verifyMegaPayTransaction || verifyPaystackTransaction}
-        initializePaystackTransaction={initializePaystackTransaction}
-        verifyPaystackTransaction={verifyPaystackTransaction}
+        initializeMegaPayTransaction={initializeMegaPayTransaction || (async (o, e, a, p) => initializeMegaPayPayment({ orderId: o, email: e, amount: a, phone: p }))}
+        verifyMegaPayTransaction={verifyMegaPayTransaction || verifyMegaPayPayment}
       />
 
       {/* Mobile-optimized Floating 'Quick Pay' Action Button with bounce & pulse indicator */}
