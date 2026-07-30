@@ -1157,7 +1157,7 @@ export default function ClientDashboard() {
 
               <div className="mt-4 pt-3.5 border-t border-white/5 flex justify-between items-center text-[10px] font-mono text-white/35">
                 <span>COMMISSION: KES 1,000 / SALE</span>
-                <span>Sandbox Verified</span>
+                <span className="text-emerald-400 font-semibold">MegaPay Verified Live</span>
               </div>
             </div>
 
@@ -1545,8 +1545,8 @@ export default function ClientDashboard() {
 
                 {/* VISIBLE INVOICE DOCK IN BOX (Targeted for standard PDF output scale) */}
                 <div 
-                  id="print-invoice-area-disabled" 
-                  className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 sm:p-10 shadow-2xl font-sans text-white max-w-3xl mx-auto"
+                  id="print-invoice-area" 
+                  className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 sm:p-10 shadow-2xl font-sans text-white max-w-3xl mx-auto printable-invoice"
                 >
                   {/* Tax Invoice Header */}
                   <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pb-8 border-b border-white/10">

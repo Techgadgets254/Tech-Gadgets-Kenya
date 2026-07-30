@@ -277,24 +277,119 @@ export default function AdminDashboard() {
   const [qrScannerError, setQrScannerError] = useState("");
   const [orderStatusFilter, setOrderStatusFilter] = useState("All");
 
-  // Real-time onSnapshot listeners specifically for the Quick Snapshot widget
+  // Real-time onSnapshot listeners with sound & browser notifications for verified M-Pesa transactions
   const [snapshotOrders, setSnapshotOrders] = useState<Order[]>([]);
   const [snapshotLoading, setSnapshotLoading] = useState(true);
+  const [newMpesaAlert, setNewMpesaAlert] = useState<{ id: string; amount: number; receipt: string; customer: string } | null>(null);
+
+  const knownPaidOrderIdsRef = React.useRef<Set<string>>(new Set());
+  const isInitialOrdersLoadRef = React.useRef<boolean>(true);
+
+  // Audio synthesizer chime for instant verified M-Pesa transaction alerts
+  const playMpesaNotificationSound = React.useCallback(() => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // Tone 1: C5 (523.25 Hz)
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+      gain1.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.start(audioCtx.currentTime);
+      osc1.stop(audioCtx.currentTime + 0.3);
+
+      // Tone 2: E5 (659.25 Hz)
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.15);
+      gain2.gain.setValueAtTime(0.15, audioCtx.currentTime + 0.15);
+      gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+      osc2.connect(gain2);
+      gain2.connect(audioCtx.destination);
+      osc2.start(audioCtx.currentTime + 0.15);
+      osc2.stop(audioCtx.currentTime + 0.5);
+    } catch (e) {
+      console.warn("Audio Context playback prevented by browser policy:", e);
+    }
+  }, []);
+
+  // Request browser notification permission when admin dashboard mounts
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
 
   useEffect(() => {
     const ordersCol = collection(db, "orders");
     const unsubscribe = onSnapshot(ordersCol, (snapshot) => {
       const list: Order[] = [];
+
+      snapshot.docChanges().forEach((change) => {
+        const rawData = change.doc.data() as any;
+        const orderId = change.doc.id;
+        const isPaid =
+          rawData.paymentStatus === "Paid" ||
+          rawData.paymentStatus === "paid" ||
+          rawData.status === "paid" ||
+          rawData.status === "completed" ||
+          Boolean(rawData.receiptNo);
+
+        if (isInitialOrdersLoadRef.current) {
+          if (isPaid) {
+            knownPaidOrderIdsRef.current.add(orderId);
+          }
+        } else {
+          // If a transaction doc is newly added or modified to verified/paid status
+          if ((change.type === "added" || change.type === "modified") && isPaid) {
+            if (!knownPaidOrderIdsRef.current.has(orderId)) {
+              knownPaidOrderIdsRef.current.add(orderId);
+
+              // 1. Audio alert chime
+              playMpesaNotificationSound();
+
+              // 2. Browser notification
+              if ("Notification" in window && Notification.permission === "granted") {
+                try {
+                  new Notification("📲 M-Pesa Payment Verified!", {
+                    body: `Order #${orderId.slice(0, 8).toUpperCase()} - KES ${(rawData.totalAmount || 0).toLocaleString()} cleared from ${rawData.customerName || "Customer"}.`,
+                    icon: "/favicon.ico"
+                  });
+                } catch (err) {
+                  console.warn("Browser notification error:", err);
+                }
+              }
+
+              // 3. UI Alert Toast Banner
+              setNewMpesaAlert({
+                id: orderId,
+                amount: rawData.totalAmount || 0,
+                receipt: rawData.receiptNo || rawData.mpesaReceipt || "VERIFIED",
+                customer: rawData.customerName || "Customer"
+              });
+            }
+          }
+        }
+      });
+
       snapshot.forEach((d) => {
         list.push({ id: d.id, ...d.data() } as Order);
       });
+
       setSnapshotOrders(list);
       setSnapshotLoading(false);
+      isInitialOrdersLoadRef.current = false;
     }, (error) => {
       console.error("Snapshot error for Quick Snapshot widget:", error);
     });
+
     return unsubscribe;
-  }, []);
+  }, [playMpesaNotificationSound]);
 
   const quickSnapshotMetrics = useMemo(() => {
     const todayStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
@@ -2894,6 +2989,45 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
 
   return (
     <div id="admin-operations-container" className="animate-fadeIn relative">
+      {/* Floating M-Pesa Real-Time Verified Payment Alert Toast */}
+      <AnimatePresence>
+        {newMpesaAlert && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="fixed top-6 left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-auto sm:right-6 z-[9999] bg-[#0A0A0A] border-2 border-emerald-500 text-white p-4 rounded-2xl shadow-2xl flex items-center gap-3.5 max-w-md w-11/12 sm:w-auto"
+          >
+            <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0 text-black font-extrabold text-sm shadow-lg shadow-emerald-500/30 animate-bounce">
+              M
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-xs font-extrabold text-emerald-400 font-sans uppercase tracking-wider flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 fill-emerald-400" />
+                  M-Pesa Verified Live!
+                </h4>
+                <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-mono px-2 py-0.5 rounded-full border border-emerald-500/30 font-bold">
+                  MegaPay
+                </span>
+              </div>
+              <p className="text-xs font-semibold text-white mt-1">
+                {newMpesaAlert.customer} &bull; <span className="text-emerald-400 font-extrabold">KES {newMpesaAlert.amount.toLocaleString()}</span>
+              </p>
+              <p className="text-[10px] text-white/60 font-mono mt-0.5">
+                Receipt Ref: <span className="text-emerald-300 font-bold">{newMpesaAlert.receipt}</span>
+              </p>
+            </div>
+            <button 
+              onClick={() => setNewMpesaAlert(null)}
+              className="text-white/40 hover:text-white p-1.5 rounded-lg hover:bg-white/10 text-xs cursor-pointer shrink-0"
+              title="Dismiss alert"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Floating Success Toast notification */}
       {actionSuccessNotification && (
         <div className="fixed top-6 right-6 z-55 flex items-center justify-between gap-3 bg-[#C5A059] text-black px-5 py-4 rounded-xl shadow-2xl border border-[#C5A059]/40 font-sans font-bold text-xs max-w-sm animate-fadeIn">

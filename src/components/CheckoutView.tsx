@@ -663,12 +663,12 @@ export default function CheckoutView() {
               </div>
               <h3 className="font-sans font-semibold text-lg text-white">
                 {isNairobi 
-                  ? "Paystack Commerce Terminal" 
+                  ? "M-Pesa Express Terminal" 
                   : "Logistic Dispatch Routing"
                 }
               </h3>
               <p className="text-white/40 text-xs mt-1">
-                Your credentials are secured inside our private sandbox. Verified on live server queues.
+                Your credentials are encrypted over secure live TLS connection. Verified on live MegaPay server queues.
               </p>
             </div>
 

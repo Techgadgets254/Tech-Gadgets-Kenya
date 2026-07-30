@@ -1412,10 +1412,97 @@ html.light-theme .markdown-body th {
   background-color: rgba(0, 0, 0, 0.04);
 }
 
+/* Dedicated Printable Invoice & Receipt Formatting for A4 Pages */
+@media print {
+  /* Hide non-printable navigation, sidebars, buttons, and popups */
+  nav,
+  footer,
+  header,
+  #storefront-footer,
+  .no-print,
+  button:not(.print-keep),
+  .no-print-element,
+  [role="navigation"],
+  .fixed,
+  .sticky {
+    display: none !important;
+  }
 
+  /* Reset body and viewport canvas for crisp A4 paper printing */
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 
+  /* Target printable invoice container */
+  .printable-invoice,
+  #print-invoice-area,
+  #printable-receipt {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 15px 20px !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
 
+  /* A4 Page layout and margins */
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm 10mm 12mm;
+  }
 
+  /* Convert dark background colors, borders, and text to high-contrast monochrome for printing */
+  .printable-invoice *,
+  #print-invoice-area * {
+    color: #000000 !important;
+    background-color: transparent !important;
+    border-color: #d1d5db !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
 
+  /* Maintain border styling for key sections */
+  .printable-invoice .border-b,
+  #print-invoice-area .border-b,
+  .printable-invoice .border-t,
+  #print-invoice-area .border-t {
+    border-color: #111827 !important;
+  }
 
+  .printable-invoice table,
+  #print-invoice-area table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-top: 16px !important;
+  }
 
+  .printable-invoice th,
+  .printable-invoice td,
+  #print-invoice-area th,
+  #print-invoice-area td {
+    border: 1px solid #e5e7eb !important;
+    padding: 8px 12px !important;
+    font-size: 10pt !important;
+    text-align: left !important;
+  }
+
+  .printable-invoice th,
+  #print-invoice-area th {
+    background-color: #f3f4f6 !important;
+    font-weight: bold !important;
+  }
+
+  .print-page-break {
+    page-break-before: always;
+  }
+}
