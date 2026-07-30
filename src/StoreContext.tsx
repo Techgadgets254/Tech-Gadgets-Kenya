@@ -1134,10 +1134,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       
       // Update local product inventory stock for realistic ecommerce behavior!
       try {
-        for (const cartItem of cart) {
-          const productRef = doc(db, "products", cartItem.product.id);
-          const newStock = Math.max(0, cartItem.product.stock - cartItem.quantity);
-          await updateDoc(productRef, { stock: newStock });
+        if (userProfile?.role === "admin") {
+          for (const cartItem of cart) {
+            const productRef = doc(db, "products", cartItem.product.id);
+            const newStock = Math.max(0, cartItem.product.stock - cartItem.quantity);
+            await updateDoc(productRef, { stock: newStock });
+          }
         }
       } catch (stockErr) {
         console.warn("Could not adjust stock directly due to permission limits, skipping local stock adjustment:", stockErr);

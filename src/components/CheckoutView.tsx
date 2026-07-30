@@ -530,7 +530,7 @@ export default function CheckoutView() {
     }
 
     const safaricomCheck = getSafaricomValidation(customerPhone);
-    const activeEmail = user ? (user.email || "") : guestEmail;
+    const activeEmail = (user?.email || guestEmail || "customer@techsokoni.com").trim() || "customer@techsokoni.com";
 
     try {
       if (isNairobi) {
