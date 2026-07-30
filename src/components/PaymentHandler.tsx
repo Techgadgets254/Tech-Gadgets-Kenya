@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Shield, Sparkles, CheckCircle2, AlertTriangle, Loader2, Phone, Smartphone, Check } from "lucide-react";
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "../firebase";
 
 interface PaymentHandlerProps {
   isOpen: boolean;
@@ -201,6 +203,42 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
       alert(`Status check error: ${err.message}`);
     }
   };
+
+  // Real-time Firestore callback listener monitoring order status
+  useEffect(() => {
+    if (!isOpen || !orderId || step === "completed") return;
+
+    const orderRef = doc(db, "orders", orderId);
+    const unsubscribe = onSnapshot(
+      orderRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          const isPaid =
+            data.paymentStatus === "paid" ||
+            data.status === "paid" ||
+            data.status === "completed" ||
+            Boolean(data.receiptNo);
+
+          if (isPaid) {
+            const refCode = data.receiptNo || data.mpesaReceipt || transactionData?.reference || orderId;
+            addLog(`[Firestore Callback] Payment confirmed in database! Receipt: ${refCode}`);
+            setStep("completed");
+            setTimeout(() => {
+              onSuccess(refCode);
+            }, 1200);
+          }
+        }
+      },
+      (err) => {
+        console.warn("[Firestore Callback] Listener error:", err);
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [isOpen, orderId, step, transactionData, onSuccess]);
 
   // Continuous background polling when STK prompt is sent
   useEffect(() => {
