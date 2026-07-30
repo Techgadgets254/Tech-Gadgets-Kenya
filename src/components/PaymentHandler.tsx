@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Shield, Sparkles, CheckCircle2, AlertTriangle, Loader2, Phone, Smartphone, Check } from "lucide-react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
+import { getMegaPayErrorMessage } from "../lib/megapay";
 
 interface PaymentHandlerProps {
   isOpen: boolean;
@@ -240,39 +241,75 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
     };
   }, [isOpen, orderId, step, transactionData, onSuccess]);
 
-  // Continuous background polling when STK prompt is sent
+  // Continuous background polling with Exponential Backoff strategy when STK prompt is sent
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let timeoutId: NodeJS.Timeout;
+    let isSubscribed = true;
+
     if (step === "prompt_sent" && transactionData?.reference && transactionData.mode === "real") {
-      const maxPolls = 30;
-      interval = setInterval(async () => {
-        setPollAttempts((prev) => {
-          const next = prev + 1;
-          addLog(`Checking M-Pesa payment status... Attempt ${next}/${maxPolls}`);
+      let currentDelay = 2500; // Start initial check after 2.5s
+      const backoffFactor = 1.4; // Multiplier
+      const maxDelay = 10000; // Cap at 10s delay between calls
+      let attempt = 0;
+      const maxAttempts = 18; // Try up to ~2 minutes
 
-          verifyPayment(orderId, transactionData.reference!)
-            .then((res) => {
-              if (res.success) {
-                addLog("M-PESA PAYMENT VERIFIED AND CONFIRMED!");
-                clearInterval(interval);
-                setStep("completed");
-                setTimeout(() => {
-                  onSuccess(transactionData.reference!);
-                }, 1200);
-              }
-            })
-            .catch(() => {});
+      const executePoll = async () => {
+        if (!isSubscribed) return;
+        attempt++;
+        setPollAttempts(attempt);
+        addLog(`Checking M-Pesa payment status... Attempt ${attempt}/${maxAttempts} (next check in ${(currentDelay / 1000).toFixed(1)}s)`);
 
-          if (next >= maxPolls) {
-            clearInterval(interval);
-            addLog("Polling threshold reached. User can verify manually.");
+        try {
+          const res = await verifyPayment(orderId, transactionData.reference!);
+          if (!isSubscribed) return;
+
+          const resStatus = (res as any).status;
+          if (res.success || resStatus === "completed") {
+            addLog("M-PESA PAYMENT VERIFIED AND CONFIRMED!");
+            setStep("completed");
+            setTimeout(() => {
+              if (isSubscribed) onSuccess(transactionData.reference!);
+            }, 1200);
+            return;
           }
-          return next;
-        });
-      }, 3500);
+
+          // Check if response indicates explicit cancellation or error codes (e.g., 1032, 1037, 1025, 1, 9999, 2001, 1019, 1001)
+          const responseCode = (res as any).responseCode ?? (res as any).rawResponse?.ResponseCode ?? (res as any).rawResponse?.ResultCode;
+          const isExplicitError = resStatus === "failed" || resStatus === "cancelled" || (responseCode !== undefined && responseCode !== 0 && responseCode !== "0" && responseCode !== "200");
+
+          if (isExplicitError) {
+            const errorMsg = res.message || getMegaPayErrorMessage(responseCode) || "M-Pesa transaction could not be completed.";
+            addLog(`[M-Pesa Error Code ${responseCode || "FAILED"}] ${errorMsg}`);
+            setErrorMessage(errorMsg);
+            setStep("failed");
+            return;
+          }
+
+          // Still pending: schedule next poll with exponential backoff
+          if (attempt < maxAttempts) {
+            currentDelay = Math.min(currentDelay * backoffFactor, maxDelay);
+            timeoutId = setTimeout(executePoll, currentDelay);
+          } else {
+            addLog("Polling threshold reached (2 mins). Click 'Check Payment Status' if you recently entered your M-Pesa PIN.");
+          }
+        } catch (err: any) {
+          addLog(`Status check exception: ${err.message}`);
+          if (attempt < maxAttempts) {
+            currentDelay = Math.min(currentDelay * backoffFactor, maxDelay);
+            timeoutId = setTimeout(executePoll, currentDelay);
+          }
+        }
+      };
+
+      // Kick off initial poll after 2.5s
+      timeoutId = setTimeout(executePoll, currentDelay);
     }
-    return () => clearInterval(interval);
-  }, [step, transactionData]);
+
+    return () => {
+      isSubscribed = false;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [step, transactionData, orderId, verifyPayment, onSuccess]);
 
   if (!isOpen) return null;
 

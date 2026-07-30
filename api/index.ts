@@ -1960,7 +1960,23 @@ app.post("/api/admin/accounts/create", async (req, res) => {
   }
 });
 
-const megaPayPaymentsMap = new Map<string, { status: "pending" | "success" | "failed"; reference: string; orderId: string; amount: number; message?: string }>();
+const megaPayPaymentsMap = new Map<string, { status: "pending" | "success" | "failed"; reference: string; orderId: string; amount: number; message?: string; transactionRequestId?: string; email?: string }>();
+
+// Helper to format phone number for MegaPay (accepts 2547XXXXXXXX or 07XXXXXXXX)
+function formatMegaPayPhone(phoneStr: string): string {
+  if (!phoneStr) return "";
+  let cleaned = phoneStr.replace(/\D/g, "");
+  if (cleaned.startsWith("0")) {
+    return cleaned; // e.g. 0768783443 is valid in MegaPay
+  }
+  if (cleaned.startsWith("254")) {
+    return cleaned; // e.g. 254768783443 is valid in MegaPay
+  }
+  if (cleaned.length === 9) {
+    return "254" + cleaned;
+  }
+  return cleaned;
+}
 
 app.post(["/api/megapay/initialize", "/api/paystack/initialize"], async (req, res) => {
   const { email, amount, orderId, phone } = req.body;
@@ -1969,7 +1985,6 @@ app.post(["/api/megapay/initialize", "/api/paystack/initialize"], async (req, re
   }
 
   const rawKey = process.env.MEGAPAY_API_KEY || process.env.MEGAPAY_SECRET_KEY;
-  const merchantId = process.env.MEGAPAY_MERCHANT_ID || "";
   const isKeyValid = !!(rawKey && 
     rawKey.trim() !== "" && 
     !rawKey.includes("your") && 
@@ -1977,7 +1992,9 @@ app.post(["/api/megapay/initialize", "/api/paystack/initialize"], async (req, re
     !rawKey.includes("placeholder") && 
     rawKey.trim().length >= 8);
 
-  const megaPayKey = isKeyValid ? rawKey : null;
+  const megaPayKey = isKeyValid ? rawKey.trim() : null;
+  const megaPayEmail = (process.env.MEGAPAY_EMAIL || process.env.SMTP_USER || email || "shop@techsokoni.com").trim();
+  const formattedMsisdn = formatMegaPayPhone(phone || "");
 
   if (!megaPayKey) {
     const reference = "MPAY-" + Math.random().toString(36).substring(2, 10).toUpperCase();
@@ -1985,7 +2002,8 @@ app.post(["/api/megapay/initialize", "/api/paystack/initialize"], async (req, re
       status: "pending",
       reference,
       orderId,
-      amount
+      amount,
+      email
     });
 
     return res.json({
@@ -1993,98 +2011,111 @@ app.post(["/api/megapay/initialize", "/api/paystack/initialize"], async (req, re
       mode: "simulated",
       authorization_url: `https://checkout.megapay.co.ke/simulated-pay/${reference}`,
       reference,
-      message: "MegaPay transaction simulation initialized properly (API key is simulated/empty)."
+      message: "MegaPay transaction simulation initialized (MEGAPAY_API_KEY is not configured)."
     });
   }
 
   try {
-    const callbackUrl = process.env.APP_URL 
-      ? `${process.env.APP_URL.replace(/\/$/, "")}/?megapay_ref=${orderId}`
-      : `http://localhost:3000/?megapay_ref=${orderId}`;
-
-    const payload = {
+    const stkPayload = {
       api_key: megaPayKey,
-      merchant_id: merchantId,
-      email,
-      phone: phone || "",
-      amount: Math.round(amount),
-      currency: "KES",
-      order_id: orderId,
-      callback_url: callbackUrl,
-      metadata: {
-        orderId
-      }
+      email: megaPayEmail,
+      amount: String(Math.round(amount)),
+      msisdn: formattedMsisdn || "0792620789",
+      reference: orderId
     };
 
-    const megaPayEndpoint = process.env.MEGAPAY_API_URL || "https://api.megapay.co.ke/v1/transaction/initialize";
+    console.log("[MegaPay STK Push] Sending request to https://megapay.co.ke/backend/v1/initiatestk", {
+      email: megaPayEmail,
+      amount: stkPayload.amount,
+      msisdn: stkPayload.msisdn,
+      reference: stkPayload.reference
+    });
+
+    const megaPayEndpoint = process.env.MEGAPAY_API_URL || "https://megapay.co.ke/backend/v1/initiatestk";
 
     const megaPayResponse = await fetch(megaPayEndpoint, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${megaPayKey}`,
-        "x-api-key": megaPayKey,
-        "x-merchant-id": merchantId,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(stkPayload)
     });
 
     let data: any;
-    const contentType = megaPayResponse.headers.get("content-type");
-    if (contentType && contentType.includes("application/json")) {
-      data = await megaPayResponse.json();
-    } else {
-      const text = await megaPayResponse.text();
-      console.warn("MegaPay API endpoint response non-JSON:", text.slice(0, 100));
-      data = { status: true, data: { reference: "MPAY-" + Math.random().toString(36).substring(2, 10).toUpperCase() } };
+    const responseText = await megaPayResponse.text();
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseErr) {
+      console.warn("[MegaPay STK Push] Non-JSON response:", responseText.slice(0, 150));
+      data = { success: "400", massage: responseText };
     }
 
-    if (megaPayResponse.ok || (data && (data.status || data.success))) {
-      const reference = data.reference || data.data?.reference || ("MPAY-" + Math.random().toString(36).substring(2, 10).toUpperCase());
-      const authUrl = data.authorization_url || data.data?.authorization_url || data.payment_url || data.redirect_url || `https://checkout.megapay.co.ke/pay/${reference}`;
-      
-      megaPayPaymentsMap.set(reference, {
+    console.log("[MegaPay STK Push Response]", data);
+
+    const isSuccess = data && (
+      String(data.success) === "200" || 
+      data.ResponseCode === 0 || 
+      Boolean(data.transaction_request_id) ||
+      (data.massage && data.massage.toLowerCase().includes("sucess"))
+    );
+
+    if (isSuccess && data.transaction_request_id) {
+      const transactionRequestId = data.transaction_request_id;
+      megaPayPaymentsMap.set(transactionRequestId, {
         status: "pending",
-        reference,
+        reference: transactionRequestId,
+        transactionRequestId,
         orderId,
-        amount
+        amount,
+        email: megaPayEmail
+      });
+
+      // Also map orderId to transactionRequestId
+      megaPayPaymentsMap.set(orderId, {
+        status: "pending",
+        reference: transactionRequestId,
+        transactionRequestId,
+        orderId,
+        amount,
+        email: megaPayEmail
       });
 
       return res.json({
         success: true,
         mode: "real",
-        authorization_url: authUrl,
-        reference,
-        message: "MegaPay live transaction initialized successfully."
+        reference: transactionRequestId,
+        transaction_request_id: transactionRequestId,
+        message: data.massage || data.message || "STK Push sent successfully to phone screen!"
       });
     } else {
-      throw new Error(data.message || data.error || "MegaPay Gateway rejected initial handshake payload.");
+      const errorMsg = data.massage || data.message || data.ResponseDescription || "MegaPay returned error initiating STK Push.";
+      console.error("[MegaPay STK Push Error]", errorMsg);
+
+      // Fallback response with detailed error message
+      return res.status(400).json({
+        success: false,
+        error: errorMsg,
+        data
+      });
     }
 
   } catch (err: any) {
-    console.error("MegaPay Initialization Failure:", err);
-    const reference = "MPAY-" + Math.random().toString(36).substring(2, 10).toUpperCase();
-    megaPayPaymentsMap.set(reference, {
-      status: "pending",
-      reference,
-      orderId,
-      amount
-    });
-
-    return res.json({
-      success: true,
-      mode: "simulated",
-      authorization_url: `https://checkout.megapay.co.ke/simulated-pay/${reference}`,
-      reference,
-      message: `MegaPay connection initialized with sandbox fallback: ${err.message}`
+    console.error("[MegaPay Initialization Exception]", err);
+    return res.status(500).json({
+      success: false,
+      error: `Failed to communicate with MegaPay server: ${err.message}`
     });
   }
 });
 
-app.get(["/api/megapay/verify/:reference", "/api/paystack/verify/:reference"], async (req, res) => {
-  const { reference } = req.params;
-  const payment = megaPayPaymentsMap.get(reference);
+app.all(["/api/megapay/verify/:reference", "/api/paystack/verify/:reference", "/api/megapay/transactionstatus"], async (req, res) => {
+  const reference = req.params.reference || req.body?.transaction_request_id || req.body?.reference || req.query?.reference;
+  
+  if (!reference) {
+    return res.status(400).json({ error: "Missing transaction reference or transaction_request_id" });
+  }
 
+  const payment = megaPayPaymentsMap.get(reference);
   const rawKey = process.env.MEGAPAY_API_KEY || process.env.MEGAPAY_SECRET_KEY;
   const isKeyValid = !!(rawKey && 
     rawKey.trim() !== "" && 
@@ -2093,9 +2124,10 @@ app.get(["/api/megapay/verify/:reference", "/api/paystack/verify/:reference"], a
     !rawKey.includes("placeholder") && 
     rawKey.trim().length >= 8);
 
-  const megaPayKey = isKeyValid ? rawKey : null;
+  const megaPayKey = isKeyValid ? rawKey.trim() : null;
+  const megaPayEmail = (process.env.MEGAPAY_EMAIL || process.env.SMTP_USER || payment?.email || "shop@techsokoni.com").trim();
 
-  if (!megaPayKey || reference.startsWith("MPAY-")) {
+  if (!megaPayKey || String(reference).startsWith("MPAY-")) {
     if (payment) {
       payment.status = "success";
       megaPayPaymentsMap.set(reference, payment);
@@ -2105,108 +2137,196 @@ app.get(["/api/megapay/verify/:reference", "/api/paystack/verify/:reference"], a
       mode: "simulated",
       status: "success",
       reference,
-      message: "Payment successfully verified and completed through MegaPay gateway hub."
+      message: "Payment successfully verified in simulation mode."
     });
   }
 
   try {
-    const megaPayVerifyEndpoint = process.env.MEGAPAY_VERIFY_URL || `https://api.megapay.co.ke/v1/transaction/verify/${reference}`;
-    const megaPayResponse = await fetch(megaPayVerifyEndpoint, {
+    const statusPayload = {
+      api_key: megaPayKey,
+      email: megaPayEmail,
+      transaction_request_id: payment?.transactionRequestId || reference
+    };
+
+    const statusEndpoint = process.env.MEGAPAY_VERIFY_URL || "https://megapay.co.ke/backend/v1/transactionstatus";
+
+    const megaPayResponse = await fetch(statusEndpoint, {
+      method: "POST",
       headers: {
-        "Authorization": `Bearer ${megaPayKey}`,
-        "x-api-key": megaPayKey
-      }
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(statusPayload)
     });
 
     let data: any;
-    const contentType = megaPayResponse.headers.get("content-type");
-    if (contentType && contentType.includes("application/json")) {
-      data = await megaPayResponse.json();
-    } else {
-      data = { status: true, data: { status: "success" } };
+    const responseText = await megaPayResponse.text();
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseErr) {
+      data = { ResultCode: "400", ResultDesc: responseText };
     }
 
-    if (megaPayResponse.ok && (data.status || data.success)) {
+    console.log("[MegaPay Transaction Status Check Response]", data);
+
+    const isCompleted = (
+      data.TransactionStatus === "Completed" || 
+      data.TransactionStatus === "SUCCESS" ||
+      (data.ResultCode === "200" && data.TransactionReceipt) ||
+      (data.ResultCode === "0" && data.TransactionReceipt)
+    );
+
+    const isCancelled = (
+      data.ResponseCode === 1032 || 
+      data.ResultCode === "1032" ||
+      (data.ResultDesc && data.ResultDesc.toLowerCase().includes("cancelled"))
+    );
+
+    if (isCompleted) {
+      const receiptNo = data.TransactionReceipt || data.TransactionID || reference;
+      
       if (payment) {
         payment.status = "success";
         megaPayPaymentsMap.set(reference, payment);
       }
+
+      // Update order in Firestore if orderId exists
+      const targetOrderId = payment?.orderId || reference;
+      try {
+        if (adminDb && isAdminDbAuthorized) {
+          await adminDb.collection("orders").doc(targetOrderId).update({
+            paymentStatus: "Paid",
+            receiptNo,
+            updatedAt: new Date().toISOString()
+          });
+        } else if (serverDb) {
+          await serverUpdateDoc(serverDoc(serverDb, "orders", targetOrderId), {
+            paymentStatus: "Paid",
+            receiptNo,
+            updatedAt: new Date().toISOString()
+          });
+        }
+      } catch (dbErr: any) {
+        console.warn("[MegaPay Status Check] Could not update order in DB:", dbErr.message);
+      }
+
       return res.json({
         success: true,
         mode: "real",
         status: "success",
+        receiptNo,
         reference,
-        data: data.data || data,
-        message: "Payment checked and fully validated on MegaPay ecosystem."
+        data,
+        message: "Payment successfully verified on M-Pesa ecosystem!"
       });
-    } else {
+    } else if (isCancelled) {
       if (payment) {
         payment.status = "failed";
         megaPayPaymentsMap.set(reference, payment);
       }
-      return res.status(400).json({
-        success: false,
-        error: data.message || "Failed verifying transaction settlement status on MegaPay gateway."
-      });
-    }
-  } catch (err: any) {
-    console.error("MegaPay Verification service crash:", err);
-    if (payment) {
-      payment.status = "success";
-      megaPayPaymentsMap.set(reference, payment);
       return res.json({
-        success: true,
-        mode: "simulated",
-        status: "success",
-        reference,
-        message: "Payment confirmed locally on MegaPay system."
+        success: false,
+        status: "failed",
+        error: data.ResultDesc || data.ResponseDescription || "Transaction was cancelled by user.",
+        data
+      });
+    } else {
+      // Still pending
+      return res.json({
+        success: false,
+        status: "pending",
+        message: data.ResultDesc || data.ResponseDescription || "Awaiting user M-Pesa PIN input on phone...",
+        data
       });
     }
-    res.status(500).json({
-      error: `MegaPay status lookup: ${err.message}`
+
+  } catch (err: any) {
+    console.error("[MegaPay Verification Error]", err);
+    return res.status(500).json({
+      success: false,
+      error: `Status verification error: ${err.message}`
     });
   }
 });
 
-app.post(["/api/megapay/webhook", "/api/paystack/webhook"], async (req, res) => {
+app.all(["/api/megapay/webhook", "/api/megapay/callback", "/api/paystack/webhook"], async (req, res) => {
   try {
-    const { reference, order_id, orderId } = req.body || {};
-    const ref = reference || req.body?.data?.reference;
-    const oId = orderId || order_id || req.body?.data?.orderId;
+    const payload = req.body || {};
+    console.log("[MegaPay Webhook/Callback Listener Raw Payload Received]", {
+      method: req.method,
+      headers: req.headers,
+      body: payload
+    });
 
-    console.log(`MegaPay Webhook: Received payload for order '${oId || "none"}'`);
+    const responseCode = payload.ResponseCode;
+    const responseDescription = payload.ResponseDescription || payload.ResultDesc || "";
+    const receiptNo = payload.TransactionReceipt;
+    const transactionId = payload.TransactionID || payload.CheckoutRequestID;
+    const reference = payload.TransactionReference || payload.reference || payload.orderId || payload.order_id || transactionId;
 
-    if (ref) {
-      const payment = megaPayPaymentsMap.get(ref);
-      megaPayPaymentsMap.set(ref, {
+    const isSuccess = responseCode === 0 || responseCode === "0" || Boolean(receiptNo);
+    const isCancelled = responseCode === 1032 || String(responseCode) === "1032";
+
+    if (isSuccess && (reference || receiptNo)) {
+      const refKey = reference || receiptNo;
+      const payment = megaPayPaymentsMap.get(refKey) || megaPayPaymentsMap.get(payload.CheckoutRequestID);
+
+      const targetOrderId = payment?.orderId || reference;
+
+      megaPayPaymentsMap.set(refKey, {
         status: "success",
-        reference: ref,
-        orderId: oId || payment?.orderId || "unknown",
-        amount: payment?.amount || 0,
-        message: "Payment successfully verified and parsed through server-side Webhook loop."
+        reference: refKey,
+        orderId: targetOrderId,
+        amount: payload.TransactionAmount || payment?.amount || 0,
+        message: "Payment successfully verified via MegaPay Webhook/Callback"
       });
 
-      if (oId) {
+      if (targetOrderId) {
         try {
-          const orderRef = adminDb.collection("orders").doc(oId);
-
-          await orderRef.update({
+          const updateData = {
             paymentStatus: "Paid",
-            receiptNo: ref,
+            status: "Processing",
+            receiptNo: receiptNo || transactionId || refKey,
             updatedAt: new Date().toISOString()
-          });
+          };
 
-          console.log(`MegaPay Webhook Success: Order ${oId} marked as settled in Firestore.`);
+          if (adminDb && isAdminDbAuthorized) {
+            await adminDb.collection("orders").doc(targetOrderId).update(updateData);
+          } else if (serverDb) {
+            await serverUpdateDoc(serverDoc(serverDb, "orders", targetOrderId), updateData);
+          }
+          console.log(`[MegaPay Webhook Success] Firestore Order #${targetOrderId} marked as Paid with Receipt ${receiptNo || transactionId}`);
         } catch (dbErr: any) {
-          console.error("MegaPay Webhook db sync failed:", dbErr.message || dbErr);
+          console.error(`[MegaPay Webhook DB Error] Failed updating order #${targetOrderId}:`, dbErr.message);
+        }
+      }
+    } else if (isCancelled) {
+      console.warn(`[MegaPay Webhook Warning] Transaction ${reference} was cancelled by user (Code 1032).`);
+      const targetOrderId = reference;
+      if (targetOrderId) {
+        try {
+          const updateData = {
+            paymentStatus: "Failed",
+            cancellationReason: responseDescription || "Cancelled by user on phone",
+            updatedAt: new Date().toISOString()
+          };
+          if (adminDb && isAdminDbAuthorized) {
+            await adminDb.collection("orders").doc(targetOrderId).update(updateData);
+          } else if (serverDb) {
+            await serverUpdateDoc(serverDoc(serverDb, "orders", targetOrderId), updateData);
+          }
+        } catch (dbErr: any) {
+          console.error("[MegaPay Webhook DB Error]", dbErr.message);
         }
       }
     }
 
-    res.status(200).json({ status: "success", message: "MegaPay Webhook resolved successfully." });
+    res.status(200).json({ 
+      ResponseCode: 0, 
+      ResponseDescription: "Success. Webhook received and processed successfully." 
+    });
   } catch (err: any) {
-    console.error("MegaPay Webhook Handler Error:", err);
-    res.status(500).json({ error: `Internal Webhook Error: ${err.message}` });
+    console.error("[MegaPay Webhook Listener Error]", err);
+    res.status(500).json({ ResponseCode: 500, ResponseDescription: `Internal Webhook Error: ${err.message}` });
   }
 });
 
