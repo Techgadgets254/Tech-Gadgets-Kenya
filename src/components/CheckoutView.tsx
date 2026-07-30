@@ -96,6 +96,8 @@ export default function CheckoutView() {
     removeFromCart, 
     clearCart,
     createCheckoutOrder, 
+    initializeMegaPayTransaction,
+    verifyMegaPayTransaction,
     initializePaystackTransaction, 
     verifyPaystackTransaction,
     updateOrderStatus,
@@ -117,8 +119,8 @@ export default function CheckoutView() {
   const [isGuest, setIsGuest] = useState(false);
   const [guestEmail, setGuestEmail] = useState("");
 
-  // Payment Selection: "paystack" or "mpesa_qr"
-  const [paymentMethod, setPaymentMethod] = useState<"paystack" | "mpesa_qr">("paystack");
+  // Payment Selection: "megapay" or "mpesa_qr"
+  const [paymentMethod, setPaymentMethod] = useState<"megapay" | "mpesa_qr" | "paystack">("megapay");
 
   // Dynamic M-Pesa QR checkout states
   const [showMpesaQrScreen, setShowMpesaQrScreen] = useState(false);
@@ -582,7 +584,7 @@ export default function CheckoutView() {
         }
 
         // Nairobi requires immediate Payment Before Delivery
-        if (paymentMethod === "paystack") {
+        if (paymentMethod === "megapay" || paymentMethod === "paystack") {
           const shippingFullAddress = `${deliveryDetails}, ${selectedCounty} County, Kenya (Nairobi - Free Delivery)`;
           
           // Show immediate spinner/loading state
@@ -598,7 +600,7 @@ export default function CheckoutView() {
             mpesaPhone: customerPhone, // Stores customer billing contact to satisfy Firestore layout
             totalAmount: Math.max(0, getCartTotal() + deliveryFee - discount),
             referralCode: appliedPromo || undefined,
-            paymentProvider: "Paystack"
+            paymentProvider: "MegaPay"
           });
 
           if (!orderObj) {
@@ -1354,7 +1356,7 @@ export default function CheckoutView() {
                         </span>
                         <p className="text-xs text-white font-semibold">Payment Before Delivery Required</p>
                         <p className="text-[10.5px] text-white/40 leading-relaxed font-sans">
-                          Nairobi addresses qualify for <strong>Free Delivery Promo</strong>. Settlement is mandated prior to vehicle dispatch through Paystack.
+                          Nairobi addresses qualify for <strong>Free Delivery Promo</strong>. Settlement is mandated prior to vehicle dispatch through MegaPay.
                         </p>
                       </div>
                     ) : (
@@ -1377,27 +1379,27 @@ export default function CheckoutView() {
                     <div className="border-t border-white/5 pt-5 mt-6 space-y-4">
                       <span className="font-mono text-[10px] text-white/30 font-bold uppercase tracking-wider">SELECT PAYMENT METHOD</span>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {/* Option 1: Paystack */}
+                        {/* Option 1: MegaPay */}
                         <button
                           type="button"
-                          onClick={() => setPaymentMethod("paystack")}
+                          onClick={() => setPaymentMethod("megapay")}
                           className={`flex items-start gap-3 p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-                            paymentMethod === "paystack"
+                            paymentMethod === "megapay" || paymentMethod === "paystack"
                               ? "bg-emerald-950/10 border-emerald-500/40 text-white"
                               : "bg-[#0A0A0A] border-white/5 text-white/60 hover:border-white/10"
                           }`}
                         >
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${
-                            paymentMethod === "paystack"
+                            paymentMethod === "megapay" || paymentMethod === "paystack"
                               ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                               : "bg-white/5 text-white/40 border-white/5"
                           }`}>
-                            <span className="font-bold text-xs">P</span>
+                            <CreditCard className="w-4 h-4 text-[#C5A059]" />
                           </div>
                           <div className="flex-1">
-                            <h4 className={`text-xs font-semibold font-sans ${paymentMethod === "paystack" ? "text-emerald-400" : "text-white"}`}>Paystack Gateway</h4>
+                            <h4 className={`text-xs font-semibold font-sans ${paymentMethod === "megapay" || paymentMethod === "paystack" ? "text-emerald-400" : "text-white"}`}>MegaPay Gateway</h4>
                             <p className="text-[10px] text-white/40 mt-1 leading-normal font-sans">
-                              Secure credit card, debit card, and mobile money.
+                              Secure card, M-Pesa, and mobile money.
                             </p>
                           </div>
                         </button>
@@ -1575,6 +1577,8 @@ export default function CheckoutView() {
         onCancel={() => {
           setIsPaymentHandlerOpen(false);
         }}
+        initializeMegaPayTransaction={initializeMegaPayTransaction || initializePaystackTransaction}
+        verifyMegaPayTransaction={verifyMegaPayTransaction || verifyPaystackTransaction}
         initializePaystackTransaction={initializePaystackTransaction}
         verifyPaystackTransaction={verifyPaystackTransaction}
       />

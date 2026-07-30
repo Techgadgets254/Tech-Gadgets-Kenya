@@ -100,6 +100,8 @@ interface StoreContextType {
     referralCode?: string;
     paymentProvider?: string;
   }) => Promise<Order | null>;
+  initializeMegaPayTransaction: (orderId: string, email: string, amount: number) => Promise<{ success: boolean; mode: "real" | "simulated"; authUrl?: string; reference?: string; message?: string }>;
+  verifyMegaPayTransaction: (orderId: string, reference: string) => Promise<{ success: boolean; receiptNo?: string; message: string }>;
   initializePaystackTransaction: (orderId: string, email: string, amount: number) => Promise<{ success: boolean; mode: "real" | "simulated"; authUrl?: string; reference?: string; message?: string }>;
   verifyPaystackTransaction: (orderId: string, reference: string) => Promise<{ success: boolean; receiptNo?: string; message: string }>;
   
@@ -1106,7 +1108,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       paymentStatus: "Pending",
       shippingStatus: "Processing",
       referralCode: details.referralCode || "",
-      paymentProvider: details.paymentProvider || "Paystack",
+      paymentProvider: details.paymentProvider || "MegaPay",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -1166,10 +1168,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Paystack transaction initializer
-  const initializePaystackTransaction = async (orderId: string, email: string, amount: number) => {
+  // MegaPay transaction initializer
+  const initializeMegaPayTransaction = async (orderId: string, email: string, amount: number) => {
     try {
-      const response = await fetch("/api/paystack/initialize", {
+      const response = await fetch("/api/megapay/initialize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, amount, orderId })
@@ -1184,7 +1186,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to initialize Paystack checkout.");
+        throw new Error(data.error || "Failed to initialize MegaPay checkout.");
       }
 
       return {
@@ -1195,19 +1197,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         message: data.message
       };
     } catch (e: any) {
-      console.error("Paystack transaction initialization failure:", e);
+      console.error("MegaPay transaction initialization failure:", e);
       return {
         success: false,
         mode: "simulated" as const,
-        message: e.message || "An unexpected error occurred while communicating with Paystack."
+        message: e.message || "An unexpected error occurred while communicating with MegaPay."
       };
     }
   };
 
-  // Paystack transaction verifier
-  const verifyPaystackTransaction = async (orderId: string, reference: string) => {
+  // MegaPay transaction verifier
+  const verifyMegaPayTransaction = async (orderId: string, reference: string) => {
     try {
-      const response = await fetch(`/api/paystack/verify/${reference}`);
+      const response = await fetch(`/api/megapay/verify/${reference}`);
       
       const text = await response.text();
       let data: any;
@@ -1218,11 +1220,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (!response.ok) {
-        throw new Error(data.error || "Verification query failed with Paystack.");
+        throw new Error(data.error || "Verification query failed with MegaPay.");
       }
 
       if (data.success && data.status === "success") {
-        const receipt = data.reference || "PAYSTACK-OK";
+        const receipt = data.reference || "MEGAPAY-OK";
         const orderRef = doc(db, "orders", orderId);
         await updateDoc(orderRef, {
           paymentStatus: "Paid",
@@ -1233,22 +1235,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return {
           success: true,
           receiptNo: receipt,
-          message: data.message || `Paystack checkout cleared successfully! Reference: ${receipt}`
+          message: data.message || `MegaPay checkout cleared successfully! Reference: ${receipt}`
         };
       } else {
         return {
           success: false,
-          message: data.message || "Paystack transaction was not settled successfully."
+          message: data.message || "MegaPay transaction was not settled successfully."
         };
       }
     } catch (e: any) {
-      console.error("Paystack transaction verify failure:", e);
+      console.error("MegaPay transaction verify failure:", e);
       return {
         success: false,
         message: e.message || "Could not complete transaction status validation."
       };
     }
   };
+
+  // Backward-compatible Paystack aliases pointing to MegaPay engine
+  const initializePaystackTransaction = initializeMegaPayTransaction;
+  const verifyPaystackTransaction = verifyMegaPayTransaction;
 
   // Add Product Form Action
   const addProduct = async (productData: Omit<Product, "id">) => {
@@ -1831,6 +1837,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         clearCart,
         getCartTotal,
         createCheckoutOrder,
+        initializeMegaPayTransaction,
+        verifyMegaPayTransaction,
         initializePaystackTransaction,
         verifyPaystackTransaction,
         addProduct,
