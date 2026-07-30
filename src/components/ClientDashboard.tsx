@@ -1353,6 +1353,16 @@ export default function ClientDashboard() {
                       <span>Print Receipt</span>
                     </button>
 
+                    {/* Download as PDF Button */}
+                    <button
+                      type="button"
+                      onClick={handlePrintInvoice}
+                      className="bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Download as PDF</span>
+                    </button>
+
                     {/* Preview Invoice PDF Button */}
                     <button
                       type="button"

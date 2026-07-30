@@ -48,6 +48,7 @@ export default function HomeView() {
   } = useStore();
 
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
+  const [homeSortBy, setHomeSortBy] = useState<string>("featured");
 
   // States & memoized logic for dynamic cycling promo banners
   const [activePromoIndex, setActivePromoIndex] = useState(0);
@@ -127,7 +128,14 @@ export default function HomeView() {
     { name: "Accessories", desc: "High-yield power reservoirs & elite Anker setups", icon: Cable, color: "bg-white/[0.02] text-[#C5A059] border-white/10" }
   ];
 
-  const featured = products.slice(0, 4);
+  const featured = useMemo(() => {
+    let list = [...products];
+    if (homeSortBy === "price-low") list.sort((a, b) => a.price - b.price);
+    else if (homeSortBy === "price-high") list.sort((a, b) => b.price - a.price);
+    else if (homeSortBy === "newest") list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    else if (homeSortBy === "name-az") list.sort((a, b) => a.name.localeCompare(b.name));
+    return list.slice(0, 8);
+  }, [products, homeSortBy]);
 
   // We recommend high demand laptops for suggestion in hero section
   const suggestedLaptops = products.filter(p => 
@@ -511,7 +519,7 @@ export default function HomeView() {
         variants={sectionVariants}
         className="mb-14"
       >
-        <div className="flex justify-between items-end mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
           <div>
             <h2 className="font-sans font-medium text-2xl tracking-tight text-white">
               Featured Premium Listings
@@ -520,13 +528,32 @@ export default function HomeView() {
               Top recommended machinery for creators, developers, and businesses in East Africa.
             </p>
           </div>
-          <button 
-            onClick={() => setActiveView("shop")} 
-            className="text-xs sm:text-sm font-semibold text-[#C5A059] hover:text-[#C5A059]/80 flex items-center gap-1 shrink-0 cursor-pointer"
-          >
-            <span>All Products</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+          
+          <div className="flex items-center gap-3">
+            {/* Sorting controls */}
+            <div className="flex items-center gap-1.5 bg-[#0F0F0F] border border-white/10 rounded-xl px-3 py-1.5 text-xs">
+              <span className="font-mono text-[10px] text-white/40 uppercase font-bold">Sort:</span>
+              <select
+                value={homeSortBy}
+                onChange={(e) => setHomeSortBy(e.target.value)}
+                className="bg-transparent border-0 text-white font-sans text-xs font-semibold cursor-pointer focus:outline-hidden"
+              >
+                <option value="featured" className="bg-[#0F0F0F] text-white">Featured</option>
+                <option value="price-low" className="bg-[#0F0F0F] text-white">Price: Low to High</option>
+                <option value="price-high" className="bg-[#0F0F0F] text-white">Price: High to Low</option>
+                <option value="newest" className="bg-[#0F0F0F] text-white">Newest Arrivals</option>
+                <option value="name-az" className="bg-[#0F0F0F] text-white">Name: A to Z</option>
+              </select>
+            </div>
+
+            <button 
+              onClick={() => setActiveView("shop")} 
+              className="text-xs sm:text-sm font-semibold text-[#C5A059] hover:text-[#C5A059]/80 flex items-center gap-1 shrink-0 cursor-pointer bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl transition-all"
+            >
+              <span>All Products</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
          {products.length === 0 ? (

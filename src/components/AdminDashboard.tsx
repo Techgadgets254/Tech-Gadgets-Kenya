@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useStore } from "../StoreContext";
 import Pagination from "./Pagination";
@@ -239,6 +239,7 @@ export default function AdminDashboard() {
     clearAllFlashOffers,
     updateOrderStatus,
     importProductsCSV,
+    syncInventoryStockCSV,
     affiliates,
     addAffiliate,
     toggleAffiliate,
@@ -275,6 +276,8 @@ export default function AdminDashboard() {
   const [inventoryPage, setInventoryPage] = useState(1);
   const [showQrScanner, setShowQrScanner] = useState(false);
   const [qrScannerError, setQrScannerError] = useState("");
+  const [csvSyncLoading, setCsvSyncLoading] = useState(false);
+  const csvFileInputRef = useRef<HTMLInputElement>(null);
   const [orderStatusFilter, setOrderStatusFilter] = useState("All");
 
   // Real-time onSnapshot listeners with sound & browser notifications for verified M-Pesa transactions
@@ -2068,6 +2071,31 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
     } catch (e: any) {
       console.error(e);
       alert("Error generating inventory CSV export: " + e.message);
+    }
+  };
+
+  const handleCsvFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCsvSyncLoading(true);
+    try {
+      const text = await file.text();
+      const res = await syncInventoryStockCSV(text);
+      if (res.error) {
+        alert("CSV Sync Error: " + res.error);
+      } else {
+        const msg = `✔ CSV Inventory Sync Complete!\n\n• Updated Product Quantities: ${res.updatedCount}\n• New Product Records Created: ${res.addedCount}`;
+        alert(msg);
+        setActionSuccessNotification(`Inventory CSV synced: ${res.updatedCount} items updated, ${res.addedCount} new items added.`);
+        await logAdminAction("bulk_sync", `Synced product quantities via CSV: ${res.updatedCount} updated, ${res.addedCount} added`);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert("Failed to parse CSV file: " + err.message);
+    } finally {
+      setCsvSyncLoading(false);
+      if (csvFileInputRef.current) csvFileInputRef.current.value = "";
     }
   };
 
@@ -4736,6 +4764,20 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                       type="file"
                       accept=".csv"
                       onChange={handleCSVImport}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    />
+                  </label>
+
+                  {/* Sync CSV Quantities Button */}
+                  <label className="bg-[#C5A059]/15 hover:bg-[#C5A059]/25 text-[#C5A059] border border-[#C5A059]/30 font-sans text-xs font-bold py-2 px-3 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer relative" title="Sync local product quantities with spreadsheet CSV file">
+                    <RefreshCw className={`w-3.5 h-3.5 text-[#C5A059] ${csvSyncLoading ? "animate-spin" : ""}`} />
+                    <span>{csvSyncLoading ? "Syncing..." : "Sync CSV Stock"}</span>
+                    <input
+                      ref={csvFileInputRef}
+                      type="file"
+                      accept=".csv"
+                      disabled={csvSyncLoading}
+                      onChange={handleCsvFileSelected}
                       className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                     />
                   </label>

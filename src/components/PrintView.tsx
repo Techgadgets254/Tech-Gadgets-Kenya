@@ -99,6 +99,18 @@ export const PrintView: React.FC<PrintViewProps> = ({ order, onClose, onPrint })
                   </p>
                 )}
               </div>
+              <div className="mt-3 pt-2 border-t border-zinc-200 flex items-center justify-end gap-2">
+                <div className="text-right">
+                  <div className="text-[8px] font-mono font-bold text-zinc-900 uppercase">Verification QR</div>
+                  <div className="text-[7px] font-mono text-zinc-500">Scan for Order Ref</div>
+                </div>
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(order.id || "TS-ORD")}`}
+                  alt={`QR Code for Order ${order.id}`}
+                  className="w-12 h-12 rounded-md border border-zinc-300 p-0.5 bg-white"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
             </div>
           </div>
 

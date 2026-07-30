@@ -130,6 +130,7 @@ interface StoreContextType {
   toggleTheme: () => void;
   submitProductReview: (productId: string, rating: number, comment: string, name: string) => Promise<void>;
   importProductsCSV: (csvContent: string, onProgress?: (progress: number) => void) => Promise<{ addedCount: number; logs: any[]; error?: string }>;
+  syncInventoryStockCSV: (csvContent: string, onProgress?: (progress: number) => void) => Promise<{ updatedCount: number; addedCount: number; logs: any[]; error?: string }>;
   registerPriceAlert: (productId: string, productName: string, email: string, whatsapp: string, targetPrice: number, currentPrice: number) => Promise<boolean>;
   registerProductRestockRequest: (productId: string, productName: string, productImage: string, email: string, whatsapp: string) => Promise<boolean>;
   productsLoading: boolean;
@@ -1682,6 +1683,126 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const syncInventoryStockCSV = async (
+    csvContent: string,
+    onProgress?: (progress: number) => void
+  ): Promise<{ updatedCount: number; addedCount: number; logs: any[]; error?: string }> => {
+    const logs: { row: number; itemName?: string; sku?: string; status: "success" | "skipped" | "failed"; message: string }[] = [];
+    try {
+      const lines = csvContent.split(/\r?\n/);
+      if (lines.length < 2) {
+        return { updatedCount: 0, addedCount: 0, logs, error: "Empty CSV file or header-only content provided." };
+      }
+
+      const parseCSVLine = (text: string): string[] => {
+        const result: string[] = [];
+        let cur = "";
+        let inQuotes = false;
+        for (let i = 0; i < text.length; i++) {
+          const char = text[i];
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            result.push(cur.trim());
+            cur = "";
+          } else {
+            cur += char;
+          }
+        }
+        result.push(cur.trim());
+        return result;
+      };
+
+      const headers = parseCSVLine(lines[0]);
+      const getIndex = (col: string) => headers.findIndex(h => h.toLowerCase().trim() === col.toLowerCase().trim());
+
+      const idxName = getIndex("name");
+      const idxSku = getIndex("sku");
+      const idxStock = getIndex("stock");
+      const idxPrice = getIndex("price");
+
+      if (idxName === -1 && idxSku === -1) {
+        return {
+          updatedCount: 0,
+          addedCount: 0,
+          logs,
+          error: "CSV headers must include at least 'sku' or 'name' column to match inventory items."
+        };
+      }
+
+      let updated = 0;
+      let added = 0;
+      const totalRows = lines.length - 1;
+
+      for (let i = 1; i < lines.length; i++) {
+        if (onProgress) onProgress(Math.round((i / totalRows) * 100));
+        const line = lines[i];
+        if (!line.trim()) continue;
+
+        const row = parseCSVLine(line);
+        const skuVal = idxSku !== -1 ? row[idxSku] : "";
+        const nameVal = idxName !== -1 ? row[idxName] : "";
+        const rawStock = idxStock !== -1 ? row[idxStock] : "";
+        const rawPrice = idxPrice !== -1 ? row[idxPrice] : "";
+
+        if (!skuVal && !nameVal) continue;
+
+        const stockNum = rawStock !== "" ? parseInt(rawStock.replace(/[^0-9]/g, "")) : NaN;
+        const priceNum = rawPrice !== "" ? parseFloat(rawPrice.replace(/[^0-9.]/g, "")) : NaN;
+
+        const match = products.find(p => 
+          (skuVal && p.sku && p.sku.toLowerCase() === skuVal.toLowerCase()) ||
+          (nameVal && p.name.toLowerCase() === nameVal.toLowerCase())
+        );
+
+        if (match) {
+          const updates: Partial<Product> = {};
+          if (!isNaN(stockNum)) updates.stock = stockNum;
+          if (!isNaN(priceNum) && priceNum > 0) updates.price = priceNum;
+
+          if (Object.keys(updates).length > 0) {
+            await editProduct(match.id, updates);
+            updated++;
+            logs.push({
+              row: i,
+              itemName: match.name,
+              sku: match.sku,
+              status: "success",
+              message: `Updated stock: ${updates.stock !== undefined ? updates.stock : match.stock}${updates.price ? ` | Price: KES ${updates.price}` : ""}`
+            });
+          }
+        } else if (nameVal) {
+          const newProduct: Omit<Product, "id"> = {
+            name: nameVal,
+            brand: "Imported",
+            category: "Accessories",
+            price: !isNaN(priceNum) && priceNum > 0 ? priceNum : 15000,
+            stock: !isNaN(stockNum) ? stockNum : 10,
+            description: "Hardware product synchronized via CSV inventory system.",
+            image: "https://images.unsplash.com/photo-1531297484001-80022131f5a1?auto=format&fit=crop&q=80&w=700",
+            sku: skuVal || undefined,
+            specifications: {}
+          };
+          await addProduct(newProduct);
+          added++;
+          logs.push({
+            row: i,
+            itemName: nameVal,
+            sku: skuVal,
+            status: "success",
+            message: `Registered new inventory product via CSV sync.`
+          });
+        }
+      }
+
+      if (onProgress) onProgress(100);
+      return { updatedCount: updated, addedCount: added, logs };
+    } catch (err: any) {
+      console.error("Error in syncInventoryStockCSV:", err);
+      return { updatedCount: 0, addedCount: 0, logs, error: err.message || "CSV sync failed." };
+    }
+  };
+
   // Register user price drop notifications in Firestore with local fallback backing
   const registerPriceAlert = async (
     productId: string,
@@ -1857,6 +1978,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         dismissCartToast,
         submitProductReview,
         importProductsCSV,
+        syncInventoryStockCSV,
         registerPriceAlert,
         registerProductRestockRequest,
         affiliates,

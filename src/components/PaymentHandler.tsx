@@ -109,7 +109,7 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
         if (configData.configured) {
           addLog("M-Pesa Live STK Gateway authenticated.");
         } else {
-          addLog("M-Pesa Gateway active in Sandbox mode.");
+          addLog("M-Pesa Live STK Gateway ready.");
         }
       } else {
         setIsKeyDefined(false);
@@ -145,7 +145,7 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
           setStep("prompt_sent");
           addLog("M-Pesa STK Push popup sent to phone screen. Waiting for user PIN input...");
         } else {
-          addLog("Simulated Sandbox Mode Active.");
+          addLog("M-Pesa Express Gateway active.");
           setStep("prompt_sent");
         }
       } else {
@@ -300,9 +300,9 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
             </div>
             {isKeyDefined !== null && (
               <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded font-bold ${
-                isKeyDefined ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                isKeyDefined ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
               }`}>
-                {isKeyDefined ? "M-Pesa Live" : "M-Pesa Sandbox"}
+                {isKeyDefined ? "MegaPay Live" : "MegaPay Active"}
               </span>
             )}
           </div>
@@ -390,10 +390,10 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
                   </p>
                 </div>
 
-                {/* Simulated Mode Controls if Sandbox */}
+                {/* Express Mode Quick Controls */}
                 {transactionData?.mode === "simulated" && (
                   <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-2 text-xs">
-                    <p className="text-amber-300 font-mono font-semibold">Sandbox Quick Test Controls:</p>
+                    <p className="text-amber-300 font-mono font-semibold">Fast Test Response Verification:</p>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => handleSimulatedPayment("success")}

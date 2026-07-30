@@ -336,6 +336,17 @@ export function generateInvoiceHtml(order: Order): string {
           <span class="tag tag-paid">Payment: ${order.paymentStatus || "Paid"}</span>
           <span class="tag tag-shipped">Dispatch: ${order.shippingStatus || "Processing"}</span>
         </div>
+        <div style="margin-top: 10px; display: flex; justify-content: flex-end; align-items: center; gap: 8px;">
+          <div style="text-align: right;">
+            <div style="font-size: 8px; font-weight: 800; color: #111827; font-family: monospace; text-transform: uppercase;">VERIFIED ORDER QR</div>
+            <div style="font-size: 7.5px; color: #6b7280; font-family: monospace;">Scan to Trace Invoice</div>
+          </div>
+          <img 
+            src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(order.id || 'TS-ORD')}" 
+            alt="Order ID QR Code" 
+            style="width: 52px; height: 52px; border-radius: 6px; border: 1px solid #d1d5db; padding: 2px; background: #ffffff; object-fit: contain;" 
+          />
+        </div>
       </div>
     </div>
 
