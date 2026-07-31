@@ -240,23 +240,21 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
     };
   }, [isOpen, orderId, step, transactionData, onSuccess]);
 
-  // Continuous background polling with Exponential Backoff strategy when STK prompt is sent
+  // Continuous background polling every 3 seconds for up to 2 minutes (40 attempts x 3s = 120s)
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
     let isSubscribed = true;
 
-    if (step === "prompt_sent" && transactionData?.reference && transactionData.mode === "real") {
-      let currentDelay = 2500; // Start initial check after 2.5s
-      const backoffFactor = 1.4; // Multiplier
-      const maxDelay = 10000; // Cap at 10s delay between calls
+    if (step === "prompt_sent" && transactionData?.reference) {
+      const pollIntervalMs = 3000; // Poll every 3 seconds
       let attempt = 0;
-      const maxAttempts = 18; // Try up to ~2 minutes
+      const maxAttempts = 40; // 40 attempts = 120 seconds (2 minutes)
 
       const executePoll = async () => {
         if (!isSubscribed) return;
         attempt++;
         setPollAttempts(attempt);
-        addLog(`Checking M-Pesa payment status... Attempt ${attempt}/${maxAttempts} (next check in ${(currentDelay / 1000).toFixed(1)}s)`);
+        addLog(`Checking M-Pesa payment status... Attempt ${attempt}/${maxAttempts} (next check in 3.0s)`);
 
         try {
           const res = await verifyPayment(orderId, transactionData.reference!);
@@ -284,24 +282,22 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
             return;
           }
 
-          // Still pending: schedule next poll with exponential backoff
+          // Still pending: schedule next poll in 3 seconds
           if (attempt < maxAttempts) {
-            currentDelay = Math.min(currentDelay * backoffFactor, maxDelay);
-            timeoutId = setTimeout(executePoll, currentDelay);
+            timeoutId = setTimeout(executePoll, pollIntervalMs);
           } else {
             addLog("Polling threshold reached (2 mins). Click 'Check Payment Status' if you recently entered your M-Pesa PIN.");
           }
         } catch (err: any) {
           addLog(`Status check exception: ${err.message}`);
           if (attempt < maxAttempts) {
-            currentDelay = Math.min(currentDelay * backoffFactor, maxDelay);
-            timeoutId = setTimeout(executePoll, currentDelay);
+            timeoutId = setTimeout(executePoll, pollIntervalMs);
           }
         }
       };
 
-      // Kick off initial poll after 2.5s
-      timeoutId = setTimeout(executePoll, currentDelay);
+      // Kick off initial poll after 3s
+      timeoutId = setTimeout(executePoll, pollIntervalMs);
     }
 
     return () => {
