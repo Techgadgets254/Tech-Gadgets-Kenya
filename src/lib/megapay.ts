@@ -136,7 +136,7 @@ export async function initializeMegaPayPayment(params: MegaPayInitParams): Promi
       console.error("[MegaPay API Service] STK Push Initialization Failed:", errorMsg);
       return {
         success: false,
-        mode: data.mode || "simulated",
+        mode: "real",
         message: errorMsg,
         error: errorMsg,
         rawRequestBody,
@@ -146,7 +146,7 @@ export async function initializeMegaPayPayment(params: MegaPayInitParams): Promi
 
     return {
       success: true,
-      mode: data.mode || "real",
+      mode: "real",
       authUrl: data.authorization_url,
       reference: data.reference || data.transaction_request_id || referenceVal,
       transaction_request_id: data.transaction_request_id || data.reference,
@@ -158,7 +158,7 @@ export async function initializeMegaPayPayment(params: MegaPayInitParams): Promi
     console.error("[MegaPay API Service] Network/API Exception during STK push initialization:", error);
     return {
       success: false,
-      mode: "simulated",
+      mode: "real",
       message: error.message || "Network exception communicating with MegaPay gateway server.",
       error: error.message,
       rawRequestBody,
@@ -218,7 +218,7 @@ export async function verifyMegaPayPayment(orderId: string, reference: string): 
       };
     }
 
-    if (data.success && (data.status === "success" || data.status === "completed" || data.mode === "simulated")) {
+    if (data.success && (data.status === "success" || data.status === "completed")) {
       return {
         success: true,
         status: "completed",

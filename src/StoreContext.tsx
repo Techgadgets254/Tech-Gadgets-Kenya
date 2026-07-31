@@ -1194,7 +1194,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       return {
         success: data.success,
-        mode: data.mode as "real" | "simulated",
+        mode: "real" as const,
         authUrl: data.authorization_url,
         reference: data.reference,
         message: data.message
@@ -1203,7 +1203,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       console.error("MegaPay transaction initialization failure:", e);
       return {
         success: false,
-        mode: "simulated" as const,
+        mode: "real" as const,
         message: e.message || "An unexpected error occurred while communicating with MegaPay."
       };
     }

@@ -62,6 +62,22 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
   const [transactionData, setTransactionData] = useState<{ reference?: string; authUrl?: string; mode?: "real" | "simulated" } | null>(null);
   const [pollAttempts, setPollAttempts] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [realtimeStatus, setRealtimeStatus] = useState<"Awaiting Payment" | "Payment Successful!" | "Payment Failed">("Awaiting Payment");
+  const [stkWaitSeconds, setStkWaitSeconds] = useState<number>(0);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (step === "prompt_sent" && realtimeStatus === "Awaiting Payment") {
+      timer = setInterval(() => {
+        setStkWaitSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      setStkWaitSeconds(0);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [step, realtimeStatus]);
 
   useEffect(() => {
     if (customerPhone && !phoneNumber) {
@@ -86,6 +102,8 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
     setErrorMessage("");
     setTransactionData(null);
     setPollAttempts(0);
+    setRealtimeStatus("Awaiting Payment");
+    setStkWaitSeconds(0);
 
     addLog("Initiating M-Pesa Express checkout validation...");
 
@@ -128,6 +146,7 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
 
     setStep("initializing");
     setErrorMessage("");
+    setStkWaitSeconds(0);
     addLog(`Initiating M-Pesa STK Push prompt for KES ${totalAmount.toLocaleString()}...`);
     addLog(`Target M-Pesa Phone Number: ${phoneNumber}`);
 
@@ -142,46 +161,14 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
           mode: initRes.mode
         });
 
-        if (initRes.mode === "real") {
-          setStep("prompt_sent");
-          addLog("M-Pesa STK Push popup sent to phone screen. Waiting for user PIN input...");
-        } else {
-          addLog("M-Pesa Express Gateway active.");
-          setStep("prompt_sent");
-        }
+        setStep("prompt_sent");
+        addLog("M-Pesa STK Push popup sent to phone screen. Waiting for user PIN input...");
       } else {
         throw new Error(initRes.message || "Could not trigger M-Pesa STK push. Try again.");
       }
     } catch (err: any) {
       addLog(`Initialization Error: ${err.message}`);
       setErrorMessage(err.message || "Failed to trigger M-Pesa push prompt.");
-      setStep("failed");
-    }
-  };
-
-  const handleSimulatedPayment = async (status: "success" | "fail") => {
-    if (!transactionData?.reference) return;
-
-    if (status === "success") {
-      addLog("Verifying simulated M-Pesa PIN authorization...");
-      try {
-        const verifyRes = await verifyPayment(orderId, transactionData.reference);
-        if (verifyRes.success) {
-          addLog("PAYMENT CONFIRMED: M-Pesa receipt generated!");
-          setStep("completed");
-          setTimeout(() => {
-            onSuccess(transactionData.reference!);
-          }, 1500);
-        } else {
-          throw new Error(verifyRes.message || "Payment verification failed.");
-        }
-      } catch (err: any) {
-        setErrorMessage(err.message);
-        setStep("failed");
-      }
-    } else {
-      addLog("M-Pesa payment cancelled or wrong PIN entered.");
-      setErrorMessage("M-Pesa transaction cancelled by user.");
       setStep("failed");
     }
   };
@@ -216,18 +203,30 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
         if (docSnap.exists()) {
           const data = docSnap.data();
           const isPaid =
+            data.paymentStatus === "Paid" ||
             data.paymentStatus === "paid" ||
+            data.status === "Paid" ||
             data.status === "paid" ||
             data.status === "completed" ||
             Boolean(data.receiptNo);
 
+          const isFailed =
+            data.paymentStatus === "Failed" ||
+            data.paymentStatus === "failed" ||
+            data.status === "failed";
+
           if (isPaid) {
             const refCode = data.receiptNo || data.mpesaReceipt || transactionData?.reference || orderId;
-            addLog(`[Firestore Callback] Payment confirmed in database! Receipt: ${refCode}`);
+            addLog(`[Firestore Callback] Webhook listener confirmed payment in Firestore! Receipt: ${refCode}`);
+            setRealtimeStatus("Payment Successful!");
             setStep("completed");
             setTimeout(() => {
               onSuccess(refCode);
             }, 1200);
+          } else if (isFailed) {
+            setRealtimeStatus("Payment Failed");
+            setErrorMessage(data.cancellationReason || "Payment was cancelled or failed.");
+            setStep("failed");
           }
         }
       },
@@ -416,6 +415,31 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
             {/* STEP 3: Prompt Sent & Waiting for PIN */}
             {step === "prompt_sent" && (
               <div className="space-y-4">
+                {/* Real-Time Firestore Status Indicator */}
+                <div className="p-3 bg-black/80 border border-emerald-500/40 rounded-xl flex items-center justify-between shadow-inner">
+                  <div className="flex items-center gap-2.5">
+                    <span className="relative flex h-3 w-3">
+                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                        realtimeStatus === "Payment Successful!" ? "bg-emerald-400" : "bg-amber-400"
+                      }`}></span>
+                      <span className={`relative inline-flex rounded-full h-3 w-3 ${
+                        realtimeStatus === "Payment Successful!" ? "bg-emerald-500" : "bg-amber-500"
+                      }`}></span>
+                    </span>
+                    <div>
+                      <p className="text-[10px] text-white/50 font-mono uppercase tracking-wider">Real-Time Firestore Sync</p>
+                      <p className={`text-xs font-bold font-mono ${
+                        realtimeStatus === "Payment Successful!" ? "text-emerald-400" : "text-amber-300"
+                      }`}>
+                        {realtimeStatus}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono text-white/40 bg-white/5 px-2 py-1 rounded">
+                    Webhook Listener Active
+                  </span>
+                </div>
+
                 <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl space-y-2 text-center">
                   <div className="w-10 h-10 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto text-emerald-400">
                     <Smartphone className="w-5 h-5 animate-pulse" />
@@ -427,25 +451,28 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
                   </p>
                 </div>
 
-                {/* Express Mode Quick Controls */}
-                {transactionData?.mode === "simulated" && (
-                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-2 text-xs">
-                    <p className="text-amber-300 font-mono font-semibold">Fast Test Response Verification:</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => handleSimulatedPayment("success")}
-                        className="py-2 px-3 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-300 rounded-lg font-mono font-bold flex items-center justify-center gap-1"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        Simulate Success
-                      </button>
-                      <button
-                        onClick={() => handleSimulatedPayment("fail")}
-                        className="py-2 px-3 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30 text-rose-300 rounded-lg font-mono"
-                      >
-                        Simulate Cancel
-                      </button>
-                    </div>
+                {/* 60+ seconds Awaiting Payment Retry prompt */}
+                {stkWaitSeconds >= 60 && realtimeStatus === "Awaiting Payment" ? (
+                  <div className="p-3 bg-amber-500/15 border border-amber-500/30 rounded-xl space-y-2 text-xs">
+                    <p className="text-amber-300 font-mono font-semibold flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+                      <span>Didn't receive prompt on phone? ({stkWaitSeconds}s elapsed)</span>
+                    </p>
+                    <p className="text-white/70 text-[11px] leading-snug font-sans">
+                      The M-Pesa prompt may have timed out or not reached your handset. You can re-trigger a fresh STK Push prompt now.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleSendStkPush}
+                      className="w-full py-2.5 px-3 bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs rounded-lg font-mono flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all active:scale-95"
+                    >
+                      <Smartphone className="w-4 h-4" />
+                      Retry Payment (Re-trigger STK Push)
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-center text-[11px] text-white/50 font-mono">
+                    Elapsed waiting time: <span className="text-amber-400 font-bold">{stkWaitSeconds}s</span> / 60s before retry option
                   </div>
                 )}
 

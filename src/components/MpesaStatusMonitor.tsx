@@ -166,29 +166,40 @@ export default function MpesaStatusMonitor({
 
     setIsVerifyingCode(true);
     setVerificationError("");
-    addLog(`Manually verifying transaction reference code: ${cleanCode}...`, "info");
+    addLog(`Querying MegaPay status endpoint for code: ${cleanCode}...`, "info");
 
     try {
-      // Simulate real-time Daraja settlement validation
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const orderRef = doc(db, "orders", orderId);
-      await updateDoc(orderRef, {
-        paymentStatus: "Paid",
-        receiptNo: cleanCode,
-        updatedAt: new Date().toISOString()
+      const response = await fetch(`/api/megapay/verify/${encodeURIComponent(cleanCode)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, reference: cleanCode, transaction_request_id: cleanCode })
       });
 
-      addLog(`✓ Central ledger validated reference: ${cleanCode}. Matching order total.`, "success");
-      setPaymentState("paid");
-      setProgressPercent(100);
-      setCurrentStep(4);
-      if (onSuccess) {
-        setTimeout(() => onSuccess(), 1500);
+      const text = await response.text();
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { rawText: text };
+      }
+
+      if (data.success && (data.status === "success" || data.status === "completed")) {
+        const receipt = data.receiptNo || cleanCode;
+        addLog(`✓ Central M-Pesa ledger validated reference: ${receipt}. Payment confirmed.`, "success");
+        setPaymentState("paid");
+        setProgressPercent(100);
+        setCurrentStep(4);
+        if (onSuccess) {
+          setTimeout(() => onSuccess(), 1500);
+        }
+      } else {
+        const errorMsg = data.error || data.message || "Transaction code could not be confirmed as paid on M-Pesa network.";
+        setVerificationError(errorMsg);
+        addLog(`✗ Manual verification failed for ${cleanCode}: ${errorMsg}`, "error");
       }
     } catch (err: any) {
       console.error("Failed to verify manual transaction code:", err);
-      setVerificationError("Could not verify code. Please check details or wait.");
+      setVerificationError("Network error verifying transaction code.");
       addLog(`✗ Failed manual confirmation for code ${cleanCode}.`, "error");
     } finally {
       setIsVerifyingCode(false);

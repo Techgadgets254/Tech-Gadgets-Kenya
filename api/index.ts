@@ -1979,12 +1979,12 @@ function formatMegaPayPhone(phoneStr: string): string {
 }
 
 app.post(["/api/megapay/initialize", "/api/paystack/initialize"], async (req, res) => {
-  const { email, amount, orderId, phone } = req.body;
+  const { email, amount, orderId, phone, api_key } = req.body;
   if (!email || !amount || !orderId) {
     return res.status(400).json({ error: "Email, amount, and orderId parameters are required to initialize MegaPay transaction." });
   }
 
-  const rawKey = process.env.MEGAPAY_API_KEY || process.env.MEGAPAY_SECRET_KEY;
+  const rawKey = api_key || process.env.MEGAPAY_API_KEY || process.env.MEGAPAY_SECRET_KEY;
   const isKeyValid = !!(rawKey && 
     rawKey.trim() !== "" && 
     !rawKey.includes("your") && 
@@ -1997,21 +1997,11 @@ app.post(["/api/megapay/initialize", "/api/paystack/initialize"], async (req, re
   const formattedMsisdn = formatMegaPayPhone(phone || "");
 
   if (!megaPayKey) {
-    const reference = "MPAY-" + Math.random().toString(36).substring(2, 10).toUpperCase();
-    megaPayPaymentsMap.set(reference, {
-      status: "pending",
-      reference,
-      orderId,
-      amount,
-      email
-    });
-
-    return res.json({
-      success: true,
-      mode: "simulated",
-      authorization_url: `https://checkout.megapay.co.ke/simulated-pay/${reference}`,
-      reference,
-      message: "MegaPay transaction simulation initialized (MEGAPAY_API_KEY is not configured)."
+    console.error("[MegaPay STK Push Error] MEGAPAY_API_KEY is not configured in environment or request body.");
+    return res.status(400).json({
+      success: false,
+      error: "MEGAPAY_API_KEY is not configured. Real M-Pesa STK push requires a valid MegaPay API key in environment or request body.",
+      rawRequestBody: { email, amount, orderId, phone: formattedMsisdn }
     });
   }
 
@@ -2024,14 +2014,12 @@ app.post(["/api/megapay/initialize", "/api/paystack/initialize"], async (req, re
       reference: orderId
     };
 
-    console.log("[MegaPay STK Push] Sending request to https://megapay.co.ke/backend/v1/initiatestk", {
-      email: megaPayEmail,
-      amount: stkPayload.amount,
-      msisdn: stkPayload.msisdn,
-      reference: stkPayload.reference
-    });
-
     const megaPayEndpoint = process.env.MEGAPAY_API_URL || "https://megapay.co.ke/backend/v1/initiatestk";
+
+    console.log("=================================================");
+    console.log("[MegaPay STK Push Request Endpoint]:", megaPayEndpoint);
+    console.log("[MegaPay STK Push Request Body]:", JSON.stringify(stkPayload, null, 2));
+    console.log("=================================================");
 
     const megaPayResponse = await fetch(megaPayEndpoint, {
       method: "POST",
@@ -2041,16 +2029,19 @@ app.post(["/api/megapay/initialize", "/api/paystack/initialize"], async (req, re
       body: JSON.stringify(stkPayload)
     });
 
-    let data: any;
     const responseText = await megaPayResponse.text();
+    console.log("=================================================");
+    console.log("[MegaPay STK Push Response Status]:", megaPayResponse.status);
+    console.log("[MegaPay STK Push Response Body]:", responseText);
+    console.log("=================================================");
+
+    let data: any;
     try {
       data = JSON.parse(responseText);
     } catch (parseErr) {
-      console.warn("[MegaPay STK Push] Non-JSON response:", responseText.slice(0, 150));
+      console.warn("[MegaPay STK Push] Could not parse server response as JSON:", responseText);
       data = { success: "400", massage: responseText };
     }
-
-    console.log("[MegaPay STK Push Response]", data);
 
     const isSuccess = data && (
       String(data.success) === "200" || 
@@ -2070,7 +2061,6 @@ app.post(["/api/megapay/initialize", "/api/paystack/initialize"], async (req, re
         email: megaPayEmail
       });
 
-      // Also map orderId to transactionRequestId
       megaPayPaymentsMap.set(orderId, {
         status: "pending",
         reference: transactionRequestId,
@@ -2085,17 +2075,19 @@ app.post(["/api/megapay/initialize", "/api/paystack/initialize"], async (req, re
         mode: "real",
         reference: transactionRequestId,
         transaction_request_id: transactionRequestId,
-        message: data.massage || data.message || "STK Push sent successfully to phone screen!"
+        message: data.massage || data.message || "STK Push sent successfully to phone screen!",
+        rawResponse: data
       });
     } else {
-      const errorMsg = data.massage || data.message || data.ResponseDescription || "MegaPay returned error initiating STK Push.";
+      const errorMsg = data.massage || data.message || data.ResponseDescription || `MegaPay error (Status ${megaPayResponse.status})`;
       console.error("[MegaPay STK Push Error]", errorMsg);
 
-      // Fallback response with detailed error message
       return res.status(400).json({
         success: false,
         error: errorMsg,
-        data
+        status: megaPayResponse.status,
+        rawRequestBody: stkPayload,
+        rawResponse: data
       });
     }
 
@@ -2116,7 +2108,7 @@ app.all(["/api/megapay/verify/:reference", "/api/paystack/verify/:reference", "/
   }
 
   const payment = megaPayPaymentsMap.get(reference);
-  const rawKey = process.env.MEGAPAY_API_KEY || process.env.MEGAPAY_SECRET_KEY;
+  const rawKey = req.body?.api_key || process.env.MEGAPAY_API_KEY || process.env.MEGAPAY_SECRET_KEY;
   const isKeyValid = !!(rawKey && 
     rawKey.trim() !== "" && 
     !rawKey.includes("your") && 
@@ -2127,17 +2119,10 @@ app.all(["/api/megapay/verify/:reference", "/api/paystack/verify/:reference", "/
   const megaPayKey = isKeyValid ? rawKey.trim() : null;
   const megaPayEmail = (process.env.MEGAPAY_EMAIL || process.env.SMTP_USER || payment?.email || "shop@techsokoni.com").trim();
 
-  if (!megaPayKey || String(reference).startsWith("MPAY-")) {
-    if (payment) {
-      payment.status = "success";
-      megaPayPaymentsMap.set(reference, payment);
-    }
-    return res.json({
-      success: true,
-      mode: "simulated",
-      status: "success",
-      reference,
-      message: "Payment successfully verified in simulation mode."
+  if (!megaPayKey) {
+    return res.status(400).json({
+      success: false,
+      error: "MEGAPAY_API_KEY is required to verify transaction status with MegaPay server."
     });
   }
 
@@ -2150,6 +2135,11 @@ app.all(["/api/megapay/verify/:reference", "/api/paystack/verify/:reference", "/
 
     const statusEndpoint = process.env.MEGAPAY_VERIFY_URL || "https://megapay.co.ke/backend/v1/transactionstatus";
 
+    console.log("=================================================");
+    console.log("[MegaPay Transaction Status Query Endpoint]:", statusEndpoint);
+    console.log("[MegaPay Transaction Status Query Body]:", JSON.stringify(statusPayload, null, 2));
+    console.log("=================================================");
+
     const megaPayResponse = await fetch(statusEndpoint, {
       method: "POST",
       headers: {
@@ -2158,15 +2148,18 @@ app.all(["/api/megapay/verify/:reference", "/api/paystack/verify/:reference", "/
       body: JSON.stringify(statusPayload)
     });
 
-    let data: any;
     const responseText = await megaPayResponse.text();
+    console.log("=================================================");
+    console.log("[MegaPay Transaction Status Response Status]:", megaPayResponse.status);
+    console.log("[MegaPay Transaction Status Response Body]:", responseText);
+    console.log("=================================================");
+
+    let data: any;
     try {
       data = JSON.parse(responseText);
     } catch (parseErr) {
       data = { ResultCode: "400", ResultDesc: responseText };
     }
-
-    console.log("[MegaPay Transaction Status Check Response]", data);
 
     const isCompleted = (
       data.TransactionStatus === "Completed" || 
@@ -2189,7 +2182,6 @@ app.all(["/api/megapay/verify/:reference", "/api/paystack/verify/:reference", "/
         megaPayPaymentsMap.set(reference, payment);
       }
 
-      // Update order in Firestore if orderId exists
       const targetOrderId = payment?.orderId || reference;
       try {
         if (adminDb && isAdminDbAuthorized) {
@@ -2230,7 +2222,6 @@ app.all(["/api/megapay/verify/:reference", "/api/paystack/verify/:reference", "/
         data
       });
     } else {
-      // Still pending
       return res.json({
         success: false,
         status: "pending",
