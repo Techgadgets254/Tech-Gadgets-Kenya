@@ -2161,21 +2161,48 @@ app.all(["/api/megapay/verify/:reference", "/api/paystack/verify/:reference", "/
       data = { ResultCode: "400", ResultDesc: responseText };
     }
 
-    const isCompleted = (
-      data.TransactionStatus === "Completed" || 
-      data.TransactionStatus === "SUCCESS" ||
-      (data.ResultCode === "200" && data.TransactionReceipt) ||
-      (data.ResultCode === "0" && data.TransactionReceipt)
+    // Extract potential M-Pesa transaction receipt
+    const rawReceipt = data.TransactionReceipt || data.MpesaReceiptNumber || data.receiptNo || data.receipt;
+    const isValidReceipt = Boolean(
+      rawReceipt && 
+      typeof rawReceipt === "string" && 
+      rawReceipt.trim().length >= 8 && 
+      !rawReceipt.startsWith("ws_CO_") && 
+      !rawReceipt.toLowerCase().includes("pending") &&
+      !rawReceipt.toLowerCase().includes("order")
     );
 
-    const isCancelled = (
+    const statusUpper = String(data.TransactionStatus || data.status || "").toUpperCase();
+    const resultDescLower = String(data.ResultDesc || data.ResponseDescription || data.message || "").toLowerCase();
+
+    // Payment is ONLY completed if there is an explicit completed/paid status AND a valid M-Pesa receipt, OR ResultCode 0 WITH a valid M-Pesa receipt
+    const isCompleted = (
+      (statusUpper === "COMPLETED" || statusUpper === "PAID" || statusUpper === "SUCCESS") && isValidReceipt
+    ) || (
+      (data.ResultCode === 0 || data.ResultCode === "0" || data.ResultCode === "200") && isValidReceipt
+    );
+
+    // Explicit failure/cancellation check
+    const isCancelledOrFailed = (
       data.ResponseCode === 1032 || 
       data.ResultCode === "1032" ||
-      (data.ResultDesc && data.ResultDesc.toLowerCase().includes("cancelled"))
+      data.ResponseCode === 1037 ||
+      data.ResultCode === "1037" ||
+      data.ResponseCode === 1 ||
+      data.ResultCode === "1" ||
+      statusUpper === "FAILED" ||
+      statusUpper === "CANCELLED" ||
+      statusUpper === "DECLINED" ||
+      resultDescLower.includes("cancelled") ||
+      resultDescLower.includes("declined") ||
+      resultDescLower.includes("rejected") ||
+      resultDescLower.includes("expired") ||
+      resultDescLower.includes("timeout") ||
+      resultDescLower.includes("insufficient")
     );
 
     if (isCompleted) {
-      const receiptNo = data.TransactionReceipt || data.TransactionID || reference;
+      const receiptNo = rawReceipt;
       
       if (payment) {
         payment.status = "success";
@@ -2210,22 +2237,41 @@ app.all(["/api/megapay/verify/:reference", "/api/paystack/verify/:reference", "/
         data,
         message: "Payment successfully verified on M-Pesa ecosystem!"
       });
-    } else if (isCancelled) {
+    } else if (isCancelledOrFailed) {
       if (payment) {
         payment.status = "failed";
         megaPayPaymentsMap.set(reference, payment);
       }
+      const targetOrderId = payment?.orderId || reference;
+      try {
+        if (adminDb && isAdminDbAuthorized) {
+          await adminDb.collection("orders").doc(targetOrderId).update({
+            paymentStatus: "Failed",
+            cancellationReason: data.ResultDesc || data.ResponseDescription || "Transaction failed or cancelled on mobile phone",
+            updatedAt: new Date().toISOString()
+          });
+        } else if (serverDb) {
+          await serverUpdateDoc(serverDoc(serverDb, "orders", targetOrderId), {
+            paymentStatus: "Failed",
+            cancellationReason: data.ResultDesc || data.ResponseDescription || "Transaction failed or cancelled on mobile phone",
+            updatedAt: new Date().toISOString()
+          });
+        }
+      } catch (dbErr: any) {
+        console.warn("[MegaPay Status Check] Could not update order failure in DB:", dbErr.message);
+      }
+
       return res.json({
         success: false,
         status: "failed",
-        error: data.ResultDesc || data.ResponseDescription || "Transaction was cancelled by user.",
+        error: data.ResultDesc || data.ResponseDescription || "Transaction was cancelled or failed on mobile phone.",
         data
       });
     } else {
       return res.json({
         success: false,
         status: "pending",
-        message: data.ResultDesc || data.ResponseDescription || "Awaiting user M-Pesa PIN input on phone...",
+        message: "Awaiting customer M-Pesa PIN entry on phone screen...",
         data
       });
     }
@@ -2248,18 +2294,35 @@ app.all(["/api/megapay/webhook", "/api/megapay/callback", "/api/paystack/webhook
       body: payload
     });
 
-    const responseCode = payload.ResponseCode;
-    const responseDescription = payload.ResponseDescription || payload.ResultDesc || "";
-    const receiptNo = payload.TransactionReceipt;
-    const transactionId = payload.TransactionID || payload.CheckoutRequestID;
+    const stkCallback = payload.Body?.stkCallback || payload.stkCallback;
+    let callbackReceipt = payload.TransactionReceipt || payload.MpesaReceiptNumber || payload.receiptNo;
+    let callbackResultCode = payload.ResponseCode ?? payload.ResultCode ?? stkCallback?.ResultCode;
+    let callbackResultDesc = payload.ResponseDescription || payload.ResultDesc || stkCallback?.ResultDesc || "";
+
+    if (stkCallback?.CallbackMetadata?.Item && Array.isArray(stkCallback.CallbackMetadata.Item)) {
+      const receiptItem = stkCallback.CallbackMetadata.Item.find((i: any) => i.Name === "MpesaReceiptNumber" || i.Name === "TransactionReceipt");
+      if (receiptItem && receiptItem.Value) {
+        callbackReceipt = String(receiptItem.Value);
+      }
+    }
+
+    const transactionId = payload.TransactionID || payload.CheckoutRequestID || stkCallback?.CheckoutRequestID;
     const reference = payload.TransactionReference || payload.reference || payload.orderId || payload.order_id || transactionId;
 
-    const isSuccess = responseCode === 0 || responseCode === "0" || Boolean(receiptNo);
-    const isCancelled = responseCode === 1032 || String(responseCode) === "1032";
+    const isValidReceipt = Boolean(
+      callbackReceipt && 
+      typeof callbackReceipt === "string" && 
+      callbackReceipt.trim().length >= 8 && 
+      !callbackReceipt.startsWith("ws_CO_")
+    );
 
-    if (isSuccess && (reference || receiptNo)) {
-      const refKey = reference || receiptNo;
-      const payment = megaPayPaymentsMap.get(refKey) || megaPayPaymentsMap.get(payload.CheckoutRequestID);
+    // CRITICAL FIX: MUST require valid M-Pesa receipt AND ResultCode 0/success to mark as Paid!
+    const isSuccess = (callbackResultCode === 0 || callbackResultCode === "0") && isValidReceipt;
+    const isCancelled = callbackResultCode === 1032 || String(callbackResultCode) === "1032" || callbackResultCode === 1037 || String(callbackResultCode) === "1037";
+
+    if (isSuccess && (reference || callbackReceipt)) {
+      const refKey = reference || callbackReceipt;
+      const payment = megaPayPaymentsMap.get(refKey) || megaPayPaymentsMap.get(transactionId);
 
       const targetOrderId = payment?.orderId || reference;
 
@@ -2276,7 +2339,7 @@ app.all(["/api/megapay/webhook", "/api/megapay/callback", "/api/paystack/webhook
           const updateData = {
             paymentStatus: "Paid",
             status: "Processing",
-            receiptNo: receiptNo || transactionId || refKey,
+            receiptNo: callbackReceipt,
             updatedAt: new Date().toISOString()
           };
 
@@ -2285,19 +2348,19 @@ app.all(["/api/megapay/webhook", "/api/megapay/callback", "/api/paystack/webhook
           } else if (serverDb) {
             await serverUpdateDoc(serverDoc(serverDb, "orders", targetOrderId), updateData);
           }
-          console.log(`[MegaPay Webhook Success] Firestore Order #${targetOrderId} marked as Paid with Receipt ${receiptNo || transactionId}`);
+          console.log(`[MegaPay Webhook Success] Firestore Order #${targetOrderId} marked as Paid with Receipt ${callbackReceipt}`);
         } catch (dbErr: any) {
           console.error(`[MegaPay Webhook DB Error] Failed updating order #${targetOrderId}:`, dbErr.message);
         }
       }
     } else if (isCancelled) {
-      console.warn(`[MegaPay Webhook Warning] Transaction ${reference} was cancelled by user (Code 1032).`);
+      console.warn(`[MegaPay Webhook Warning] Transaction ${reference} was cancelled/failed on phone (Code ${callbackResultCode}).`);
       const targetOrderId = reference;
       if (targetOrderId) {
         try {
           const updateData = {
             paymentStatus: "Failed",
-            cancellationReason: responseDescription || "Cancelled by user on phone",
+            cancellationReason: callbackResultDesc || "Cancelled or rejected on customer phone",
             updatedAt: new Date().toISOString()
           };
           if (adminDb && isAdminDbAuthorized) {

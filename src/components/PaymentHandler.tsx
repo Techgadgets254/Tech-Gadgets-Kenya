@@ -203,12 +203,13 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
         if (docSnap.exists()) {
           const data = docSnap.data();
           const isPaid =
-            data.paymentStatus === "Paid" ||
+            (data.paymentStatus === "Paid" ||
             data.paymentStatus === "paid" ||
             data.status === "Paid" ||
             data.status === "paid" ||
-            data.status === "completed" ||
-            Boolean(data.receiptNo);
+            data.status === "completed") &&
+            Boolean(data.receiptNo) &&
+            !String(data.receiptNo).startsWith("ws_CO_");
 
           const isFailed =
             data.paymentStatus === "Failed" ||
@@ -225,7 +226,7 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
             }, 1200);
           } else if (isFailed) {
             setRealtimeStatus("Payment Failed");
-            setErrorMessage(data.cancellationReason || "Payment was cancelled or failed.");
+            setErrorMessage(data.cancellationReason || "Payment was cancelled or failed on mobile handset.");
             setStep("failed");
           }
         }
@@ -261,21 +262,23 @@ export const PaymentHandler: React.FC<PaymentHandlerProps> = ({
           if (!isSubscribed) return;
 
           const resStatus = (res as any).status;
-          if (res.success || resStatus === "completed") {
-            addLog("M-PESA PAYMENT VERIFIED AND CONFIRMED!");
+          const receiptNo = (res as any).receiptNo;
+
+          if ((res.success || resStatus === "completed" || resStatus === "success") && receiptNo) {
+            addLog(`M-PESA PAYMENT VERIFIED AND CONFIRMED! Receipt: ${receiptNo}`);
             setStep("completed");
             setTimeout(() => {
-              if (isSubscribed) onSuccess(transactionData.reference!);
+              if (isSubscribed) onSuccess(receiptNo);
             }, 1200);
             return;
           }
 
-          // Check if response indicates explicit cancellation or error codes (e.g., 1032, 1037, 1025, 1, 9999, 2001, 1019, 1001)
+          // Check if response indicates explicit cancellation or error status
           const responseCode = (res as any).responseCode ?? (res as any).rawResponse?.ResponseCode ?? (res as any).rawResponse?.ResultCode;
-          const isExplicitError = resStatus === "failed" || resStatus === "cancelled" || (responseCode !== undefined && responseCode !== 0 && responseCode !== "0" && responseCode !== "200");
+          const isExplicitError = resStatus === "failed" || resStatus === "cancelled";
 
           if (isExplicitError) {
-            const errorMsg = res.message || getMegaPayErrorMessage(responseCode) || "M-Pesa transaction could not be completed.";
+            const errorMsg = res.message || (res as any).error || getMegaPayErrorMessage(responseCode) || "M-Pesa transaction was cancelled or failed.";
             addLog(`[M-Pesa Error Code ${responseCode || "FAILED"}] ${errorMsg}`);
             setErrorMessage(errorMsg);
             setStep("failed");

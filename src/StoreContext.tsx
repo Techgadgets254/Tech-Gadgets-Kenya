@@ -1227,8 +1227,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         throw new Error(data.error || "Verification query failed with MegaPay.");
       }
 
-      if (data.success && data.status === "success") {
-        const receipt = data.reference || "MEGAPAY-OK";
+      if (data.success && data.status === "success" && data.receiptNo) {
+        const receipt = data.receiptNo;
         const orderRef = doc(db, "orders", orderId);
         await updateDoc(orderRef, {
           paymentStatus: "Paid",
@@ -1238,13 +1238,28 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
         return {
           success: true,
+          status: "success",
           receiptNo: receipt,
           message: data.message || `MegaPay checkout cleared successfully! Reference: ${receipt}`
+        };
+      } else if (data.status === "failed" || data.status === "cancelled") {
+        const orderRef = doc(db, "orders", orderId);
+        await updateDoc(orderRef, {
+          paymentStatus: "Failed",
+          cancellationReason: data.error || data.message || "Payment cancelled or failed on mobile handset.",
+          updatedAt: new Date().toISOString()
+        });
+
+        return {
+          success: false,
+          status: "failed",
+          message: data.error || data.message || "MegaPay transaction failed on mobile handset."
         };
       } else {
         return {
           success: false,
-          message: data.message || "MegaPay transaction was not settled successfully."
+          status: "pending",
+          message: data.message || "Awaiting customer M-Pesa PIN entry on phone screen..."
         };
       }
     } catch (e: any) {
