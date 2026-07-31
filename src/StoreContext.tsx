@@ -889,12 +889,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
           if (cached.payment !== currentPaymentStatus) {
             let paymentMsg = `Payment Update: Order #${orderId.slice(-6)} database payment status has been set to "${currentPaymentStatus.toUpperCase()}"!`;
-            if (currentPaymentStatus === "Paid") {
+            const payUpper = currentPaymentStatus.toUpperCase();
+            if (payUpper === "PAID" || payUpper === "SUCCESS" || payUpper === "COMPLETED") {
               const payCodeInfo = orderData.receiptNo ? ` (MPESA REF: ${orderData.receiptNo})` : "";
               paymentMsg = `✓ Lipa Na M-Pesa Cleared! Order #${orderId.slice(-6)} transaction resolved successfully. Cashier Clearance approved${payCodeInfo}.`;
-            } else if (currentPaymentStatus === "Failed") {
-              paymentMsg = `✗ Transaction Alert: Order #${orderId.slice(-6)} payment status was updated to FAILED. Verification declined.`;
-            } else if (currentPaymentStatus === "Pending") {
+            } else if (payUpper === "FAILED" || payUpper === "CANCELLED" || payUpper === "DECLINED") {
+              paymentMsg = `✗ Transaction Alert: Order #${orderId.slice(-6)} payment status was updated to ${payUpper}. Verification declined.`;
+            } else if (payUpper === "PENDING" || payUpper === "AWAITING PAYMENT") {
               paymentMsg = `⏳ Settlement Pending: Order #${orderId.slice(-6)} is in transaction processing pipeline.`;
             }
 

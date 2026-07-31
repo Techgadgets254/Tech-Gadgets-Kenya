@@ -73,20 +73,13 @@ function NotificationToast({ toast, onDismiss, duration }: { toast: any; onDismi
   }, [duration, onDismiss]);
 
   const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "Shipped":
-        return <Truck className="w-5 h-5 text-[#C5A059]" />;
-      case "Delivered":
-        return <CheckCircle2 className="w-5 h-5 text-emerald-400" />;
-      case "Processing":
-        return <Package className="w-5 h-5 text-blue-400" />;
-      case "Paid":
-        return <CheckCircle2 className="w-5 h-5 text-emerald-400" />;
-      case "Failed":
-        return <ShieldAlert className="w-5 h-5 text-red-500 animate-pulse" />;
-      default:
-        return <ShieldAlert className="w-5 h-5 text-[#C5A059]" />;
-    }
+    const s = (status || "").toUpperCase();
+    if (s === "SHIPPED") return <Truck className="w-5 h-5 text-[#C5A059]" />;
+    if (s === "DELIVERED") return <CheckCircle2 className="w-5 h-5 text-emerald-400" />;
+    if (s === "PROCESSING") return <Package className="w-5 h-5 text-blue-400" />;
+    if (s === "PAID" || s === "SUCCESS" || s === "COMPLETED") return <CheckCircle2 className="w-5 h-5 text-emerald-400" />;
+    if (s === "FAILED" || s === "CANCELLED" || s === "DECLINED") return <ShieldAlert className="w-5 h-5 text-red-500 animate-pulse" />;
+    return <ShieldAlert className="w-5 h-5 text-[#C5A059]" />;
   };
 
   return (

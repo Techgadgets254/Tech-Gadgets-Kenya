@@ -6,6 +6,7 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useStore } from "../StoreContext";
+import D3FinancialOverview from "./D3FinancialOverview";
 import Pagination from "./Pagination";
 import { 
   Plus, 
@@ -840,11 +841,11 @@ export default function AdminDashboard() {
     });
   }, [orders, orderSortField, orderSortDirection, orderSearchQuery, orderStatusFilter]);
 
-  // Active sub-view ("overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "whatsapp_catalog" | "flash_offers" | "diagnostics")
-  const [activeSubTab, setActiveSubTab] = useState<"overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "whatsapp_catalog" | "flash_offers" | "diagnostics">(() => {
+  // Active sub-view ("overview" | "financial_overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "whatsapp_catalog" | "flash_offers" | "diagnostics")
+  const [activeSubTab, setActiveSubTab] = useState<"overview" | "financial_overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "whatsapp_catalog" | "flash_offers" | "diagnostics">(() => {
     try {
       const saved = localStorage.getItem("tsk_active_admin_subtab");
-      const validTabs = ["overview", "inventory", "orders", "newsletters", "trash", "affiliates", "price_alerts", "intelligence", "admin_settings", "audit_logs", "auth_audit", "seo_settings", "whatsapp_catalog", "flash_offers", "diagnostics"];
+      const validTabs = ["overview", "financial_overview", "inventory", "orders", "newsletters", "trash", "affiliates", "price_alerts", "intelligence", "admin_settings", "audit_logs", "auth_audit", "seo_settings", "whatsapp_catalog", "flash_offers", "diagnostics"];
       if (saved && validTabs.includes(saved)) {
         return saved as any;
       }
@@ -3096,6 +3097,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
         <div className="flex bg-white/[0.02] p-1 rounded-xl border border-white/10 flex-wrap gap-1">
           {[
             { id: "overview", label: "Overview Metrics" },
+            { id: "financial_overview", label: "Financial Overview 📊" },
             { id: "inventory", label: "Manage Inventory" },
             { id: "flash_offers", label: "Active Offers" },
             { id: "orders", label: "Fulfillment Queue" },
@@ -3993,6 +3995,26 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
 
           </div>
 
+        </div>
+      )}
+
+      {/* FINANCIAL OVERVIEW (D3.JS) SUBPANEL */}
+      {activeSubTab === "financial_overview" && (
+        <div className="space-y-6">
+          <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 shadow-xl">
+            <div className="border-b border-white/10 pb-4 mb-6">
+              <h2 className="font-sans font-bold text-xl text-white flex items-center gap-2">
+                <span>Financial Overview & M-Pesa Analytics</span>
+                <span className="text-xs bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/20 px-2.5 py-1 rounded-lg font-mono">
+                  D3.js Telemetry
+                </span>
+              </h2>
+              <p className="text-white/40 text-xs mt-1">
+                Real-time interactive telemetry tracking daily revenue trends, successful vs. failed M-Pesa transaction ratios, and 30-day sales metrics.
+              </p>
+            </div>
+            <D3FinancialOverview orders={orders} />
+          </div>
         </div>
       )}
 

@@ -38,7 +38,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { db } from "../firebase";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, query, where, onSnapshot, getDocs } from "firebase/firestore";
 import LiveOrderTracker from "./LiveOrderTracker";
 import { Order } from "../types";
 import { jsPDF } from "jspdf";
@@ -61,7 +61,63 @@ export default function ClientDashboard() {
   const [statusFilter, setStatusFilter] = useState<"All" | "Pending" | "Delivered" | "Cancelled">("All");
 
   // Tabs for ClientDashboard
-  const [activeTab, setActiveTab] = useState<"transactions" | "tracking" | "settings" | "profile" | "bookmarks">("transactions");
+  const [activeTab, setActiveTab] = useState<"transactions" | "tracking" | "settings" | "profile" | "bookmarks" | "payments">("transactions");
+
+  // Historical Payment Attempts State
+  const [paymentAttempts, setPaymentAttempts] = useState<any[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    if (activeTab !== "payments" && activeTab !== "transactions") return;
+
+    setPaymentsLoading(true);
+    const paymentsCol = collection(db, "payments");
+    
+    // Attempt real-time listener for user's payments
+    try {
+      const q = query(paymentsCol, where("userId", "==", user.uid));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const list: any[] = [];
+        snapshot.forEach((docSnap) => {
+          list.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        list.sort((a, b) => {
+          const timeA = new Date(a.createdAt || a.timestamp || 0).getTime();
+          const timeB = new Date(b.createdAt || b.timestamp || 0).getTime();
+          return timeB - timeA;
+        });
+        setPaymentAttempts(list);
+        setPaymentsLoading(false);
+      }, (err) => {
+        console.warn("User payment index query failed, fetching all payments fallback:", err);
+        // Fallback fetch
+        getDocs(paymentsCol).then((snap) => {
+          const list: any[] = [];
+          snap.forEach((docSnap) => {
+            const data = docSnap.data();
+            if (data.userId === user.uid || data.customerEmail === user.email || (user.email && data.customerEmail?.toLowerCase() === user.email.toLowerCase())) {
+              list.push({ id: docSnap.id, ...data });
+            }
+          });
+          list.sort((a, b) => {
+            const timeA = new Date(a.createdAt || a.timestamp || 0).getTime();
+            const timeB = new Date(b.createdAt || b.timestamp || 0).getTime();
+            return timeB - timeA;
+          });
+          setPaymentAttempts(list);
+          setPaymentsLoading(false);
+        }).catch(e => {
+          console.error(e);
+          setPaymentsLoading(false);
+        });
+      });
+      return () => unsubscribe();
+    } catch (e) {
+      console.error(e);
+      setPaymentsLoading(false);
+    }
+  }, [user, activeTab]);
 
   // Invoice Preview Modal States
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
@@ -277,7 +333,7 @@ export default function ClientDashboard() {
 
     doc.setTextColor(160, 160, 160);
     doc.text("Kenyatta Pioneer Bldg, Kenyatta Ave, Shop 514, Nairobi", 34, 33);
-    doc.text("Clearance: Paystack Portal | support@techsokoni.com", 34, 38);
+    doc.text("Clearance: MegaPay M-Pesa Portal | support@techsokoni.com", 34, 38);
 
     // 3. Tax Invoice Badge
     doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -376,7 +432,7 @@ export default function ClientDashboard() {
 
     doc.setFont("Helvetica", "bold");
     doc.setTextColor(9, 165, 219);
-    doc.text("Paystack Commerce Clearance Badge", 20, currentY + 6);
+    doc.text("MegaPay M-Pesa Commerce Clearance Badge", 20, currentY + 6);
     
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(7.5);
@@ -846,6 +902,17 @@ export default function ClientDashboard() {
         >
           <Clock className="w-3.5 h-3.5" />
           <span>TRANSACTION HISTORY</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("payments")}
+          className={`px-4 py-2.5 font-sans font-bold text-xs rounded-xl tracking-wider transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+            activeTab === "payments"
+              ? "bg-[#C5A059] text-black shadow-md font-extrabold"
+              : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white"
+          }`}
+        >
+          <CreditCard className="w-3.5 h-3.5" />
+          <span>PAYMENT HISTORY</span>
         </button>
         <button
           onClick={() => setActiveTab("tracking")}
@@ -1794,6 +1861,102 @@ export default function ClientDashboard() {
         </div>
       )}
         </>
+      )}
+
+      {/* Tab Contents: Historical Payment Attempts */}
+      {activeTab === "payments" && (
+        <div className="space-y-6 animate-fadeIn text-left no-print">
+          <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 relative overflow-hidden shadow-xl">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[#C5A059]/5 rounded-full blur-2xl pointer-events-none" />
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/10 pb-4">
+              <div>
+                <h2 className="font-sans font-bold text-lg text-white flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-[#C5A059]" />
+                  <span>Historical Payment Attempts & M-Pesa Logs</span>
+                </h2>
+                <p className="text-white/40 text-xs mt-1">
+                  Fetched directly from the <code className="text-[#C5A059]">payments</code> collection in Firestore. Real-time audit trail of all STK push attempts and clearing statuses.
+                </p>
+              </div>
+              <div className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl font-mono text-[10px] text-white/60">
+                Total Attempts: <strong className="text-[#C5A059]">{paymentAttempts.length}</strong>
+              </div>
+            </div>
+
+            {paymentsLoading ? (
+              <div className="py-16 text-center space-y-3">
+                <Loader2 className="w-8 h-8 text-[#C5A059] animate-spin mx-auto" />
+                <p className="text-xs font-mono text-white/40">Querying Firestore payments collection...</p>
+              </div>
+            ) : paymentAttempts.length === 0 ? (
+              <div className="py-16 border-2 border-dashed border-white/5 rounded-2xl bg-white/[0.01] text-center space-y-3 my-4">
+                <CreditCard className="w-10 h-10 text-white/20 mx-auto" />
+                <h4 className="font-sans font-bold text-sm text-white">No Historical Payment Records Found</h4>
+                <p className="text-white/40 text-xs max-w-sm mx-auto">
+                  When you initiate an M-Pesa STK push during checkout, the payment attempt status and raw transaction IDs will appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto mt-4">
+                <table className="w-full text-left text-xs font-sans">
+                  <thead>
+                    <tr className="border-b border-white/10 text-white/40 font-mono text-[10px] uppercase tracking-wider">
+                      <th className="pb-3 pt-2 font-bold">Timestamp</th>
+                      <th className="pb-3 pt-2 font-bold">Status</th>
+                      <th className="pb-3 pt-2 font-bold">Order ID</th>
+                      <th className="pb-3 pt-2 font-bold">M-Pesa Receipt / Tx ID</th>
+                      <th className="pb-3 pt-2 font-bold">Phone Number</th>
+                      <th className="pb-3 pt-2 font-bold text-right">Amount (KES)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {paymentAttempts.map((attempt) => {
+                      const st = (attempt.status || "PENDING").toUpperCase();
+                      const isSuccess = st === "SUCCESS" || st === "COMPLETED";
+                      const isFailed = st === "FAILED" || st === "CANCELLED" || st === "DECLINED" || st === "EXPIRED";
+                      
+                      return (
+                        <tr key={attempt.id} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="py-3 font-mono text-[11px] text-white/60">
+                            {attempt.createdAt || attempt.timestamp ? (
+                              new Date(attempt.createdAt || attempt.timestamp).toLocaleString()
+                            ) : "N/A"}
+                          </td>
+                          <td className="py-3">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase border ${
+                              isSuccess
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                : isFailed
+                                ? "bg-red-500/10 text-red-400 border-red-500/20"
+                                : "bg-amber-500/10 text-amber-400 border-amber-500/20 animate-pulse"
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${
+                                isSuccess ? "bg-emerald-400" : isFailed ? "bg-red-400" : "bg-amber-400"
+                              }`} />
+                              {attempt.status || "PENDING"}
+                            </span>
+                          </td>
+                          <td className="py-3 font-mono text-[11px] text-white">
+                            {attempt.orderId ? `#${attempt.orderId.substring(0, 8).toUpperCase()}` : "N/A"}
+                          </td>
+                          <td className="py-3 font-mono text-[11px] text-[#C5A059] font-bold">
+                            {attempt.mpesaReceiptNumber || attempt.transactionId || attempt.receiptNo || "Awaiting PIN"}
+                          </td>
+                          <td className="py-3 font-mono text-[11px] text-white/80">
+                            {attempt.phoneNumber || attempt.phone || attempt.mpesaPhone || "N/A"}
+                          </td>
+                          <td className="py-3 font-mono text-xs text-white font-bold text-right">
+                            KES {Number(attempt.amount || 0).toLocaleString()}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Tab Contents: Live Tracking */}
