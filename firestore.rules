@@ -272,6 +272,22 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // Payments collection:
+    // - Standard users can only create/read/list their own payments (where userId matches auth.uid or cust_)
+    // - Admins have full access to all payments
+    match /payments/{paymentId} {
+      allow create: if (isSignedIn() && incoming().userId == request.auth.uid) || (
+        incoming().userId.startsWith('cust_')
+      ) || isAdmin();
+      allow get: if (isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin())) || (
+        resource.data.userId.startsWith('cust_')
+      );
+      allow list: if (isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin())) || (
+        resource.data.userId.startsWith('cust_')
+      );
+      allow update, delete: if isAdmin();
+    }
+
     // Users collection:
     // - Users can read and write their own documents.
     // - Prevent escalating own privileges to "admin" on create unless already admin.

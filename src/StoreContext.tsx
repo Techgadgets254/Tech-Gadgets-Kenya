@@ -840,12 +840,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (guestOrderIds.length > 0 && guestEmail) {
         targetRef = query(
           collection(db, "orders"),
-          or(where(documentId(), "in", guestOrderIds), where("customerEmail", "==", guestEmail))
+          or(where(documentId(), "in", guestOrderIds), where("customerEmail", "==", guestEmail.toLowerCase()))
         );
       } else if (guestOrderIds.length > 0) {
         targetRef = query(collection(db, "orders"), where(documentId(), "in", guestOrderIds));
       } else {
-        targetRef = query(collection(db, "orders"), where("customerEmail", "==", guestEmail));
+        targetRef = query(collection(db, "orders"), where("customerEmail", "==", guestEmail.toLowerCase()));
       }
     } else {
       const userIsAdmin = 
@@ -857,7 +857,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // Non-admin customer accounts must only retrieve their own orders or matching their verified email to conform with security rules
       targetRef = userIsAdmin
         ? collection(db, "orders")
-        : query(collection(db, "orders"), or(where("userId", "==", user.uid), where("customerEmail", "==", user.email)));
+        : query(collection(db, "orders"), or(where("userId", "==", user.uid), where("customerEmail", "==", user.email.toLowerCase())));
     }
 
     const unsubscribe = onSnapshot(targetRef, (snapshot) => {
@@ -942,6 +942,45 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     return unsubscribe;
   }, [user, userProfile]);
+
+  // Proactively link/claim any matching guest or email orders to logged-in user
+  useEffect(() => {
+    if (!user || !user.email) return;
+
+    const claimOrders = async () => {
+      try {
+        const uEmail = user.email!.trim().toLowerCase();
+        let guestIds: string[] = [];
+        try {
+          const saved = localStorage.getItem("tgk_guest_order_ids");
+          if (saved) guestIds = JSON.parse(saved);
+        } catch (e) {}
+
+        const ordersCol = collection(db, "orders");
+        const snap = await getDocs(ordersCol);
+
+        snap.forEach(async (docSnap) => {
+          const data = docSnap.data();
+          const ordEmail = (data.customerEmail || "").trim().toLowerCase();
+          const isGuestMatch = guestIds.includes(docSnap.id);
+          const isEmailMatch = Boolean(ordEmail && ordEmail === uEmail);
+
+          if ((isGuestMatch || isEmailMatch) && data.userId !== user.uid) {
+            console.log(`[StoreContext Claimer] Claiming order #${docSnap.id} for user ${user.uid} (${uEmail})`);
+            await updateDoc(doc(db, "orders", docSnap.id), {
+              userId: user.uid,
+              customerEmail: uEmail,
+              updatedAt: new Date().toISOString()
+            });
+          }
+        });
+      } catch (err) {
+        console.warn("[StoreContext Claimer] Error claiming user orders:", err);
+      }
+    };
+
+    claimOrders();
+  }, [user]);
 
   // Auth Functions
   const loginWithGoogle = async () => {
@@ -1094,14 +1133,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       };
     });
 
-    const targetUserId = user 
-      ? user.uid 
-      : "cust_guest_" + Math.random().toString(36).substring(2, 11);
+    const normalizedEmail = (details.customerEmail || user?.email || "").trim().toLowerCase();
+    
+    // Determine targetUserId: if current user is admin ordering for a customer, do not attach admin's UID to customer's order
+    const userIsAdmin = 
+      user?.email === "techgadgetsk@gmail.com" || 
+      userProfile?.role === "admin" ||
+      userProfile?.["admin-claims"] === true;
+
+    let targetUserId = "cust_guest_" + Math.random().toString(36).substring(2, 11);
+    if (user && (!userIsAdmin || user.email?.toLowerCase() === normalizedEmail)) {
+      targetUserId = user.uid;
+    }
 
     const orderData: Omit<Order, "id"> = {
       userId: targetUserId,
       customerName: details.customerName,
-      customerEmail: details.customerEmail,
+      customerEmail: normalizedEmail,
       customerPhone: details.customerPhone,
       shippingAddress: details.shippingAddress,
       items,

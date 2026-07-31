@@ -1329,6 +1329,10 @@ export default function CheckoutView() {
                             setShowMpesaQrScreen(false);
                             setShowMpesaPushModal(false);
                             setPaymentSuccess(true);
+                            addCustomNotification(
+                              `✅ Payment Confirmed! M-Pesa transaction #${simulatedCode} verified. Order #${mpesaQrOrderId.slice(-6).toUpperCase()} is being processed.`,
+                              mpesaQrOrderId
+                            );
                           }, 1800);
                         } catch (err) {
                           setMpesaPushStep("cancelled");

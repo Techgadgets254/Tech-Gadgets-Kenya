@@ -499,8 +499,29 @@ export default function ClientDashboard() {
     doc.save(`Tech_Sokoni_Kenya_Invoice_${order.id.substring(0, 8)}.pdf`);
   };
 
+  // 1. Filter orders strictly belonging to the currently logged-in client (or guest session)
+  const clientOrders = useMemo(() => {
+    let savedGuestIds: string[] = [];
+    try {
+      const saved = localStorage.getItem("tgk_guest_order_ids");
+      if (saved) savedGuestIds = JSON.parse(saved);
+    } catch (e) {}
+
+    if (!user) {
+      return orders.filter((ord) => savedGuestIds.includes(ord.id));
+    }
+
+    const uEmail = (user.email || "").trim().toLowerCase();
+    return orders.filter((ord) => {
+      const isUid = ord.userId === user.uid;
+      const isEmail = Boolean(uEmail && ord.customerEmail && ord.customerEmail.trim().toLowerCase() === uEmail);
+      const isGuest = savedGuestIds.includes(ord.id);
+      return isUid || isEmail || isGuest;
+    });
+  }, [orders, user]);
+
   const handleDownloadStatementPDF = async () => {
-    if (orders.length === 0) return;
+    if (clientOrders.length === 0) return;
     const doc = new jsPDF({
       orientation: "portrait",
       unit: "mm",
@@ -549,7 +570,7 @@ export default function ClientDashboard() {
     doc.text(`User Index: ${user?.email || "Guest Client"}`, 138, 28);
     doc.text(`Statement Period: All-Time`, 138, 33);
     doc.text(`Settlement Status: Verified`, 138, 38);
-    doc.text(`Records Found: ${orders.length}`, 138, 43);
+    doc.text(`Records Found: ${clientOrders.length}`, 138, 43);
 
     // Client overview
     doc.setTextColor(40, 40, 40);
@@ -564,9 +585,9 @@ export default function ClientDashboard() {
     doc.text(`Active Session ID: ${user?.uid.substring(0, 12)}...`, 15, 80);
 
     // Aggregate statistics
-    const totalSpent = orders.reduce((sum, o) => sum + o.totalAmount, 0);
+    const totalSpent = clientOrders.reduce((sum, o) => sum + o.totalAmount, 0);
     const vatComponent = totalSpent * 16 / 116; // 16% VAT inclusive
-    doc.text(`Total Purchases: ${orders.length}`, 115, 70);
+    doc.text(`Total Purchases: ${clientOrders.length}`, 115, 70);
     doc.setFont("Helvetica", "bold");
     doc.text(`Accumulated Ledger Value: KES ${totalSpent.toLocaleString()}`, 115, 75);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -594,7 +615,7 @@ export default function ClientDashboard() {
     currentY += 8;
 
     // Loop entries
-    orders.forEach((ord) => {
+    clientOrders.forEach((ord) => {
       doc.setFont("Helvetica", "bold");
       doc.setTextColor(20, 20, 20);
       doc.text(`#${ord.id.substring(0, 8).toUpperCase()}`, 18, currentY + 6);
@@ -675,7 +696,7 @@ export default function ClientDashboard() {
   };
 
   const filteredOrders = useMemo(() => {
-    let list = orders;
+    let list = clientOrders;
     
     if (statusFilter !== "All") {
       list = list.filter(ord => {
@@ -984,7 +1005,7 @@ export default function ClientDashboard() {
             </div>
           </div>
 
-          {orders.length === 0 ? (
+          {clientOrders.length === 0 ? (
             <div className="bg-[#0F0F0F] border border-[#C5A059]/30 rounded-3xl p-12 text-center max-w-lg mx-auto my-12 no-print shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-[#C5A059]/5 rounded-full blur-3xl pointer-events-none" />
               <div className="bg-[#C5A059]/10 text-[#C5A059] w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-[#C5A059]/20 shadow-inner">
@@ -1012,7 +1033,7 @@ export default function ClientDashboard() {
             {/* Purchase History Menu */}
             <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 shadow-xs">
               <span className="font-mono text-xs font-bold text-white/30 block tracking-wider uppercase mb-3">
-                TRANSACTION ARCHIVES ({orders.length})
+                TRANSACTION ARCHIVES ({clientOrders.length})
               </span>
 
               {/* Tab-based Status Filters */}
@@ -1122,7 +1143,7 @@ export default function ClientDashboard() {
                   🟢 M-PESA PAYMENTS REGISTRY
                 </span>
                 <span className="text-[10px] bg-[#4f9e31]/15 text-[#4f9e31] px-2 py-0.5 rounded-full font-mono font-bold">
-                  {orders.filter(ord => ord.paymentProvider === "Mpesa-QR" || ord.mpesaPhone).length} Logs
+                  {clientOrders.filter(ord => ord.paymentProvider === "Mpesa-QR" || ord.mpesaPhone).length} Logs
                 </span>
               </div>
               <p className="text-[10.5px] text-white/40 leading-relaxed font-sans mb-4">
@@ -1130,12 +1151,12 @@ export default function ClientDashboard() {
               </p>
 
               <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
-                {orders.filter(ord => ord.paymentProvider === "Mpesa-QR" || ord.mpesaPhone).length === 0 ? (
+                {clientOrders.filter(ord => ord.paymentProvider === "Mpesa-QR" || ord.mpesaPhone).length === 0 ? (
                   <div className="p-5 text-center border border-dashed border-white/5 rounded-2xl bg-black/30">
                     <p className="text-[10px] font-mono text-white/30">No M-Pesa transactions found.</p>
                   </div>
                 ) : (
-                  orders
+                  clientOrders
                     .filter(ord => ord.paymentProvider === "Mpesa-QR" || ord.mpesaPhone)
                     .map((ord) => (
                       <div
