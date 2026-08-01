@@ -362,6 +362,11 @@ html.light-theme *:focus {
 }
 
 /* Print mode invoice utility for ClientDashboard & PrintView */
+@page {
+  size: A4 portrait;
+  margin: 8mm;
+}
+
 @media print {
   body, html, main, #root, [id="client-dashboard-print-area"], #print-invoice-area {
     background-color: #ffffff !important;
