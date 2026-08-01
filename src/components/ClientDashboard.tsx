@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   AlertCircle,
   Search,
+  ExternalLink,
   Mail,
   Loader2,
   Monitor,
@@ -533,7 +534,8 @@ export default function ClientDashboard() {
     // Ensure all orders belonging to user are included
     clientOrders.forEach((ord) => {
       if (!map.has(ord.id)) {
-        const isPaid = ord.paymentStatus === "Paid" || ord.paymentStatus === "SUCCESS" || ord.paymentStatus === "COMPLETED";
+        const payStatus = String(ord.paymentStatus || "").toUpperCase();
+        const isPaid = payStatus === "PAID" || payStatus === "SUCCESS" || payStatus === "COMPLETED";
         map.set(ord.id, {
           id: `ord-pay-${ord.id}`,
           orderId: ord.id,
@@ -1078,7 +1080,7 @@ export default function ClientDashboard() {
               </div>
               <h2 className="font-sans font-extrabold text-xl text-white tracking-tight">No Electronic Transactions Captured</h2>
               <p className="text-white/40 text-xs mt-3 leading-relaxed max-w-sm mx-auto">
-                Your premium gadget ledger is currently unpopulated. All subsequent transactions routed through Safaricom M-Pesa STK Push or Paystack secure clearing gateways will materialize here.
+                Your premium gadget ledger is currently unpopulated. All subsequent transactions routed through Safaricom M-Pesa STK Push or verified M-Pesa Express secure clearing gateways will materialize here.
               </p>
               <div className="mt-8 flex justify-center gap-3">
                 <button
@@ -1167,11 +1169,11 @@ export default function ClientDashboard() {
                         <div className="text-right shrink-0 flex items-center gap-3">
                           <div className="flex flex-col items-end">
                             <span className={`px-2 py-0.5 rounded-md font-mono text-[9px] uppercase font-bold tracking-wider block ${
-                              ord.paymentStatus === "Paid" || ord.paymentStatus === "SUCCESS"
+                              String(ord.paymentStatus || "").toUpperCase() === "PAID" || String(ord.paymentStatus || "").toUpperCase() === "SUCCESS"
                                 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                                 : "bg-red-500/10 text-red-400 border border-red-500/20"
                             }`}>
-                              {ord.paymentStatus === "Paid" || ord.paymentStatus === "SUCCESS" ? "🟢 Paid" : "🔴 NOT PAID"}
+                              {String(ord.paymentStatus || "").toUpperCase() === "PAID" || String(ord.paymentStatus || "").toUpperCase() === "SUCCESS" ? "🟢 Paid" : "🔴 NOT PAID"}
                             </span>
                             <span className="text-[10px] text-white/35 block mt-1.5 font-semibold">
                               {ord.shippingStatus}
@@ -1511,11 +1513,11 @@ export default function ClientDashboard() {
                       {/* Interactive Visual Status Stamps */}
                       <div className="flex gap-2 mt-2.5 sm:justify-end">
                         <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded-md uppercase tracking-wider block border ${
-                          activeOrder.paymentStatus === "Paid" || activeOrder.paymentStatus === "SUCCESS"
+                          String(activeOrder.paymentStatus || "").toUpperCase() === "PAID" || String(activeOrder.paymentStatus || "").toUpperCase() === "SUCCESS"
                             ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                             : "bg-red-500/15 text-red-400 border-red-500/25 animate-pulse"
                         }`}>
-                          Payment: {activeOrder.paymentStatus === "Paid" || activeOrder.paymentStatus === "SUCCESS" ? "🟢 Paid" : "🔴 NOT PAID"}
+                          Payment: {String(activeOrder.paymentStatus || "").toUpperCase() === "PAID" || String(activeOrder.paymentStatus || "").toUpperCase() === "SUCCESS" ? "🟢 Paid" : "🔴 NOT PAID"}
                         </span>
                         
                         <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded-md uppercase tracking-wider block border ${
@@ -1568,14 +1570,33 @@ export default function ClientDashboard() {
 
                     <div className="text-left sm:text-right">
                       <span className="font-mono text-[10px] font-bold text-white/30 block tracking-wider uppercase mb-1">
-                        DISPATCH DETAILS
+                        DISPATCH & COURIER DETAILS
                       </span>
                       <p className="text-xs text-white/80 leading-normal">
                         {activeOrder.shippingAddress}
                       </p>
-                      <p className="text-[10px] text-white/40 font-mono mt-1">
-                        Courier: Same-Day Delivery Dispatch
+                      <p className="text-[10px] text-[#C5A059] font-mono mt-1 font-bold">
+                        Carrier: {activeOrder.courierName || "G4S Courier Express"}
                       </p>
+                      <p className="text-[10px] text-white/60 font-mono mt-0.5">
+                        Waybill: {activeOrder.courierWaybill || `WB-G4S-${activeOrder.id.substring(0, 6).toUpperCase()}`}
+                      </p>
+                      <p className="text-[10px] text-emerald-400 font-mono mt-0.5">
+                        Helpline: {activeOrder.courierPhone || "+254 703 077 000"}
+                      </p>
+                      <a
+                        href={
+                          (activeOrder.courierName || "").toLowerCase().includes("fargo")
+                            ? "https://www.wellsfargo.co.ke/tracking"
+                            : "https://www.g4s.com/en-ke"
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 mt-2 text-[10px] font-mono font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-lg transition-all"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        <span>Track Live via {activeOrder.courierName?.split(" ")[0] || "G4S"}</span>
+                      </a>
                     </div>
                   </div>
 
@@ -1618,20 +1639,20 @@ export default function ClientDashboard() {
 
                   {/* Total Calculations Ledger & Stamps */}
                   <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 shadow-xs/10">
-                                     {/* Official Paystack stamp verification */}
+                    {/* Official M-Pesa stamp verification */}
                     <div className="p-4 bg-[#C5A059]/10 border border-[#C5A059]/20 rounded-2xl max-w-sm shrink-0">
                       <div className="flex gap-2 items-center text-[#C5A059] font-bold mb-1.5 text-xs font-sans">
                         <ShieldCheck className="w-4 h-4 text-[#C5A059]" />
-                        <span>Paystack Commerce Secured</span>
+                        <span>M-Pesa Express Commerce Secured</span>
                       </div>
                       
                       <div className="space-y-1 text-[10px] font-mono text-[#C5A059]/80 leading-tight">
                         <p>Payment: <span className={activeOrder.paymentStatus === "Paid" ? "text-emerald-400 font-bold" : activeOrder.paymentStatus === "Failed" ? "text-red-500 font-bold" : "text-[#C5A059]"}>{activeOrder.paymentStatus.toUpperCase()}</span></p>
                         <p>Fulfillment: <span className={activeOrder.shippingStatus === "Delivered" ? "text-emerald-400 font-bold" : activeOrder.shippingStatus === "Shipped" ? "text-blue-400 font-medium" : "text-[#C5A059]"}>{activeOrder.shippingStatus.toUpperCase()}</span></p>
-                        <p>Gateway Carrier: {activeOrder.paymentProvider || "Paystack"}</p>
+                        <p>Gateway Carrier: {activeOrder.paymentProvider || "M-Pesa Express"}</p>
                         <p>Billing Contact: {activeOrder.mpesaPhone}</p>
                         {activeOrder.receiptNo && (
-                          <p className="text-white font-bold">Paystack reference: {activeOrder.receiptNo}</p>
+                          <p className="text-white font-bold">M-Pesa reference: {activeOrder.receiptNo}</p>
                         )}
                         <p className="text-[9px] text-[#C5A059]/50 mt-1 block">Live encrypted payment gateway</p>
                       </div>
@@ -1642,7 +1663,7 @@ export default function ClientDashboard() {
                         <span className="text-white/40 text-left">Ledger Subtotal:</span>
                         <span className="font-mono font-semibold text-white text-right">KES {activeOrder.totalAmount.toLocaleString()}</span>
 
-                        <span className="text-emerald-400 text-left">Paystack Gateway Fee:</span>
+                        <span className="text-emerald-400 text-left">M-Pesa Clearance Fee:</span>
                         <span className="font-mono font-semibold text-emerald-400 text-right">KES 0 (FREE)</span>
 
                         <span className="text-white/40 text-left pb-2 border-b border-white/5">Courier Dispatch fee:</span>

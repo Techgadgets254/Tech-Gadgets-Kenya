@@ -28,7 +28,7 @@ import InactivityTimer from "./components/InactivityTimer";
 import ProductComparisonOverlay from "./components/ProductComparisonOverlay";
 import FloatingCompareBar from "./components/FloatingCompareBar";
 import BackToTop from "./components/BackToTop";
-import { Loader2, MessageSquare, HelpCircle, Share2, Package, PhoneCall, ShoppingBag, XCircle, Copy } from "lucide-react";
+import { Loader2, MessageSquare, HelpCircle, Share2, Package, PhoneCall, PhoneIncoming, ShoppingBag, XCircle, Copy, MapPin } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 // Smooth, skeleton-style loaders to replace generic loading spinners and improve perceived load speed
@@ -324,6 +324,39 @@ function StoreLayout() {
         return "Direct WhatsApp Chat";
     }
   }, [activeView]);
+
+  const handleGeoLocationWhatsAppInquiry = () => {
+    if (typeof navigator !== "undefined" && "geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const msg = `Hello Tech Sokoni Kenya, I am inquiring about product availability and immediate delivery near my current location (GPS Coordinates: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}). Do you have stock available for dispatch to my area?`;
+          window.open(`https://wa.me/254792620789?text=${encodeURIComponent(msg)}`, "_blank");
+        },
+        (error) => {
+          console.warn("Geolocation positioning error / permission fallback:", error);
+          const msg = `Hello Tech Sokoni Kenya, I am inquiring about product stock availability and express delivery options near my local area in Kenya.`;
+          window.open(`https://wa.me/254792620789?text=${encodeURIComponent(msg)}`, "_blank");
+        },
+        { timeout: 8000, enableHighAccuracy: true }
+      );
+    } else {
+      const msg = `Hello Tech Sokoni Kenya, I am inquiring about product stock availability and express delivery options near my local area in Kenya.`;
+      window.open(`https://wa.me/254792620789?text=${encodeURIComponent(msg)}`, "_blank");
+    }
+  };
+
+  const handleRequestCallBack = () => {
+    const phone = "254792620789";
+    const itemReference = activeProduct ? activeProduct.name : "Tech Sokoni Kenya Gadgets";
+    const msg = `Request Call: Hello Tech Sokoni Kenya support team, please call me back regarding ${itemReference}. I need assistance with product specification and ordering.`;
+    
+    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      try { navigator.vibrate(50); } catch (e) { /* ignore */ }
+    }
+    
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+  };
 
   const handleWhatsAppClick = async () => {
     // 1. Device vibration feedback for mobile
@@ -650,6 +683,30 @@ function StoreLayout() {
                     <span>My Orders</span>
                   </motion.button>
                   
+                  <motion.button
+                    variants={itemVariants}
+                    onClick={() => {
+                      handleGeoLocationWhatsAppInquiry();
+                      setIsMicroMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/5 text-white/80 hover:text-[#C5A059] transition-all cursor-pointer text-left w-full"
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>GPS Stock Inquiry</span>
+                  </motion.button>
+
+                  <motion.button
+                    variants={itemVariants}
+                    onClick={() => {
+                      handleRequestCallBack();
+                      setIsMicroMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-emerald-500/10 text-emerald-400 hover:text-emerald-300 transition-all cursor-pointer text-left w-full font-bold"
+                  >
+                    <PhoneIncoming className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Request Call-Back</span>
+                  </motion.button>
+
                   <motion.a
                     variants={itemVariants}
                     href={whatsappUrl}

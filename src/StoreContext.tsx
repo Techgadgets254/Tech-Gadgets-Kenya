@@ -116,7 +116,13 @@ interface StoreContextType {
   clearAllFlashOffers: () => Promise<void>;
 
   // Admin Order Actions
-  updateOrderStatus: (id: string, paymentStatus: Order["paymentStatus"], shippingStatus: Order["shippingStatus"], receiptNo?: string) => Promise<void>;
+  updateOrderStatus: (
+    id: string, 
+    paymentStatus: Order["paymentStatus"], 
+    shippingStatus: Order["shippingStatus"], 
+    receiptNo?: string,
+    courierDetails?: { courierName?: string; courierWaybill?: string; courierPhone?: string }
+  ) => Promise<void>;
   subscribeNewsletter: (email: string, options?: { stockArrivals: boolean; priceDrops: boolean }) => Promise<boolean>;
 
   // Affiliate Management
@@ -1474,7 +1480,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     id: string, 
     paymentStatus: Order["paymentStatus"], 
     shippingStatus: Order["shippingStatus"],
-    receiptNo?: string
+    receiptNo?: string,
+    courierDetails?: { courierName?: string; courierWaybill?: string; courierPhone?: string }
   ) => {
     try {
       const orderRef = doc(db, "orders", id);
@@ -1485,6 +1492,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       };
       if (receiptNo) {
         updates.receiptNo = receiptNo;
+      }
+      if (courierDetails) {
+        if (courierDetails.courierName !== undefined) updates.courierName = courierDetails.courierName;
+        if (courierDetails.courierWaybill !== undefined) updates.courierWaybill = courierDetails.courierWaybill;
+        if (courierDetails.courierPhone !== undefined) updates.courierPhone = courierDetails.courierPhone;
       }
       await updateDoc(orderRef, updates);
     } catch (e) {

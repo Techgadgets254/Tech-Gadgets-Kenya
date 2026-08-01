@@ -1311,7 +1311,7 @@ export default function ShopView() {
             <div>
               <div className="flex justify-between items-center mb-4 text-[10px] font-mono text-white/30 font-bold tracking-wider">
                 <span>INDEX LIVE REVEALS: {filteredProducts.length} ITEMS FOUND</span>
-                <span>PAYSTACK SECURE SYSTEM</span>
+                <span>M-PESA EXPRESS SECURE SYSTEM</span>
               </div>
               
               <motion.div 

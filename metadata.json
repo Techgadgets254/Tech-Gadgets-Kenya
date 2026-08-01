@@ -2,7 +2,8 @@
   "name": "Tech Sokoni Kenya",
   "description": "Premium electronics store with live inventory management, user authentication, M-Pesa tracking, and a client dashboard with downloadable invoices.",
   "requestFramePermissions": [
-    "camera"
+    "camera",
+    "geolocation"
   ],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

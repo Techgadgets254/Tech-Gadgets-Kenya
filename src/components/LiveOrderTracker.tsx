@@ -22,6 +22,7 @@ import {
   Clock,
   PhoneCall,
   Navigation,
+  ExternalLink,
   History,
   ChevronRight
 } from "lucide-react";
@@ -518,8 +519,13 @@ export default function LiveOrderTracker({ initialOrderId = "", onNavigateToShop
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-mono">
               <div className="bg-black/40 p-3 rounded-xl border border-white/5">
                 <span className="text-white/40 text-[9px] uppercase block mb-1">Carrier Logistics</span>
-                <span className="text-white font-bold block">Fargo / G4S Express KE</span>
-                <span className="text-[9px] text-[#C5A059] block mt-0.5">Waybill: WB-{trackedOrder.id.substring(0, 6).toUpperCase()}</span>
+                <span className="text-white font-bold block flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  {trackedOrder.courierName || "G4S Courier Express"}
+                </span>
+                <span className="text-[9px] text-[#C5A059] block mt-0.5 font-bold">
+                  Waybill: {trackedOrder.courierWaybill || `WB-G4S-${trackedOrder.id.substring(0, 6).toUpperCase()}`}
+                </span>
               </div>
 
               <div className="bg-black/40 p-3 rounded-xl border border-white/5">
@@ -541,19 +547,36 @@ export default function LiveOrderTracker({ initialOrderId = "", onNavigateToShop
               </div>
             </div>
 
-            {/* Courier hotline button */}
+            {/* Courier hotline and direct tracking link */}
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs">
               <div className="flex items-center gap-2 text-white/60">
                 <PhoneCall className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span className="font-mono text-[11px]">Courier Helpline: +254 700 000000 / +254 793 090200</span>
+                <span className="font-mono text-[11px]">
+                  Courier Helpline: <strong className="text-white">{trackedOrder.courierPhone || "+254 703 077 000"}</strong>
+                </span>
               </div>
-              <a 
-                href={`tel:${trackedOrder.customerPhone}`}
-                className="text-[10px] font-mono text-[#C5A059] hover:underline flex items-center gap-1"
-              >
-                <span>Direct Dispatch Query</span>
-                <ChevronRight className="w-3 h-3" />
-              </a>
+              <div className="flex items-center gap-2">
+                <a 
+                  href={
+                    (trackedOrder.courierName || "").toLowerCase().includes("fargo")
+                      ? "https://www.wellsfargo.co.ke/tracking"
+                      : "https://www.g4s.com/en-ke"
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all font-bold"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  <span>Track Parcel on Carrier Web</span>
+                </a>
+                <a 
+                  href={`tel:${trackedOrder.courierPhone || "+254703077000"}`}
+                  className="text-[10px] font-mono bg-[#C5A059]/10 text-[#C5A059] hover:bg-[#C5A059]/20 border border-[#C5A059]/30 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all font-bold"
+                >
+                  <span>Call Courier Direct</span>
+                  <ChevronRight className="w-3 h-3" />
+                </a>
+              </div>
             </div>
           </div>
 

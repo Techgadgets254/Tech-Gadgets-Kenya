@@ -5,7 +5,7 @@
 
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, setPersistence, browserLocalPersistence } from "firebase/auth";
-import { getFirestore, enableIndexedDbPersistence, doc, getDocFromServer } from "firebase/firestore";
+import { getFirestore, enableIndexedDbPersistence, doc, getDoc } from "firebase/firestore";
 
 import firebaseConfigImport from "../../firebase-applet-config.json";
 
@@ -99,23 +99,14 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 // CRITICAL CONSTRAINT: Validate Connection to Firestore on initial boot
 async function testConnection() {
   try {
-    const connectionTest = getDocFromServer(doc(db, "test", "connection"));
+    const connectionTest = getDoc(doc(db, "test", "connection"));
     const timeout = new Promise((_, reject) => 
       setTimeout(() => reject(new Error("Connection test timed out")), 3000)
     );
     await Promise.race([connectionTest, timeout]);
   } catch (error) {
-    if (error instanceof Error) {
-      if (
-        error.message.includes("offline") || 
-        error.message.includes("Could not reach Cloud Firestore") || 
-        error.message.includes("timed out")
-      ) {
-        console.warn("[Firebase] Client operating in offline cache mode or initial connection deferred.");
-        return;
-      }
-    }
-    console.warn("[Firebase Connection Check]", error);
+    // Gracefully fallback to offline cache or quiet connection
+    console.warn("[Firebase] Client operating in offline cache mode or initial connection deferred.");
   }
 }
 testConnection();

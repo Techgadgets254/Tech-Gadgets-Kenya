@@ -77,6 +77,9 @@ export interface Order {
   shippingStatus: "Processing" | "Shipped" | "Delivered";
   referralCode?: string;
   paymentProvider?: string;
+  courierName?: string;
+  courierWaybill?: string;
+  courierPhone?: string;
   createdAt?: any;
   updatedAt?: any;
 }

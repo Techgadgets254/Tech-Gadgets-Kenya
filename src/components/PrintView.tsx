@@ -3,6 +3,7 @@ import { Order } from "../types";
 import { Printer, ShieldCheck, MapPin, Phone, Mail } from "lucide-react";
 import { printInvoiceIframe } from "../utils/printInvoice";
 import brandLogoImg from "../assets/images/tech_soko_logo_1783960703453.jpg";
+import signatureImg from "../assets/images/signature_adam_kassim_1785619369923.jpg";
 
 interface PrintViewProps {
   order: Order;
@@ -95,7 +96,7 @@ export const PrintView: React.FC<PrintViewProps> = ({ order, onClose, onPrint })
               <div className="text-lg font-black text-zinc-900 font-mono mt-0.5">#{order.id ? order.id.slice(0, 10).toUpperCase() : "TS-ORD"}</div>
               <div className="mt-2 text-xs text-zinc-600 space-y-0.5">
                 <p><strong className="text-zinc-800">Date Issued:</strong> {formattedDate}</p>
-                <p><strong className="text-zinc-800">Payment Provider:</strong> {order.paymentProvider || "M-Pesa / Paystack"}</p>
+                <p><strong className="text-zinc-800">Payment Provider:</strong> {order.paymentProvider || "M-Pesa Express"}</p>
                 {order.receiptNo && (
                   <p className="text-emerald-700 font-semibold font-mono">
                     <strong>Payment Clear Ref:</strong> {order.receiptNo}
@@ -219,11 +220,12 @@ export const PrintView: React.FC<PrintViewProps> = ({ order, onClose, onPrint })
               <p className="mt-1 italic">Thank you for choosing Tech Sokoni Kenya for your technology hardware needs.</p>
             </div>
 
-            <div className="mt-6 sm:mt-0 text-center">
-              <div className="w-40 border-b border-zinc-400 mb-1 h-8 flex items-end justify-center font-serif italic text-xs text-zinc-700">
-                Authorized Signature
+            <div className="mt-6 sm:mt-0 text-right flex flex-col items-end">
+              <img src={signatureImg} alt="Adam Kassim Signature" className="h-12 max-w-[160px] object-contain mb-1" />
+              <div className="w-40 border-t-2 border-zinc-900 pt-1 text-center font-bold text-xs text-zinc-900 font-mono">
+                Adam Kassim
               </div>
-              <p className="text-[9px] uppercase tracking-wider text-zinc-400">Dispatch & Official Stamp</p>
+              <p className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold text-center w-40">Authorized Signatory & Store Stamp</p>
             </div>
           </div>
         </div>

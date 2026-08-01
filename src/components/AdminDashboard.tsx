@@ -50,7 +50,7 @@ import {
   Zap
 } from "lucide-react";
 import { Product, Order } from "../types";
-import { PAYSTACK_GATEWAYS } from "../data";
+import { MPESA_GATEWAYS } from "../data";
 import { db, auth } from "../firebase";
 import jsQR from "jsqr";
 import { signInWithEmailAndPassword } from "firebase/auth";
@@ -223,6 +223,222 @@ function QRScannerModal({ isOpen, onClose, onScanSuccess }: { isOpen: boolean; o
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SalesTrendChart({ orders }: { orders: Order[] }) {
+  const chartData = useMemo(() => {
+    const result = [];
+    const now = new Date();
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const year = d.getFullYear();
+      const month = d.getMonth();
+      const dateNum = d.getDate();
+      const displayDate = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+      const daysOrders = orders.filter((o) => {
+        if (!o.createdAt) return false;
+        const oDate = new Date(o.createdAt);
+        return (
+          oDate.getFullYear() === year &&
+          oDate.getMonth() === month &&
+          oDate.getDate() === dateNum
+        );
+      });
+
+      const mpesaPaidOrders = daysOrders.filter((o) => {
+        const p = String(o.paymentStatus || "").toUpperCase();
+        return p === "PAID" || p === "SUCCESS" || p === "COMPLETED";
+      });
+
+      const mpesaRevenue = mpesaPaidOrders.reduce((acc, curr) => acc + (Number(curr.totalAmount) || 0), 0);
+      const pendingOrders = daysOrders.filter((o) => String(o.paymentStatus || "").toUpperCase() === "PENDING").length;
+
+      result.push({
+        date: displayDate,
+        mpesaSales: mpesaRevenue,
+        paidTxCount: mpesaPaidOrders.length,
+        pendingCount: pendingOrders,
+      });
+    }
+    return result;
+  }, [orders]);
+
+  const total30DayMpesaVolume = useMemo(() => {
+    return chartData.reduce((acc, curr) => acc + curr.mpesaSales, 0);
+  }, [chartData]);
+
+  const total30DayTransactions = useMemo(() => {
+    return chartData.reduce((acc, curr) => acc + curr.paidTxCount, 0);
+  }, [chartData]);
+
+  const peakDaySales = useMemo(() => {
+    let max = 0;
+    chartData.forEach((d) => {
+      if (d.mpesaSales > max) max = d.mpesaSales;
+    });
+    return max;
+  }, [chartData]);
+
+  return (
+    <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 shadow-2xl space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/10 pb-4">
+        <div>
+          <span className="text-[10px] font-mono font-bold text-[#C5A059] uppercase tracking-wider flex items-center gap-1.5 mb-1">
+            <span className="w-2 h-2 rounded-full bg-[#C5A059] animate-pulse" />
+            30-Day M-Pesa Sales Trend Telemetry
+          </span>
+          <h3 className="font-sans font-extrabold text-lg sm:text-xl text-white">
+            Sales Trend (Last 30 Days)
+          </h3>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-xl font-bold">
+            30D Revenue: KES {total30DayMpesaVolume.toLocaleString()}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+        <div className="bg-black/50 p-3 rounded-xl border border-white/5">
+          <span className="text-white/40 text-[9px] uppercase block mb-1">Total 30D Revenue</span>
+          <span className="text-emerald-400 font-extrabold text-sm block">KES {total30DayMpesaVolume.toLocaleString()}</span>
+        </div>
+        <div className="bg-black/50 p-3 rounded-xl border border-white/5">
+          <span className="text-white/40 text-[9px] uppercase block mb-1">Completed Transactions</span>
+          <span className="text-white font-extrabold text-sm block">{total30DayTransactions} Orders</span>
+        </div>
+        <div className="bg-black/50 p-3 rounded-xl border border-white/5">
+          <span className="text-white/40 text-[9px] uppercase block mb-1">Peak Single Day</span>
+          <span className="text-[#C5A059] font-extrabold text-sm block">KES {peakDaySales.toLocaleString()}</span>
+        </div>
+        <div className="bg-black/50 p-3 rounded-xl border border-white/5">
+          <span className="text-white/40 text-[9px] uppercase block mb-1">Daily Average</span>
+          <span className="text-sky-400 font-extrabold text-sm block">KES {Math.round(total30DayMpesaVolume / 30).toLocaleString()}</span>
+        </div>
+      </div>
+
+      <div className="h-72 w-full pt-2">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <defs>
+              <linearGradient id="salesTrendGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#C5A059" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#C5A059" stopOpacity={0.0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+            <XAxis dataKey="date" stroke="#ffffff40" fontSize={10} tickLine={false} axisLine={{ stroke: "#ffffff15" }} />
+            <YAxis stroke="#ffffff40" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `K${(v / 1000).toFixed(0)}k`} />
+            <Tooltip
+              content={({ active, payload, label }) => {
+                if (active && payload && payload.length) {
+                  const data = payload[0].payload;
+                  return (
+                    <div className="bg-[#0A0A0A] border border-[#C5A059]/40 p-3 rounded-xl shadow-2xl text-xs font-mono text-white space-y-1">
+                      <div className="font-bold text-[#C5A059] border-b border-white/10 pb-1 mb-1">{label}</div>
+                      <div>M-Pesa Sales: <span className="text-emerald-400 font-bold">KES {data.mpesaSales.toLocaleString()}</span></div>
+                      <div>Successful Orders: <span className="text-white font-bold">{data.paidTxCount}</span></div>
+                      <div>Pending Orders: <span className="text-amber-400 font-bold">{data.pendingCount}</span></div>
+                    </div>
+                  );
+                }
+                return null;
+              }}
+            />
+            <Area type="monotone" dataKey="mpesaSales" name="Sales (KES)" stroke="#C5A059" strokeWidth={2.5} fillOpacity={1} fill="url(#salesTrendGradient)" />
+            <Bar dataKey="paidTxCount" name="Completed Orders" fill="#10B981" radius={[4, 4, 0, 0]} barSize={12} />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function OrderCourierEditor({
+  ord,
+  onSave,
+}: {
+  ord: Order;
+  onSave: (courierName: string, courierWaybill: string, courierPhone: string) => void;
+}) {
+  const [courierName, setCourierName] = useState(ord.courierName || "G4S Courier Express");
+  const [courierWaybill, setCourierWaybill] = useState(
+    ord.courierWaybill || `WB-G4S-${ord.id.substring(0, 6).toUpperCase()}`
+  );
+  const [courierPhone, setCourierPhone] = useState(ord.courierPhone || "+254 703 077 000");
+  const [isSaved, setIsSaved] = useState(false);
+
+  const handleCourierChange = (selectedCourier: string) => {
+    setCourierName(selectedCourier);
+    if (selectedCourier === "G4S Courier Express") {
+      setCourierPhone("+254 703 077 000");
+      if (!courierWaybill || courierWaybill.startsWith("WB-FARGO") || courierWaybill.startsWith("WB-TS")) {
+        setCourierWaybill(`WB-G4S-${ord.id.substring(0, 6).toUpperCase()}`);
+      }
+    } else if (selectedCourier === "Wells Fargo Courier") {
+      setCourierPhone("+254 703 030 000");
+      if (!courierWaybill || courierWaybill.startsWith("WB-G4S") || courierWaybill.startsWith("WB-TS")) {
+        setCourierWaybill(`WB-FARGO-${ord.id.substring(0, 6).toUpperCase()}`);
+      }
+    } else if (selectedCourier === "Tech Sokoni Local Dispatch") {
+      setCourierPhone("+254 793 090 200");
+      if (!courierWaybill || courierWaybill.startsWith("WB-G4S") || courierWaybill.startsWith("WB-FARGO")) {
+        setCourierWaybill(`WB-TS-${ord.id.substring(0, 6).toUpperCase()}`);
+      }
+    }
+  };
+
+  const handleSaveClick = () => {
+    onSave(courierName, courierWaybill, courierPhone);
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 2000);
+  };
+
+  return (
+    <div className="mt-2.5 p-2 bg-[#050505] border border-white/10 rounded-xl space-y-1.5 text-[10px] font-mono">
+      <div className="flex items-center justify-between text-[#C5A059] font-bold">
+        <span>COURIER DISPATCH SETUP</span>
+        {isSaved && <span className="text-emerald-400 text-[9px] font-sans font-bold">✓ Saved</span>}
+      </div>
+
+      <select
+        value={courierName}
+        onChange={(e) => handleCourierChange(e.target.value)}
+        className="w-full bg-[#0A0A0A] border border-white/10 rounded-md px-1.5 py-1 text-white font-mono text-[10px] focus:outline-hidden focus:border-[#C5A059]"
+      >
+        <option value="G4S Courier Express">G4S Courier Express</option>
+        <option value="Wells Fargo Courier">Wells Fargo Courier</option>
+        <option value="Tech Sokoni Local Dispatch">Tech Sokoni Local Dispatch</option>
+      </select>
+
+      <div className="space-y-1">
+        <input
+          type="text"
+          value={courierWaybill}
+          onChange={(e) => setCourierWaybill(e.target.value)}
+          placeholder="Waybill No (e.g. G4S-8910)"
+          className="w-full bg-[#0A0A0A] border border-white/10 rounded-md px-1.5 py-1 text-white text-[9px] font-mono focus:outline-hidden focus:border-[#C5A059]"
+        />
+        <input
+          type="text"
+          value={courierPhone}
+          onChange={(e) => setCourierPhone(e.target.value)}
+          placeholder="Courier Helpline Phone"
+          className="w-full bg-[#0A0A0A] border border-white/10 rounded-md px-1.5 py-1 text-white text-[9px] font-mono focus:outline-hidden focus:border-[#C5A059]"
+        />
+      </div>
+
+      <button
+        type="button"
+        onClick={handleSaveClick}
+        className="w-full bg-[#C5A059] hover:bg-amber-600 text-black font-extrabold py-1 rounded-md transition-all cursor-pointer text-[9px] uppercase tracking-wider"
+      >
+        Save Courier Waybill
+      </button>
     </div>
   );
 }
@@ -2181,7 +2397,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
           escapeCSVField(ord.paymentStatus),
           escapeCSVField(ord.shippingStatus || "Processing"),
           ord.totalAmount,
-          escapeCSVField(ord.paymentProvider || "Paystack"),
+          escapeCSVField(ord.paymentProvider || "M-Pesa Express"),
           escapeCSVField(ord.receiptNo || "N/A"),
           escapeCSVField(ord.createdAt),
           (ord.items || []).reduce((sum: number, it: any) => sum + (it.quantity || 1), 0),
@@ -3292,7 +3508,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                   )}
                 </div>
                 <div className="text-[9px] font-mono text-white/40 mt-4">
-                  Awaiting Paystack checkout settling validation
+                  Awaiting M-Pesa Express checkout settling validation
                 </div>
               </div>
 
@@ -3642,7 +3858,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                   <span>30-Day Daily Revenue Trends (KES)</span>
                 </h3>
                 <p className="text-white/40 text-xs mt-1">
-                  Visualize sales growth and daily inbound revenue generated from successfully processed Paystack orders.
+                  Visualize sales growth and daily inbound revenue generated from successfully processed M-Pesa orders.
                 </p>
               </div>
               <div className="text-right">
@@ -3758,10 +3974,10 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
-            {/* Left Block: Paystack Gateway status telemetry */}
+            {/* Left Block: M-Pesa Gateway status telemetry */}
             <div className="lg:col-span-1 bg-[#0F0F0F] border border-white/10 p-6 rounded-3xl shadow-xs">
               <h3 className="font-sans font-semibold text-sm text-white pb-3 border-b border-white/10 mb-4 flex items-center justify-between">
-                <span>Paystack Gateway Monitor</span>
+                <span>M-Pesa Express Gateway Monitor</span>
                 <span className="px-2 py-0.5 rounded-sm bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[9px] font-mono font-bold flex items-center gap-1.5">
                   <Activity className="w-3 h-3 text-emerald-400" />
                   ONLINE
@@ -3769,7 +3985,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
               </h3>
 
               <div className="space-y-4 font-sans text-xs">
-                {PAYSTACK_GATEWAYS.map((gw, index) => (
+                {MPESA_GATEWAYS.map((gw, index) => (
                   <div key={index} className="flex justify-between items-center bg-[#0A0A0A] border border-white/5 p-3 rounded-xl">
                     <div>
                       <span className="font-bold text-white block text-[11px]">{gw.name}</span>
@@ -3785,7 +4001,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
               <div className="mt-6 p-3 rounded-xl border border-white/5 bg-white/[0.01] text-[10px] leading-relaxed text-white/40 font-mono flex gap-2">
                 <AlertTriangle className="w-4 h-4 text-[#C5A059] shrink-0" />
                 <div>
-                  <strong>Paystack webhook Policy:</strong> Callback buffers sync and verify within 3000ms loop checks. Safe-locking prevents duplicate clears.
+                  <strong>M-Pesa Webhook Policy:</strong> Callback buffers sync and verify within 3000ms loop checks. Safe-locking prevents duplicate clears.
                 </div>
               </div>
             </div>
@@ -4015,6 +4231,9 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
             </div>
             <D3FinancialOverview orders={orders} />
           </div>
+
+          {/* 30-Day M-Pesa Sales Trend Visualization (Recharts) */}
+          <SalesTrendChart orders={orders} />
         </div>
       )}
 
@@ -5310,11 +5529,11 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                               </div>
                             )}
                           </td>
-                          <td className="p-2.5 sm:p-4 whitespace-nowrap">
+                          <td className="p-2.5 sm:p-4 whitespace-nowrap min-w-[200px]">
                             <select
                               value={ord.shippingStatus}
                               onChange={(e) => handleOrderStatusToggle(ord.id, ord, "shipping", e.target.value)}
-                              className="font-sans text-[10px] uppercase font-mono font-bold border border-white/10 bg-[#0A0A0A] rounded-lg px-2 py-1 text-white cursor-pointer outline-hidden"
+                              className="font-sans text-[10px] uppercase font-mono font-bold border border-white/10 bg-[#0A0A0A] rounded-lg px-2 py-1 text-white cursor-pointer outline-hidden w-full"
                             >
                               <option value="Processing">Processing</option>
                               <option value="Shipped">Shipped</option>
@@ -5323,6 +5542,20 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                             <span className="text-[10px] text-white/40 block font-mono font-bold mt-1.5 leading-none">
                               LOC: {ord.shippingAddress.split(", ").slice(-2)[0] || "Default Dispatch"}
                             </span>
+
+                            {/* Admin Courier Details Editor */}
+                            <OrderCourierEditor
+                              ord={ord}
+                              onSave={(courierName, courierWaybill, courierPhone) => {
+                                updateOrderStatus(
+                                  ord.id,
+                                  ord.paymentStatus,
+                                  ord.shippingStatus,
+                                  ord.receiptNo,
+                                  { courierName, courierWaybill, courierPhone }
+                                );
+                              }}
+                            />
                           </td>
                         </tr>
                       ))
@@ -5471,7 +5704,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                         rows={6}
                         value={campaignBody}
                         onChange={(e) => setCampaignBody(e.target.value)}
-                        placeholder="Provide details about new stock availability, desktops setups, and Paystack promotional codes..."
+                        placeholder="Provide details about new stock availability, desktops setups, and M-Pesa promotional codes..."
                         className="w-full bg-white/[0.03] border border-white/10 rounded-xl p-4 text-xs text-white focus:outline-hidden focus:border-[#C5A059] font-sans"
                         required
                       />

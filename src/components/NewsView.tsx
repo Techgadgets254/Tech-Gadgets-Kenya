@@ -69,9 +69,9 @@ export const FIXED_ARTICLES: Article[] = [
   },
   {
     id: "art-3",
-    title: "Paystack Payment Gateway Drives E-Commerce Security Upgrades Across Kenya",
+    title: "M-Pesa Express Payment Gateway Drives E-Commerce Security Upgrades Across Kenya",
     excerpt: "Online merchants integrate direct webhooks and secure inline checkouts to shield customers from manual payment validation lulls.",
-    content: "E-Commerce entities in East Africa are upgrading checkout procedures from tedious manual transaction audits to modern inline automated payment processing platforms, ensuring pristine authorization safety.\n\nPaystack has pioneered a secure, fast check-out architecture. Orders cleared through this integration receive secure instant webhook notification updates, changing order state from 'Pending' to 'Shipped' on our local stock reservations system immediately.\n\nStandard Security Features Checklist:\n- Full PCI-DSS Level 1 compliance certifying total customer protection\n- Multi-factor SMS triggers on high-value laptop or printer checkouts\n- Immediate tokenization for continuous secure payment pipelines\n\nAt Tech Sokoni Kenya, we have successfully integrated these protocols into our backend systems to ensure your checkout transactions are fully authorized in real-time.",
+    content: "E-Commerce entities in East Africa are upgrading checkout procedures from tedious manual transaction audits to modern inline automated payment processing platforms, ensuring pristine authorization safety.\n\nM-Pesa Express has pioneered a secure, fast check-out architecture. Orders cleared through this integration receive secure instant webhook notification updates, changing order state from 'Pending' to 'Shipped' on our local stock reservations system immediately.\n\nStandard Security Features Checklist:\n- Full PCI-DSS Level 1 compliance certifying total customer protection\n- Multi-factor SMS triggers on high-value laptop or printer checkouts\n- Immediate tokenization for continuous secure payment pipelines\n\nAt Tech Sokoni Kenya, we have successfully integrated these protocols into our backend systems to ensure your checkout transactions are fully authorized in real-time.",
     imageUrl: "https://images.unsplash.com/photo-1563013544-824ae1d704d3?auto=format&fit=crop&q=80&w=600",
     date: "June 10, 2026",
     readTime: "6 min read",

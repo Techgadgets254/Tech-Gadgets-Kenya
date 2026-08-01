@@ -1,5 +1,6 @@
 import { Order } from "../types";
 import brandLogoImg from "../assets/images/tech_soko_logo_1783960703453.jpg";
+import signatureImg from "../assets/images/signature_adam_kassim_1785619369923.jpg";
 
 export function generateInvoiceHtml(order: Order): string {
   const brandLogo = brandLogoImg;
@@ -449,9 +450,10 @@ export function generateInvoiceHtml(order: Order): string {
         <p>Phone: 0792620789 / +254 792 620 789 • Email: shop@techsokoni.com</p>
       </div>
 
-      <div class="signature-area">
-        <div class="signature-line">Authorized Signatory</div>
-        <p style="font-size: 8px; text-transform: uppercase; letter-spacing: 0.05em; color: #9ca3af;">Dispatch & Store Stamp</p>
+      <div class="signature-area" style="display: flex; flex-direction: column; align-items: flex-end; text-align: center; width: 160px;">
+        <img src="${signatureImg}" alt="Adam Kassim Signature" style="height: 48px; max-width: 150px; object-fit: contain; margin-bottom: 2px;" />
+        <div class="signature-line" style="border-top: 1.5px solid #111827; width: 140px; padding-top: 2px; font-weight: 800; font-size: 10px; color: #111827; font-family: monospace;">Adam Kassim</div>
+        <p style="font-size: 8px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; width: 140px;">Authorized Signatory & Store Stamp</p>
       </div>
     </div>
   </div>

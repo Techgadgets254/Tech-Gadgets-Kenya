@@ -1,5 +1,5 @@
-const CACHE_NAME = 'tech-sokoni-cache-v1';
-const IMAGE_CACHE_NAME = 'tech-sokoni-images-v1';
+const CACHE_NAME = 'tech-sokoni-cache-v2';
+const IMAGE_CACHE_NAME = 'tech-sokoni-images-v2';
 
 // Essential assets to precache immediately
 const PRECACHE_ASSETS = [
