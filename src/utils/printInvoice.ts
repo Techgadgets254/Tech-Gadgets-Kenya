@@ -32,8 +32,8 @@ export function generateInvoiceHtml(order: Order): string {
   <title>Official Invoice - #${order.id ? order.id.slice(0, 10).toUpperCase() : "TS-ORD"}</title>
   <style>
     @page {
-      size: A4;
-      margin: 10mm;
+      size: A4 portrait;
+      margin: 8mm;
     }
     * {
       box-sizing: border-box;
@@ -41,44 +41,46 @@ export function generateInvoiceHtml(order: Order): string {
       padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
-    body {
+    html, body {
       background: #ffffff !important;
       color: #111827 !important;
-      font-size: 11px;
-      line-height: 1.4;
-      padding: 12px;
+      font-size: 10px;
+      line-height: 1.35;
+      padding: 0;
+      margin: 0;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
     .invoice-card {
-      max-width: 800px;
+      max-width: 100%;
       margin: 0 auto;
       border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      padding: 24px;
+      border-radius: 8px;
+      padding: 16px;
       background: #ffffff;
+      page-break-inside: avoid;
     }
     .header {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      padding-bottom: 18px;
+      padding-bottom: 12px;
       border-bottom: 2px solid #f3f4f6;
     }
     .brand-section {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
     .brand-logo {
-      width: 48px;
-      height: 48px;
-      border-radius: 8px;
+      width: 40px;
+      height: 40px;
+      border-radius: 6px;
       border: 1px solid #d1d5db;
       object-fit: cover;
     }
     .brand-title {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 900;
       letter-spacing: 0.05em;
       text-transform: uppercase;
@@ -86,18 +88,18 @@ export function generateInvoiceHtml(order: Order): string {
       line-height: 1;
     }
     .brand-subtitle {
-      font-size: 9px;
+      font-size: 8.5px;
       font-weight: 800;
       letter-spacing: 0.15em;
       color: #b45309;
       text-transform: uppercase;
-      margin-top: 4px;
+      margin-top: 3px;
     }
     .company-details {
-      margin-top: 10px;
-      font-size: 10px;
+      margin-top: 8px;
+      font-size: 9.5px;
       color: #4b5563;
-      line-height: 1.5;
+      line-height: 1.4;
     }
     .company-details strong {
       color: #111827;
@@ -108,7 +110,7 @@ export function generateInvoiceHtml(order: Order): string {
     }
     .invoice-meta-box {
       text-align: right;
-      font-size: 10px;
+      font-size: 9.5px;
       color: #374151;
     }
     .badge-tax {
@@ -116,29 +118,29 @@ export function generateInvoiceHtml(order: Order): string {
       background: #111827;
       color: #ffffff;
       font-weight: 800;
-      font-size: 10px;
-      padding: 4px 10px;
+      font-size: 9px;
+      padding: 3px 8px;
       border-radius: 4px;
       letter-spacing: 0.1em;
       text-transform: uppercase;
     }
     .invoice-number {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 900;
       color: #111827;
-      margin-top: 6px;
+      margin-top: 4px;
       font-family: monospace;
     }
     .status-tags {
       display: flex;
       gap: 6px;
       justify-content: flex-end;
-      margin-top: 8px;
+      margin-top: 6px;
     }
     .tag {
-      font-size: 9px;
+      font-size: 8.5px;
       font-weight: 700;
-      padding: 2px 8px;
+      padding: 2px 6px;
       border-radius: 4px;
       border: 1px solid #d1d5db;
       text-transform: uppercase;
@@ -148,6 +150,11 @@ export function generateInvoiceHtml(order: Order): string {
       color: #047857;
       border-color: #a7f3d0;
     }
+    .tag-unpaid {
+      background: #fef2f2;
+      color: #dc2626;
+      border-color: #fca5a5;
+    }
     .tag-shipped {
       background: #eff6ff;
       color: #1d4ed8;
@@ -156,54 +163,54 @@ export function generateInvoiceHtml(order: Order): string {
     .details-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      padding: 16px 0;
+      gap: 12px;
+      padding: 12px 0;
       border-bottom: 1px solid #f3f4f6;
     }
     .details-box {
       background: #f9fafb;
-      padding: 12px;
-      border-radius: 8px;
+      padding: 10px;
+      border-radius: 6px;
       border: 1px solid #e5e7eb;
     }
     .section-label {
-      font-size: 9px;
+      font-size: 8.5px;
       font-weight: 800;
       letter-spacing: 0.1em;
       color: #6b7280;
       text-transform: uppercase;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
       font-family: monospace;
     }
     .client-name {
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
       color: #111827;
     }
     .table-container {
-      margin: 18px 0;
+      margin: 12px 0;
       border: 1px solid #e5e7eb;
-      border-radius: 8px;
+      border-radius: 6px;
       overflow: hidden;
     }
     table {
       width: 100%;
       border-collapse: collapse;
       text-align: left;
-      font-size: 11px;
+      font-size: 10px;
     }
     th {
       background: #f3f4f6;
       color: #374151;
       font-weight: 700;
       text-transform: uppercase;
-      font-size: 9px;
+      font-size: 8.5px;
       letter-spacing: 0.05em;
-      padding: 8px 12px;
+      padding: 6px 10px;
       border-bottom: 1px solid #e5e7eb;
     }
     td {
-      padding: 10px 12px;
+      padding: 8px 10px;
       border-bottom: 1px solid #f3f4f6;
       color: #1f2937;
       vertical-align: top;
@@ -214,90 +221,91 @@ export function generateInvoiceHtml(order: Order): string {
     .totals-wrapper {
       display: flex;
       justify-content: space-between;
-      gap: 16px;
-      margin-top: 14px;
+      gap: 12px;
+      margin-top: 10px;
       align-items: flex-end;
     }
     .clearance-box {
       background: #fffbeb;
       border: 1px solid #fef3c7;
-      padding: 12px;
-      border-radius: 8px;
-      max-width: 340px;
-      font-size: 10px;
+      padding: 10px;
+      border-radius: 6px;
+      max-width: 320px;
+      font-size: 9px;
       color: #92400e;
     }
     .clearance-title {
       font-weight: 800;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
       text-transform: uppercase;
-      font-size: 10px;
+      font-size: 9.5px;
       color: #78350f;
     }
     .totals-box {
-      width: 280px;
+      width: 260px;
     }
     .totals-row {
       display: flex;
       justify-content: space-between;
-      font-size: 11px;
-      padding: 3px 0;
+      font-size: 10px;
+      padding: 2px 0;
       color: #4b5563;
     }
     .totals-row.grand-total {
       border-top: 2px solid #111827;
-      margin-top: 6px;
-      padding-top: 6px;
-      font-size: 14px;
+      margin-top: 4px;
+      padding-top: 4px;
+      font-size: 13px;
       font-weight: 900;
       color: #111827;
     }
     .policies-section {
-      margin-top: 20px;
-      padding-top: 16px;
+      margin-top: 14px;
+      padding-top: 12px;
       border-top: 2px solid #e5e7eb;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
     }
     .policy-card {
-      background: #f9fafb;
+      background: #fafafa;
       border: 1px solid #e5e7eb;
-      border-radius: 8px;
+      border-radius: 6px;
       padding: 10px;
     }
     .policy-title {
       font-weight: 800;
-      font-size: 10px;
-      color: #111827;
+      font-size: 9.5px;
+      color: #b45309;
+      text-transform: uppercase;
       margin-bottom: 4px;
     }
     .policy-text {
-      font-size: 9px;
-      color: #4b5563;
+      font-size: 8px;
+      color: #374151;
       line-height: 1.4;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
     }
     .footer {
-      margin-top: 24px;
-      padding-top: 12px;
+      margin-top: 16px;
+      padding-top: 10px;
       border-top: 1px solid #e5e7eb;
       display: flex;
       justify-content: space-between;
       align-items: flex-end;
-      font-size: 9px;
+      font-size: 8.5px;
       color: #6b7280;
     }
     .signature-area {
       text-align: center;
-      width: 170px;
+      width: 150px;
     }
     .signature-line {
       border-bottom: 1px solid #9ca3af;
-      height: 28px;
-      margin-bottom: 4px;
+      height: 22px;
+      margin-bottom: 3px;
       font-family: Georgia, serif;
       font-style: italic;
-      font-size: 11px;
+      font-size: 10px;
       color: #374151;
       display: flex;
       align-items: flex-end;
@@ -327,24 +335,26 @@ export function generateInvoiceHtml(order: Order): string {
       <div class="invoice-meta-box">
         <span class="badge-tax">TAX INVOICE</span>
         <div class="invoice-number">#${order.id ? order.id.slice(0, 10).toUpperCase() : "TS-ORD"}</div>
-        <div style="margin-top: 4px; font-size: 10px; color: #4b5563;">
+        <div style="margin-top: 4px; font-size: 9px; color: #4b5563;">
           <p><strong>Date Issued:</strong> ${formattedDate}</p>
           <p><strong>Payment Method:</strong> ${order.paymentProvider || "M-Pesa Express"}</p>
           ${order.receiptNo ? `<p style="color: #047857; font-weight: 700;"><strong>Clearance Ref:</strong> ${order.receiptNo}</p>` : ""}
         </div>
         <div class="status-tags">
-          <span class="tag tag-paid">Payment: ${order.paymentStatus || "Paid"}</span>
+          <span class="tag ${order.paymentStatus === "Paid" ? "tag-paid" : "tag-unpaid"}">
+            Payment: ${order.paymentStatus === "Paid" ? "🟢 Paid" : "🔴 NOT PAID"}
+          </span>
           <span class="tag tag-shipped">Dispatch: ${order.shippingStatus || "Processing"}</span>
         </div>
-        <div style="margin-top: 10px; display: flex; justify-content: flex-end; align-items: center; gap: 8px;">
+        <div style="margin-top: 8px; display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
           <div style="text-align: right;">
-            <div style="font-size: 8px; font-weight: 800; color: #111827; font-family: monospace; text-transform: uppercase;">VERIFIED ORDER QR</div>
-            <div style="font-size: 7.5px; color: #6b7280; font-family: monospace;">Scan to Trace Invoice</div>
+            <div style="font-size: 7.5px; font-weight: 800; color: #111827; font-family: monospace; text-transform: uppercase;">VERIFIED ORDER QR</div>
+            <div style="font-size: 7px; color: #6b7280; font-family: monospace;">Scan to Trace Invoice</div>
           </div>
           <img 
             src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(order.id || 'TS-ORD')}" 
             alt="Order ID QR Code" 
-            style="width: 52px; height: 52px; border-radius: 6px; border: 1px solid #d1d5db; padding: 2px; background: #ffffff; object-fit: contain;" 
+            style="width: 44px; height: 44px; border-radius: 4px; border: 1px solid #d1d5db; padding: 2px; background: #ffffff; object-fit: contain;" 
           />
         </div>
       </div>
@@ -362,7 +372,7 @@ export function generateInvoiceHtml(order: Order): string {
       <div class="details-box">
         <div class="section-label">Dispatch Destination</div>
         <div style="font-weight: 600; color: #111827;">${order.shippingAddress || "Nairobi CBD Store Pickup / Express Courier Dispatch"}</div>
-        <div style="color: #6b7280; font-size: 10px; margin-top: 4px;">Fulfillment Courier: Express Store Dispatch</div>
+        <div style="color: #6b7280; font-size: 9px; margin-top: 2px;">Fulfillment Courier: Express Store Dispatch</div>
       </div>
     </div>
 
@@ -387,10 +397,10 @@ export function generateInvoiceHtml(order: Order): string {
     <div class="totals-wrapper">
       <div class="clearance-box">
         <div class="clearance-title">✓ Verified Payment & Gateway Security</div>
-        <p>Payment Status: <strong>${(order.paymentStatus || "Paid").toUpperCase()}</strong></p>
+        <p>Payment Status: <strong style="${order.paymentStatus === "Paid" ? "color:#047857;" : "color:#dc2626;"}">${(order.paymentStatus === "Paid" ? "🟢 PAID" : "🔴 NOT PAID").toUpperCase()}</strong></p>
         <p>Gateway Carrier: <strong>${order.paymentProvider || "M-Pesa Express"}</strong></p>
         ${order.receiptNo ? `<p>Clearance Ref: <strong>${order.receiptNo}</strong></p>` : ""}
-        <p style="margin-top: 4px; font-size: 8.5px; opacity: 0.8;">Certified electronic transaction record logged with Tech Sokoni Kenya.</p>
+        <p style="margin-top: 3px; font-size: 8px; opacity: 0.85;">Certified electronic transaction record logged with Tech Sokoni Kenya.</p>
       </div>
 
       <div class="totals-box">
@@ -416,18 +426,17 @@ export function generateInvoiceHtml(order: Order): string {
     <!-- Policy & Returns Section -->
     <div class="policies-section">
       <div class="policy-card">
-        <div class="policy-title">🛡️ 3-Day Return & Testing Window</div>
-        <div class="policy-text">Clients are granted a strict 3-day testing window from date of receipt/delivery. Returned items must be in original packaging with intact security seals.</div>
-      </div>
-
-      <div class="policy-card">
-        <div class="policy-title">🔒 Hardware Warranty Policy</div>
-        <div class="policy-text">All laptops and hardware carry standard manufacturer/store warranty against technical defects. Physical, power surge, or liquid damage voids coverage.</div>
-      </div>
-
-      <div class="policy-card">
-        <div class="policy-title">📄 Official Fiscal Clearance</div>
-        <div class="policy-text">Official store receipt with verified transaction clearance. Persistent logs remain securely stored in your authenticated client profile.</div>
+        <div class="policy-title">
+          🛡️ OFFICIAL SERVICE POLICIES: WARRANTY, RETURN & REFUNDS
+        </div>
+        <div class="policy-text">
+          <p>• <strong>WARRANTY DURATIONS:</strong> 1 Year (12 Months) warranty for brand-new items; 6 Months warranty for certified refurbished devices.</p>
+          <p>• <strong>KEYBOARD TESTING WINDOW:</strong> Laptop screens/keyboards are not covered under warranty, but keyboards receive a 7-day testing window to verify full function.</p>
+          <p>• <strong>PHONE LIMITATIONS:</strong> Screen assemblies, display panels, and liquid/moisture ingress are strictly NOT covered under any warranty.</p>
+          <p>• <strong>RETURN & TESTING:</strong> Clients are granted a strict 3-day testing window from date of receipt/delivery. No returns are accepted after 3 days.</p>
+          <p>• <strong>VOID CLAUSE:</strong> Physically damaged, cracked, burnt, altered, or liquid-damaged elements are strictly NOT covered under any circumstances.</p>
+          <p>• <strong>DIGITAL CLEARANCE:</strong> Certified transaction verified under digital audit index registries.</p>
+        </div>
       </div>
     </div>
 
@@ -441,7 +450,7 @@ export function generateInvoiceHtml(order: Order): string {
 
       <div class="signature-area">
         <div class="signature-line">Authorized Signatory</div>
-        <p style="font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.05em; color: #9ca3af;">Dispatch & Store Stamp</p>
+        <p style="font-size: 8px; text-transform: uppercase; letter-spacing: 0.05em; color: #9ca3af;">Dispatch & Store Stamp</p>
       </div>
     </div>
   </div>

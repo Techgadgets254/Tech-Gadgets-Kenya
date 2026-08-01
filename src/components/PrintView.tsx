@@ -192,35 +192,19 @@ export const PrintView: React.FC<PrintViewProps> = ({ order, onClose, onPrint })
           </div>
 
           {/* Store Policies & Fiscal Clearance Section */}
-          <div className="mt-8 pt-6 border-t-2 border-zinc-200 grid grid-cols-1 sm:grid-cols-3 gap-4 text-[10px] text-zinc-600">
-            <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 space-y-1">
-              <p className="font-bold text-zinc-900 flex items-center gap-1 text-xs">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                3-Day Return & Testing Window
+          <div className="mt-8 pt-6 border-t-2 border-zinc-200">
+            <div className="p-4 bg-zinc-50 rounded-xl border border-zinc-200 space-y-2 text-xs">
+              <p className="font-extrabold text-amber-800 uppercase tracking-wider text-xs flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-amber-700" />
+                OFFICIAL SERVICE POLICIES: WARRANTY, RETURN & REFUNDS
               </p>
-              <p className="text-zinc-500 leading-normal">
-                Clients are granted a strict 3-day testing window from date of receipt/delivery. Returned items must be in original packaging with intact security seals.
-              </p>
-            </div>
-            
-            <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 space-y-1">
-              <p className="font-bold text-zinc-900 flex items-center gap-1 text-xs">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                Hardware Warranty Policy
-              </p>
-              <p className="text-zinc-500 leading-normal">
-                All laptops and hardware carry standard manufacturer/store warranty against technical defects. Physical, power surge, or liquid damage voids coverage.
-              </p>
-            </div>
-
-            <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 space-y-1">
-              <p className="font-bold text-zinc-900 flex items-center gap-1 text-xs">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                Official Store & Tax Clearance
-              </p>
-              <p className="text-zinc-500 leading-normal">
-                Tax Invoice with verified clearance. Persistent invoice logs remain saved inside your client account profile.
-              </p>
+              <ul className="text-zinc-700 text-[11px] leading-relaxed space-y-1 pl-1">
+                <li>• <strong>WARRANTY DURATIONS:</strong> 1 Year (12 Months) warranty for brand-new items; 6 Months warranty for certified refurbished devices.</li>
+                <li>• <strong>KEYBOARD TESTING WINDOW:</strong> Laptop screens/keyboards are not covered under warranty, but keyboards receive a 7-day testing window to verify full function.</li>
+                <li>• <strong>PHONE LIMITATIONS:</strong> Screen assemblies, display panels, and liquid/moisture ingress are strictly NOT covered under any warranty.</li>
+                <li>• <strong>RETURN & TESTING:</strong> Clients are granted a strict 3-day testing window from date of receipt/delivery. No returns are accepted after 3 days.</li>
+                <li>• <strong>VOID CLAUSE:</strong> Physically damaged, cracked, burnt, altered, or liquid-damaged elements are strictly NOT covered under any circumstances.</li>
+              </ul>
             </div>
           </div>
 

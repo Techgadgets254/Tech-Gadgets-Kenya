@@ -520,6 +520,44 @@ export default function ClientDashboard() {
     });
   }, [orders, user]);
 
+  // Aggregated list of payment records combining 'payments' collection and client orders
+  const allPaymentRecords = useMemo(() => {
+    const map = new Map<string, any>();
+
+    // First add payment attempts from payments collection
+    paymentAttempts.forEach((p) => {
+      const key = p.orderId || p.id;
+      map.set(key, { ...p });
+    });
+
+    // Ensure all orders belonging to user are included
+    clientOrders.forEach((ord) => {
+      if (!map.has(ord.id)) {
+        const isPaid = ord.paymentStatus === "Paid" || ord.paymentStatus === "SUCCESS" || ord.paymentStatus === "COMPLETED";
+        map.set(ord.id, {
+          id: `ord-pay-${ord.id}`,
+          orderId: ord.id,
+          status: isPaid ? "Paid" : (ord.paymentStatus || "NOT PAID"),
+          receiptNo: ord.receiptNo || "Awaiting PIN",
+          mpesaReceiptNumber: ord.receiptNo,
+          transactionId: ord.receiptNo,
+          phoneNumber: ord.mpesaPhone || ord.customerPhone,
+          amount: ord.totalAmount,
+          createdAt: ord.createdAt,
+          timestamp: ord.createdAt
+        });
+      }
+    });
+
+    const list = Array.from(map.values());
+    list.sort((a, b) => {
+      const timeA = new Date(a.createdAt || a.timestamp || 0).getTime();
+      const timeB = new Date(b.createdAt || b.timestamp || 0).getTime();
+      return timeB - timeA;
+    });
+    return list;
+  }, [paymentAttempts, clientOrders]);
+
   const handleDownloadStatementPDF = async () => {
     if (clientOrders.length === 0) return;
     const doc = new jsPDF({
@@ -727,22 +765,49 @@ export default function ClientDashboard() {
       ord.receiptNo?.toLowerCase().includes(q) ||
       (ord.items || []).some(item => item.name.toLowerCase().includes(q) || item.brand.toLowerCase().includes(q))
     );
-  }, [orders, orderSearchQuery, statusFilter]);
+  }, [clientOrders, orderSearchQuery, statusFilter]);
 
   // Selected Order for detailing or default to first order
-  const activeOrder = useMemo(() => {
+  const baseActiveOrder = useMemo(() => {
     if (invoiceOrderId) {
       return filteredOrders.find(o => o.id === invoiceOrderId) || filteredOrders[0] || null;
     }
     return filteredOrders[0] || null;
   }, [filteredOrders, invoiceOrderId]);
 
+  // Real-time active order subscription from Firestore for instant live status updates
+  const [realtimeActiveOrder, setRealtimeActiveOrder] = useState<Order | null>(null);
+
+  useEffect(() => {
+    if (!baseActiveOrder?.id) {
+      setRealtimeActiveOrder(null);
+      return;
+    }
+    setRealtimeActiveOrder(baseActiveOrder);
+
+    const unsubscribe = onSnapshot(
+      doc(db, "orders", baseActiveOrder.id),
+      (snapshot) => {
+        if (snapshot.exists()) {
+          setRealtimeActiveOrder({ id: snapshot.id, ...snapshot.data() } as Order);
+        }
+      },
+      (err) => {
+        console.warn("Realtime active order listener warning:", err);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [baseActiveOrder?.id]);
+
+  const activeOrder = realtimeActiveOrder || baseActiveOrder;
+
   // Set active order ID whenever selected changes or on mount
   useEffect(() => {
     if (activeOrder && invoiceOrderId !== activeOrder.id) {
       setInvoiceOrderId(activeOrder.id);
     }
-  }, [activeOrder, invoiceOrderId, setInvoiceOrderId]);
+  }, [activeOrder?.id, invoiceOrderId, setInvoiceOrderId]);
 
   // Trigger hidden iframe printing for isolated, clean invoice PDF output
   const handlePrintInvoice = () => {
@@ -1102,11 +1167,11 @@ export default function ClientDashboard() {
                         <div className="text-right shrink-0 flex items-center gap-3">
                           <div className="flex flex-col items-end">
                             <span className={`px-2 py-0.5 rounded-md font-mono text-[9px] uppercase font-bold tracking-wider block ${
-                              ord.paymentStatus === "Paid"
+                              ord.paymentStatus === "Paid" || ord.paymentStatus === "SUCCESS"
                                 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                                : "bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/20"
+                                : "bg-red-500/10 text-red-400 border border-red-500/20"
                             }`}>
-                              {ord.paymentStatus}
+                              {ord.paymentStatus === "Paid" || ord.paymentStatus === "SUCCESS" ? "🟢 Paid" : "🔴 NOT PAID"}
                             </span>
                             <span className="text-[10px] text-white/35 block mt-1.5 font-semibold">
                               {ord.shippingStatus}
@@ -1131,68 +1196,6 @@ export default function ClientDashboard() {
                       </div>
                     );
                   })
-                )}
-              </div>
-            </div>
-
-            {/* M-PESA PAYMENTS REGISTRY */}
-            <div className="bg-[#0F0F0F] border border-emerald-500/10 rounded-3xl p-6 shadow-xs relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-[#4f9e31]/40"></div>
-              <div className="flex items-center justify-between mb-3">
-                <span className="font-mono text-xs font-bold text-emerald-400 block tracking-wider uppercase">
-                  🟢 M-PESA PAYMENTS REGISTRY
-                </span>
-                <span className="text-[10px] bg-[#4f9e31]/15 text-[#4f9e31] px-2 py-0.5 rounded-full font-mono font-bold">
-                  {clientOrders.filter(ord => ord.paymentProvider === "Mpesa-QR" || ord.mpesaPhone).length} Logs
-                </span>
-              </div>
-              <p className="text-[10.5px] text-white/40 leading-relaxed font-sans mb-4">
-                Real-time tracking of Lipa Na M-Pesa payments routed through merchant Till 9309020.
-              </p>
-
-              <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
-                {clientOrders.filter(ord => ord.paymentProvider === "Mpesa-QR" || ord.mpesaPhone).length === 0 ? (
-                  <div className="p-5 text-center border border-dashed border-white/5 rounded-2xl bg-black/30">
-                    <p className="text-[10px] font-mono text-white/30">No M-Pesa transactions found.</p>
-                  </div>
-                ) : (
-                  clientOrders
-                    .filter(ord => ord.paymentProvider === "Mpesa-QR" || ord.mpesaPhone)
-                    .map((ord) => (
-                      <div
-                        key={ord.id}
-                        onClick={() => setInvoiceOrderId(ord.id)}
-                        className="p-3 bg-[#0A0A0A] border border-white/5 rounded-xl flex items-center justify-between hover:border-[#4f9e31]/30 cursor-pointer transition-all animate-fadeIn"
-                      >
-                        <div className="text-left space-y-1">
-                          <p className="font-mono text-[10px] font-bold text-white flex items-center gap-1">
-                            Ref: {ord.receiptNo || `TGK-${ord.id.substring(0,6).toUpperCase()}`}
-                          </p>
-                          <p className="text-[9.5px] text-white/40 font-mono">
-                            {ord.createdAt ? new Date(ord.createdAt).toLocaleString("en-KE", { dateStyle: "short", timeStyle: "short" }) : "Pending"}
-                          </p>
-                          {ord.mpesaPhone && (
-                            <p className="text-[9px] font-mono text-emerald-500/80">
-                              Phone: +{ord.mpesaPhone}
-                            </p>
-                          )}
-                        </div>
-                        <div className="text-right space-y-1">
-                          <p className="text-[11px] font-bold text-white font-mono font-black">
-                            KES {ord.totalAmount.toLocaleString()}
-                          </p>
-                          <span className={`inline-block px-2 py-0.5 rounded-md font-mono text-[8px] uppercase font-bold tracking-wider ${
-                            ord.paymentStatus === "Paid"
-                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                              : ord.paymentStatus === "Failed"
-                              ? "bg-red-500/10 text-red-400 border border-red-500/20"
-                              : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                          }`}>
-                            {ord.paymentStatus === "Paid" ? "Confirmed" : "Processing"}
-                          </span>
-                        </div>
-                      </div>
-                    ))
                 )}
               </div>
             </div>
@@ -1419,38 +1422,6 @@ export default function ClientDashboard() {
                       )}
                     </button>
 
-                    {/* Track Courier Dispatch Button */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveTab("tracking");
-                      }}
-                      className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Truck className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Track Dispatch</span>
-                    </button>
-
-                    {/* Print Receipt Button */}
-                    <button
-                      type="button"
-                      onClick={handlePrintInvoice}
-                      className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-black text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Printer className="w-3.5 h-3.5 text-black" />
-                      <span>Print Receipt</span>
-                    </button>
-
-                    {/* Download as PDF Button */}
-                    <button
-                      type="button"
-                      onClick={handlePrintInvoice}
-                      className="bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Download as PDF</span>
-                    </button>
-
                     {/* Preview Invoice PDF Button */}
                     <button
                       type="button"
@@ -1461,7 +1432,7 @@ export default function ClientDashboard() {
                       className="bg-white/10 hover:bg-white/15 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer border border-white/10"
                     >
                       <FileText className="w-3.5 h-3.5 text-white" />
-                      <span>Preview Invoice</span>
+                      <span>Preview Invoice & Receipt</span>
                     </button>
 
                     {/* Leave Feedback Button */}
@@ -1495,151 +1466,6 @@ export default function ClientDashboard() {
                     <p className="text-white/50">An official PDF and structured fiscal copy of Order <strong>#{activeOrder.id.substring(0,8).toUpperCase()}</strong> has been delivered to <strong>{activeOrder.customerEmail}</strong>.</p>
                   </div>
                 )}
-
-                {/* Visual Order Progress Tracking Timeline */}
-                <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 sm:p-8 no-print shadow-xl">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-6 pb-4 border-b border-white/5">
-                    <div>
-                      <span className="font-mono text-[10px] text-white/40 uppercase tracking-widest block">Live Status tracking timeline</span>
-                      <h3 className="font-sans font-bold text-lg text-white mt-1">Track Dispatch Journey</h3>
-                    </div>
-                    <span className={`font-mono text-xs px-3 py-1 rounded-md uppercase font-bold tracking-wider ${
-                      activeOrder.shippingStatus?.toLowerCase() === "cancelled"
-                        ? "bg-red-500/10 text-red-400 border border-red-500/20"
-                        : activeOrder.shippingStatus?.toLowerCase() === "delivered"
-                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                        : "bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/20"
-                    }`}>
-                      Current Stage: {activeOrder.shippingStatus || "Processing"}
-                    </span>
-                  </div>
-
-                  {activeOrder.shippingStatus?.toLowerCase() === "cancelled" ? (
-                    <div className="bg-red-950/20 border border-red-500/25 rounded-2xl p-4 flex gap-3 text-left">
-                      <XCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-                      <div>
-                        <h4 className="text-sm font-semibold text-white">Order Cancelled</h4>
-                        <p className="text-xs text-white/60 mt-1 leading-relaxed">This consignment transaction has been terminated or recalled. Refund allocations have been initiated for your account. Contact support for fast inquiries.</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="relative pl-6 sm:pl-8 space-y-8 text-left">
-                      {/* Vertical line connector */}
-                      <div className="absolute left-[13px] sm:left-[17px] top-3 bottom-3 w-0.5 bg-white/5" />
-
-                      {[
-                        {
-                          key: "placed",
-                          title: "Order Placed",
-                          time: "Instant",
-                          icon: Clock,
-                          description: "Your hardware order has been successfully logged and queued in our fulfillment system.",
-                          check: () => true
-                        },
-                        {
-                          key: "payment_verified",
-                          title: "Payment Verified",
-                          time: "Authorized",
-                          icon: CreditCard,
-                          description: "M-Pesa or Card payment authorization confirmed and reconciled.",
-                          check: (status: string, payStatus?: string) => {
-                            const p = (payStatus || "").toLowerCase();
-                            const s = (status || "").toLowerCase();
-                            return p === "paid" || p === "verified" || (s !== "pending" && s !== "order received");
-                          }
-                        },
-                        {
-                          key: "processing",
-                          title: "Processing",
-                          time: "1-2 Hours",
-                          icon: Package,
-                          description: "Our configuration laboratory is testing, inspecting, and preparing secure packaging.",
-                          check: (status: string) => {
-                            const s = (status || "").toLowerCase();
-                            return s === "processing" || s === "shipped" || s === "out for delivery" || s === "out_for_delivery" || s === "delivered";
-                          }
-                        },
-                        {
-                          key: "out_for_delivery",
-                          title: "Out for Delivery",
-                          time: "In Transit",
-                          icon: Truck,
-                          description: "Handed over to express courier for Nairobi CBD & regional dispatch.",
-                          check: (status: string) => {
-                            const s = (status || "").toLowerCase();
-                            return s === "shipped" || s === "out for delivery" || s === "out_for_delivery" || s === "delivered";
-                          }
-                        },
-                        {
-                          key: "delivered",
-                          title: "Delivered",
-                          time: "Completed",
-                          icon: CheckCircle,
-                          description: "Consignment hand-delivered and official sign-off completed.",
-                          check: (status: string) => {
-                            const s = (status || "").toLowerCase();
-                            return s === "delivered";
-                          }
-                        }
-                      ].map((step, idx, arr) => {
-                        const statusStr = activeOrder.shippingStatus || "Processing";
-                        const payStr = activeOrder.paymentStatus || "Pending";
-                        const isCompleted = step.check(statusStr, payStr);
-                        
-                        // Active check: it is the first step in the list that is not completed, or we are at the last completed step
-                        const currentStepIndex = arr.findIndex(s => !s.check(statusStr, payStr));
-                        const isActive = currentStepIndex === idx || (currentStepIndex === -1 && idx === arr.length - 1);
-
-                        const StepIcon = step.icon;
-
-                        return (
-                          <div key={step.key} className="relative flex gap-4 sm:gap-6 items-start">
-                            {/* Visual circle node */}
-                            <div className="relative shrink-0 z-10">
-                              <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center border transition-all duration-500 ${
-                                isCompleted
-                                  ? "bg-black border-emerald-500 text-emerald-400 shadow-md shadow-emerald-500/10"
-                                  : isActive
-                                  ? "bg-black border-[#C5A059] text-[#C5A059] ring-4 ring-[#C5A059]/15 shadow-md shadow-[#C5A059]/10"
-                                  : "bg-black border-white/10 text-white/20"
-                              }`}>
-                                <StepIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                              </div>
-                              {isActive && (
-                                <span className="absolute -inset-0.5 rounded-full border border-[#C5A059] animate-ping opacity-30" />
-                              )}
-                            </div>
-
-                            {/* Text Description Block */}
-                            <div className="flex-1 space-y-1">
-                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1">
-                                <h4 className={`text-sm font-semibold transition-colors duration-300 ${
-                                  isCompleted ? "text-white" : isActive ? "text-[#C5A059]" : "text-white/30"
-                                }`}>
-                                  {step.title}
-                                </h4>
-                                <span className={`text-[9px] font-mono font-bold tracking-wider px-2 py-0.5 rounded-md ${
-                                  isCompleted
-                                    ? "bg-emerald-500/10 text-emerald-400"
-                                    : isActive
-                                    ? "bg-[#C5A059]/10 text-[#C5A059] animate-pulse"
-                                    : "bg-white/5 text-white/20"
-                                }`}>
-                                  {step.time}
-                                </span>
-                              </div>
-                              <p className={`text-xs leading-relaxed transition-colors duration-300 ${
-                                isCompleted || isActive ? "text-white/60" : "text-white/20"
-                              }`}>
-                                {step.description}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
 
                 {/* VISIBLE INVOICE DOCK IN BOX (Targeted for standard PDF output scale) */}
                 <div 
@@ -1685,13 +1511,11 @@ export default function ClientDashboard() {
                       {/* Interactive Visual Status Stamps */}
                       <div className="flex gap-2 mt-2.5 sm:justify-end">
                         <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded-md uppercase tracking-wider block border ${
-                          activeOrder.paymentStatus === "Paid"
+                          activeOrder.paymentStatus === "Paid" || activeOrder.paymentStatus === "SUCCESS"
                             ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                            : activeOrder.paymentStatus === "Failed"
-                            ? "bg-red-500/15 text-red-500 border-red-500/25 animate-pulse"
-                            : "bg-[#C5A059]/10 text-[#C5A059] border-[#C5A059]/20"
+                            : "bg-red-500/15 text-red-400 border-red-500/25 animate-pulse"
                         }`}>
-                          Payment: {activeOrder.paymentStatus}
+                          Payment: {activeOrder.paymentStatus === "Paid" || activeOrder.paymentStatus === "SUCCESS" ? "🟢 Paid" : "🔴 NOT PAID"}
                         </span>
                         
                         <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded-md uppercase tracking-wider block border ${
@@ -1834,35 +1658,19 @@ export default function ClientDashboard() {
                   </div>
 
                   {/* Store Policies & Fiscal Clearance Section */}
-                  <div className="mt-8 pt-6 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-4 text-[10px] text-white/60">
-                    <div className="p-3 bg-white/[0.02] rounded-xl border border-white/5 space-y-1">
-                      <p className="font-bold text-white flex items-center gap-1 text-xs">
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                        3-Day Return & Testing
+                  <div className="mt-8 pt-6 border-t border-white/10 space-y-3">
+                    <div className="p-4 bg-white/[0.02] rounded-2xl border border-white/10 space-y-2 text-xs">
+                      <p className="font-extrabold text-[#C5A059] uppercase tracking-wider text-xs flex items-center gap-1.5">
+                        <ShieldCheck className="w-4 h-4 text-[#C5A059]" />
+                        OFFICIAL SERVICE POLICIES: WARRANTY, RETURN & REFUNDS
                       </p>
-                      <p className="text-white/40 leading-normal">
-                        Clients are granted a strict 3-day testing window from date of receipt/delivery. Returned items must be in original packaging with intact security seals.
-                      </p>
-                    </div>
-                    
-                    <div className="p-3 bg-white/[0.02] rounded-xl border border-white/5 space-y-1">
-                      <p className="font-bold text-white flex items-center gap-1 text-xs">
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                        Hardware Warranty Policy
-                      </p>
-                      <p className="text-white/40 leading-normal">
-                        All laptops and hardware carry standard manufacturer/store warranty against technical defects. Physical, power surge, or liquid damage voids coverage.
-                      </p>
-                    </div>
-
-                    <div className="p-3 bg-white/[0.02] rounded-xl border border-white/5 space-y-1">
-                      <p className="font-bold text-white flex items-center gap-1 text-xs">
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                        Official Store Fiscal Clearance
-                      </p>
-                      <p className="text-white/40 leading-normal">
-                        Tax Invoice with verified official transaction clearance. Contact 0792620789 / shop@techsokoni.com for support.
-                      </p>
+                      <ul className="text-white/70 text-[11px] leading-relaxed space-y-1.5 pl-1">
+                        <li>• <strong>WARRANTY DURATIONS:</strong> 1 Year (12 Months) warranty for brand-new items; 6 Months warranty for certified refurbished devices.</li>
+                        <li>• <strong>KEYBOARD TESTING WINDOW:</strong> Laptop screens/keyboards are not covered under warranty, but keyboards receive a 7-day testing window to verify full function.</li>
+                        <li>• <strong>PHONE LIMITATIONS:</strong> Screen assemblies, display panels, and liquid/moisture ingress are strictly NOT covered under any warranty.</li>
+                        <li>• <strong>RETURN & TESTING:</strong> Clients are granted a strict 3-day testing window from date of receipt/delivery. No returns are accepted after 3 days.</li>
+                        <li>• <strong>VOID CLAUSE:</strong> Physically damaged, cracked, burnt, altered, or liquid-damaged elements are strictly NOT covered under any circumstances.</li>
+                      </ul>
                     </div>
                   </div>
 
@@ -1900,16 +1708,16 @@ export default function ClientDashboard() {
                 </p>
               </div>
               <div className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl font-mono text-[10px] text-white/60">
-                Total Attempts: <strong className="text-[#C5A059]">{paymentAttempts.length}</strong>
+                Total Payment Records: <strong className="text-[#C5A059]">{allPaymentRecords.length}</strong>
               </div>
             </div>
 
             {paymentsLoading ? (
               <div className="py-16 text-center space-y-3">
                 <Loader2 className="w-8 h-8 text-[#C5A059] animate-spin mx-auto" />
-                <p className="text-xs font-mono text-white/40">Querying Firestore payments collection...</p>
+                <p className="text-xs font-mono text-white/40">Querying Firestore payment history...</p>
               </div>
-            ) : paymentAttempts.length === 0 ? (
+            ) : allPaymentRecords.length === 0 ? (
               <div className="py-16 border-2 border-dashed border-white/5 rounded-2xl bg-white/[0.01] text-center space-y-3 my-4">
                 <CreditCard className="w-10 h-10 text-white/20 mx-auto" />
                 <h4 className="font-sans font-bold text-sm text-white">No Historical Payment Records Found</h4>
@@ -1931,10 +1739,9 @@ export default function ClientDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {paymentAttempts.map((attempt) => {
-                      const st = (attempt.status || "PENDING").toUpperCase();
-                      const isSuccess = st === "SUCCESS" || st === "COMPLETED";
-                      const isFailed = st === "FAILED" || st === "CANCELLED" || st === "DECLINED" || st === "EXPIRED";
+                    {allPaymentRecords.map((attempt) => {
+                      const st = (attempt.status || "NOT PAID").toUpperCase();
+                      const isPaid = st === "PAID" || st === "SUCCESS" || st === "COMPLETED";
                       
                       return (
                         <tr key={attempt.id} className="hover:bg-white/[0.02] transition-colors">
@@ -1945,16 +1752,14 @@ export default function ClientDashboard() {
                           </td>
                           <td className="py-3">
                             <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase border ${
-                              isSuccess
+                              isPaid
                                 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                : isFailed
-                                ? "bg-red-500/10 text-red-400 border-red-500/20"
-                                : "bg-amber-500/10 text-amber-400 border-amber-500/20 animate-pulse"
+                                : "bg-red-500/10 text-red-400 border-red-500/20"
                             }`}>
                               <span className={`w-1.5 h-1.5 rounded-full ${
-                                isSuccess ? "bg-emerald-400" : isFailed ? "bg-red-400" : "bg-amber-400"
+                                isPaid ? "bg-emerald-400" : "bg-red-400"
                               }`} />
-                              {attempt.status || "PENDING"}
+                              {isPaid ? "🟢 Paid" : "🔴 NOT PAID"}
                             </span>
                           </td>
                           <td className="py-3 font-mono text-[11px] text-white">
