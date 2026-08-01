@@ -365,80 +365,75 @@ function OrderCourierEditor({
   ord: Order;
   onSave: (courierName: string, courierWaybill: string, courierPhone: string) => void;
 }) {
-  const [courierName, setCourierName] = useState(ord.courierName || "G4S Courier Express");
-  const [courierWaybill, setCourierWaybill] = useState(
-    ord.courierWaybill || `WB-G4S-${ord.id.substring(0, 6).toUpperCase()}`
-  );
-  const [courierPhone, setCourierPhone] = useState(ord.courierPhone || "+254 703 077 000");
-  const [isSaved, setIsSaved] = useState(false);
-
-  const handleCourierChange = (selectedCourier: string) => {
-    setCourierName(selectedCourier);
-    if (selectedCourier === "G4S Courier Express") {
-      setCourierPhone("+254 703 077 000");
-      if (!courierWaybill || courierWaybill.startsWith("WB-FARGO") || courierWaybill.startsWith("WB-TS")) {
-        setCourierWaybill(`WB-G4S-${ord.id.substring(0, 6).toUpperCase()}`);
-      }
-    } else if (selectedCourier === "Wells Fargo Courier") {
-      setCourierPhone("+254 703 030 000");
-      if (!courierWaybill || courierWaybill.startsWith("WB-G4S") || courierWaybill.startsWith("WB-TS")) {
-        setCourierWaybill(`WB-FARGO-${ord.id.substring(0, 6).toUpperCase()}`);
-      }
-    } else if (selectedCourier === "Tech Sokoni Local Dispatch") {
-      setCourierPhone("+254 793 090 200");
-      if (!courierWaybill || courierWaybill.startsWith("WB-G4S") || courierWaybill.startsWith("WB-FARGO")) {
-        setCourierWaybill(`WB-TS-${ord.id.substring(0, 6).toUpperCase()}`);
-      }
-    }
+  const getInitialCourier = () => {
+    const name = ord.courierName || "";
+    if (name.toLowerCase().includes("fargo")) return "Fargo";
+    return "G4S";
   };
 
-  const handleSaveClick = () => {
-    onSave(courierName, courierWaybill, courierPhone);
+  const getInitialTracking = () => {
+    return (ord.courierWaybill || "").replace(/\D/g, "");
+  };
+
+  const [courierName, setCourierName] = useState<string>(getInitialCourier());
+  const [courierWaybill, setCourierWaybill] = useState<string>(getInitialTracking());
+  const [isSaved, setIsSaved] = useState(false);
+
+  useEffect(() => {
+    const name = ord.courierName || "";
+    setCourierName(name.toLowerCase().includes("fargo") ? "Fargo" : "G4S");
+    setCourierWaybill((ord.courierWaybill || "").replace(/\D/g, ""));
+  }, [ord.courierName, ord.courierWaybill]);
+
+  const triggerSave = (selectedCourier: string, waybillDigits: string) => {
+    const phone = selectedCourier === "Fargo" ? "+254 703 030 000" : "+254 703 077 000";
+    onSave(selectedCourier, waybillDigits, phone);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2000);
+  };
+
+  const handleCourierSelect = (selectedCourier: string) => {
+    setCourierName(selectedCourier);
+    triggerSave(selectedCourier, courierWaybill);
+  };
+
+  const handleWaybillChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const numericOnly = e.target.value.replace(/\D/g, "");
+    setCourierWaybill(numericOnly);
+  };
+
+  const handleWaybillBlur = () => {
+    triggerSave(courierName, courierWaybill);
   };
 
   return (
     <div className="mt-2.5 p-2 bg-[#050505] border border-white/10 rounded-xl space-y-1.5 text-[10px] font-mono">
       <div className="flex items-center justify-between text-[#C5A059] font-bold">
-        <span>COURIER DISPATCH SETUP</span>
+        <span>COURIER DISPATCH</span>
         {isSaved && <span className="text-emerald-400 text-[9px] font-sans font-bold">✓ Saved</span>}
       </div>
 
-      <select
-        value={courierName}
-        onChange={(e) => handleCourierChange(e.target.value)}
-        className="w-full bg-[#0A0A0A] border border-white/10 rounded-md px-1.5 py-1 text-white font-mono text-[10px] focus:outline-hidden focus:border-[#C5A059]"
-      >
-        <option value="G4S Courier Express">G4S Courier Express</option>
-        <option value="Wells Fargo Courier">Wells Fargo Courier</option>
-        <option value="Tech Sokoni Local Dispatch">Tech Sokoni Local Dispatch</option>
-      </select>
+      <div className="flex items-center gap-1.5">
+        <select
+          value={courierName}
+          onChange={(e) => handleCourierSelect(e.target.value)}
+          className="bg-[#0A0A0A] border border-white/10 rounded-md px-2 py-1 text-white font-mono text-[10px] focus:outline-hidden focus:border-[#C5A059] cursor-pointer"
+        >
+          <option value="G4S">G4S</option>
+          <option value="Fargo">Fargo</option>
+        </select>
 
-      <div className="space-y-1">
         <input
           type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
           value={courierWaybill}
-          onChange={(e) => setCourierWaybill(e.target.value)}
-          placeholder="Waybill No (e.g. G4S-8910)"
-          className="w-full bg-[#0A0A0A] border border-white/10 rounded-md px-1.5 py-1 text-white text-[9px] font-mono focus:outline-hidden focus:border-[#C5A059]"
-        />
-        <input
-          type="text"
-          value={courierPhone}
-          onChange={(e) => setCourierPhone(e.target.value)}
-          placeholder="Courier Helpline Phone"
-          className="w-full bg-[#0A0A0A] border border-white/10 rounded-md px-1.5 py-1 text-white text-[9px] font-mono focus:outline-hidden focus:border-[#C5A059]"
+          onChange={handleWaybillChange}
+          onBlur={handleWaybillBlur}
+          placeholder="Tracking # (digits only)"
+          className="flex-1 w-full bg-[#0A0A0A] border border-white/10 rounded-md px-2 py-1 text-white text-[10px] font-mono focus:outline-hidden focus:border-[#C5A059]"
         />
       </div>
-
-      <button
-        type="button"
-        onClick={handleSaveClick}
-        className="w-full bg-[#C5A059] hover:bg-amber-600 text-black font-extrabold py-1 rounded-md transition-all cursor-pointer text-[9px] uppercase tracking-wider"
-      >
-        Save Courier Waybill
-      </button>
     </div>
   );
 }
@@ -491,6 +486,7 @@ export default function AdminDashboard() {
   const [orderSearchQuery, setOrderSearchQuery] = useState("");
   const [inventorySearchQuery, setInventorySearchQuery] = useState("");
   const [inventoryPage, setInventoryPage] = useState(1);
+  const [ordersPage, setOrdersPage] = useState(1);
   const [showQrScanner, setShowQrScanner] = useState(false);
   const [qrScannerError, setQrScannerError] = useState("");
   const [csvSyncLoading, setCsvSyncLoading] = useState(false);
@@ -1056,6 +1052,16 @@ export default function AdminDashboard() {
       return 0;
     });
   }, [orders, orderSortField, orderSortDirection, orderSearchQuery, orderStatusFilter]);
+
+  const FULFILLMENT_ORDERS_PER_PAGE = 12;
+  const totalOrderPages = Math.ceil(sortedOrders.length / FULFILLMENT_ORDERS_PER_PAGE) || 1;
+  const paginatedOrders = useMemo(() => {
+    return sortedOrders.slice((ordersPage - 1) * FULFILLMENT_ORDERS_PER_PAGE, ordersPage * FULFILLMENT_ORDERS_PER_PAGE);
+  }, [sortedOrders, ordersPage]);
+
+  useEffect(() => {
+    setOrdersPage(1);
+  }, [orderSearchQuery, orderStatusFilter, orderSortField, orderSortDirection]);
 
   // Active sub-view ("overview" | "financial_overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "whatsapp_catalog" | "flash_offers" | "diagnostics")
   const [activeSubTab, setActiveSubTab] = useState<"overview" | "financial_overview" | "inventory" | "orders" | "newsletters" | "trash" | "affiliates" | "price_alerts" | "intelligence" | "admin_settings" | "audit_logs" | "auth_audit" | "seo_settings" | "whatsapp_catalog" | "flash_offers" | "diagnostics">(() => {
@@ -5473,7 +5479,7 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                         </td>
                       </tr>
                     ) : (
-                      sortedOrders.map((ord) => (
+                      paginatedOrders.map((ord) => (
                         <tr key={ord.id} className="hover:bg-white/[0.01] transition-colors">
                           <td className="p-2.5 sm:p-4 font-mono font-bold">
                             <span className="block text-white">#{ord.id.substring(0,8).toUpperCase()}</span>
