@@ -1,7 +1,8 @@
 import { Order } from "../types";
+import brandLogoImg from "../assets/images/tech_soko_logo_1783960703453.jpg";
 
 export function generateInvoiceHtml(order: Order): string {
-  const brandLogo = "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=200&q=80";
+  const brandLogo = brandLogoImg;
   const formattedDate = order.createdAt ? new Date(order.createdAt).toLocaleString("en-GB", {
     day: "2-digit",
     month: "short",

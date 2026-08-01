@@ -38,7 +38,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { db } from "../firebase";
-import { collection, addDoc, query, where, onSnapshot, getDocs } from "firebase/firestore";
+import { collection, addDoc, query, where, onSnapshot, getDocs, doc } from "firebase/firestore";
 import LiveOrderTracker from "./LiveOrderTracker";
 import { Order } from "../types";
 import { jsPDF } from "jspdf";

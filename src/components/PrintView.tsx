@@ -2,6 +2,7 @@ import React from "react";
 import { Order } from "../types";
 import { Printer, ShieldCheck, MapPin, Phone, Mail } from "lucide-react";
 import { printInvoiceIframe } from "../utils/printInvoice";
+import brandLogoImg from "../assets/images/tech_soko_logo_1783960703453.jpg";
 
 interface PrintViewProps {
   order: Order;
@@ -66,9 +67,11 @@ export const PrintView: React.FC<PrintViewProps> = ({ order, onClose, onPrint })
           <div className="flex flex-col sm:flex-row justify-between items-start gap-6 border-b-2 border-zinc-900 pb-6">
             <div>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-zinc-900 text-[#C5A059] flex items-center justify-center font-serif font-black text-xl border border-zinc-700">
-                  TS
-                </div>
+                <img 
+                  src={brandLogoImg} 
+                  alt="Tech Sokoni Kenya Logo" 
+                  className="w-10 h-10 rounded-lg border border-zinc-300 object-cover" 
+                />
                 <div>
                   <h1 className="text-xl font-black text-zinc-900 tracking-tight uppercase">Tech Sokoni Kenya</h1>
                   <p className="text-xs text-zinc-500 font-medium">Enterprise Hardware & Electronics Store</p>
