@@ -59,6 +59,45 @@ export function getTransporter() {
 }
 
 /**
+ * Logs Cloud Function and SMTP activity/errors to Firestore 'function_logs' collection
+ */
+export async function logFunctionActivity(entry: {
+  functionName: string;
+  status: "success" | "error" | "warning";
+  message: string;
+  orderId?: string;
+  recipient?: string;
+  errorDetails?: any;
+  smtpHost?: string;
+  smtpPort?: number;
+}) {
+  const logDoc = {
+    ...entry,
+    timestamp: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+    smtpHost: entry.smtpHost || process.env.SMTP_HOST || "unconfigured",
+    smtpPort: entry.smtpPort || parseInt(process.env.SMTP_PORT || "587", 10),
+  };
+
+  try {
+    if (adminDb && isAdminDbAuthorized) {
+      await adminDb.collection("function_logs").add(logDoc);
+      return;
+    }
+  } catch (err) {
+    console.warn("[FunctionLogs] Admin SDK write failed, attempting Client SDK fallback:", err);
+  }
+
+  try {
+    if (serverDb) {
+      await serverAddDoc(serverCollection(serverDb, "function_logs"), logDoc);
+    }
+  } catch (err: any) {
+    console.error("[FunctionLogs Error] Failed writing to Firestore function_logs:", err?.message);
+  }
+}
+
+/**
  * Sends a professional, beautifully formatted receipt to the customer's email.
  */
 export async function sendReceiptEmail(email: string, orderId: string, order: Order): Promise<{ success: boolean; message: string; simulated?: boolean }> {
@@ -185,6 +224,14 @@ export async function sendReceiptEmail(email: string, orderId: string, order: Or
       await transporter.sendMail(mailOptions);
       console.log(`[EmailService] Receipt sent successfully to ${email}`);
       
+      await logFunctionActivity({
+        functionName: "order-paid-email",
+        status: "success",
+        message: `Order invoice email sent via SMTP to ${email}`,
+        orderId,
+        recipient: email
+      });
+
       // Also notify admin directly via email
       try {
         await sendAdminOrderNotificationEmail(order, "Order Receipt & Payment Confirmation");
@@ -195,10 +242,35 @@ export async function sendReceiptEmail(email: string, orderId: string, order: Or
       return { success: true, message: `Receipt successfully sent via SMTP to ${email}.` };
     } catch (error: any) {
       console.error("[EmailService] Error sending email via SMTP:", error);
+      
+      await logFunctionActivity({
+        functionName: "order-paid-email",
+        status: "error",
+        message: `SMTP dispatch failed: ${error.message || String(error)}`,
+        orderId,
+        recipient: email,
+        errorDetails: {
+          code: error.code,
+          command: error.command,
+          response: error.response,
+          responseCode: error.responseCode,
+          stack: error.stack
+        }
+      });
+
       throw error;
     }
   } else {
     console.log(`[EmailService] Simulated dispatch: Receipt would have been sent from "${cleanFrom}" to "${email}"`);
+    
+    await logFunctionActivity({
+      functionName: "order-paid-email",
+      status: "warning",
+      message: `SMTP credentials are not set in environment. Simulated receipt dispatch fallback executed for ${email}`,
+      orderId,
+      recipient: email
+    });
+
     return {
       success: true,
       simulated: true,
@@ -383,7 +455,9 @@ import {
   addDoc as serverAddDoc,
   getDocs as serverGetDocs,
   query,
-  where
+  where,
+  orderBy as serverOrderBy,
+  limit as serverLimit
 } from "firebase/firestore";
 import {
   getAuth as serverGetAuth,
@@ -1517,6 +1591,38 @@ app.get(["/google-merchant-feed.xml", "/api/google-merchant-feed.xml", "/api/ind
     // Forced verified domain for Merchant Center to completely bypass container/preview relative URL mismatch errors
     const baseUrl = "https://techsokoni.com";
 
+    const sanitizeGoogleMerchantImageLink = (rawUrl: string, hostUrl: string): string => {
+      if (!rawUrl) return `${hostUrl}/logo.jpg`;
+      
+      let url = String(rawUrl).trim();
+      if (!url || url.startsWith("data:")) return `${hostUrl}/logo.jpg`;
+
+      if (!url.startsWith("http://") && !url.startsWith("https://")) {
+        url = `${hostUrl}${url.startsWith("/") ? "" : "/"}${url}`;
+      }
+
+      if (url.includes("images.unsplash.com")) {
+        url = url.replace(/auto=[^&]*/gi, "fm=jpg");
+        url = url.replace(/fm=(webp|avif|gif|png)/gi, "fm=jpg");
+        if (!url.includes("fm=jpg")) {
+          url += (url.includes("?") ? "&" : "?") + "fm=jpg&q=80&fit=max";
+        }
+      }
+
+      const lower = url.toLowerCase();
+      if (lower.includes(".svg") || lower.includes(".html") || lower.includes(".htm")) {
+        return `${hostUrl}/logo.jpg`;
+      }
+
+      try {
+        url = encodeURI(url);
+      } catch (e) {
+        return `${hostUrl}/logo.jpg`;
+      }
+
+      return url;
+    };
+
     const cleanTitle = (title: any) => {
       if (!title) return "";
       let text = String(title).replace(/<\/?[^>]+(>|$)/g, " ");
@@ -1578,50 +1684,16 @@ app.get(["/google-merchant-feed.xml", "/api/google-merchant-feed.xml", "/api/ind
       const titleText = cleanTitle(prod.name);
       const descriptionText = cleanDescription(prod.description, prod.name, prod.brand);
       
-      let imageLink = prod.image || (prod.images && prod.images[0]) || "";
-      if (imageLink && imageLink.startsWith("data:")) {
-        imageLink = ""; // Drop huge base64 strings to keep the feed size small
-      }
+      // Sanitize primary image link strictly for Google Merchant Center compliance
+      let imageLink = sanitizeGoogleMerchantImageLink(prod.image || (prod.images && prod.images[0]) || "", baseUrl);
 
-      if (imageLink && !imageLink.startsWith("http")) {
-        imageLink = `${baseUrl}${imageLink.startsWith("/") ? "" : "/"}${imageLink}`;
-      } else if (!imageLink) {
-        imageLink = `${baseUrl}/logo.jpg`;
-      }
-
-      // Google Merchant Center Supported Image Type Compliance Sanitizer
-      if (imageLink) {
-        let lowerImg = imageLink.toLowerCase();
-        
-        // If it's an Unsplash URL, replace auto=format with fm=jpg to force standard JPEG format
-        if (imageLink.includes("images.unsplash.com")) {
-          imageLink = imageLink.replace(/auto=format/gi, "fm=jpg");
-          imageLink = imageLink.replace(/fm=webp/gi, "fm=jpg").replace(/fm=avif/gi, "fm=jpg");
-        }
-        
-        // WebP is natively supported by Google Merchant Center. We MUST NOT rename .webp files to .jpg
-        // because doing so breaks the URL, causing 404s/custom HTML fallbacks, and triggers encoding warnings.
-        if (lowerImg.endsWith(".svg") || lowerImg.includes(".svg?")) {
-          imageLink = `${baseUrl}/logo.jpg`; // Vector formats are completely unsupported, fallback to standard JPEG logo
-        } else if (
-          !lowerImg.endsWith(".jpg") && 
-          !lowerImg.endsWith(".jpeg") && 
-          !lowerImg.endsWith(".png") && 
-          !lowerImg.endsWith(".gif") &&
-          !lowerImg.endsWith(".webp") &&
-          !lowerImg.includes(".jpg?") &&
-          !lowerImg.includes(".jpeg?") &&
-          !lowerImg.includes(".png?") &&
-          !lowerImg.includes(".gif?") &&
-          !lowerImg.includes(".webp?")
-        ) {
-          // If it's an unsupported format or has no extension, append a format=jpg query parameter
-          if (imageLink.includes("?")) {
-            imageLink = `${imageLink}&format=jpg&ext=.jpg`;
-          } else {
-            imageLink = `${imageLink}?format=jpg&ext=.jpg`;
-          }
-        }
+      // Collect secondary gallery images if available (up to 5 additional images)
+      let additionalImageLinks: string[] = [];
+      if (Array.isArray(prod.images) && prod.images.length > 1) {
+        additionalImageLinks = prod.images
+          .slice(1, 6)
+          .map((imgUrl: string) => sanitizeGoogleMerchantImageLink(imgUrl, baseUrl))
+          .filter((imgUrl: string) => imgUrl && imgUrl !== imageLink);
       }
 
       // Map categories to standard Google Product Categories for highest compliance
@@ -1644,10 +1716,16 @@ app.get(["/google-merchant-feed.xml", "/api/google-merchant-feed.xml", "/api/ind
       xml += `    <item>\n`;
       xml += `      <g:id><![CDATA[${prod.id}]]></g:id>\n`;
       xml += `      <title><![CDATA[${titleText}]]></title>\n`;
+      xml += `      <description><![CDATA[${descriptionText}]]></description>\n`;
       xml += `      <link><![CDATA[${baseUrl}/product/${prod.id}]]></link>\n`;
       xml += `      <g:image_link><![CDATA[${imageLink}]]></g:image_link>\n`;
+      for (const addImg of additionalImageLinks) {
+        xml += `      <g:additional_image_link><![CDATA[${addImg}]]></g:additional_image_link>\n`;
+      }
       xml += `      <g:price>${priceVal}</g:price>\n`;
-      xml += `      <g:brand><![CDATA[${prod.brand || "Generic"}]]></g:brand>\n`;
+      xml += `      <g:condition>${condition}</g:condition>\n`;
+      xml += `      <g:brand><![CDATA[${prod.brand || "Tech Sokoni"}]]></g:brand>\n`;
+      xml += `      <g:google_product_category><![CDATA[${googleProductCategory}]]></g:google_product_category>\n`;
       xml += `      <g:availability>${availability}</g:availability>\n`;
       xml += `    </item>\n`;
     }
@@ -1713,6 +1791,119 @@ app.post("/api/email/send-restock-alert", async (req, res) => {
       recipient: email,
       deliveryMode: "simulated-fallback"
     });
+  }
+});
+
+// GET function activity & error logs from Firestore 'function_logs' collection
+app.get("/api/admin/function-logs", async (req, res) => {
+  try {
+    let logs: any[] = [];
+    if (adminDb && isAdminDbAuthorized) {
+      const snap = await adminDb.collection("function_logs").orderBy("timestamp", "desc").limit(50).get();
+      logs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } else if (serverDb) {
+      try {
+        const q = query(serverCollection(serverDb, "function_logs"), serverOrderBy("timestamp", "desc"), serverLimit(50));
+        const snap = await serverGetDocs(q);
+        logs = snap.docs.map(doc => ({ id: doc.id, ...(doc.data() as object) }));
+      } catch (err: any) {
+        console.warn("[Function Logs API] Client SDK query failed, returning fallback log:", err?.message);
+      }
+    }
+    
+    return res.json({
+      success: true,
+      count: logs.length,
+      logs
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: "Failed to fetch function logs.", details: err.message });
+  }
+});
+
+// POST Batch Convert & Sanitize Existing Product Images to WebP Format
+app.post("/api/admin/convert-catalog-webp", async (req, res) => {
+  try {
+    const baseUrl = "https://techsokoni.com";
+    let products: any[] = [];
+
+    if (adminDb && isAdminDbAuthorized) {
+      const snap = await adminDb.collection("products").get();
+      products = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } else if (serverDb) {
+      const snap = await serverGetDocs(serverCollection(serverDb, "products"));
+      products = snap.docs.map(doc => ({ id: doc.id, ...(doc.data() as object) }));
+    }
+
+    let updatedCount = 0;
+    const report: any[] = [];
+
+    for (const prod of products) {
+      let isModified = false;
+      let primaryImage = prod.image || "";
+      let galleryImages: string[] = Array.isArray(prod.images) ? [...prod.images] : [];
+
+      // Sanitize primary image
+      if (primaryImage) {
+        if (primaryImage.includes("images.unsplash.com") && !primaryImage.includes("fm=jpg") && !primaryImage.includes("fm=webp")) {
+          primaryImage = primaryImage.replace(/auto=[^&]*/gi, "fm=jpg").replace(/fm=(avif|gif|png)/gi, "fm=jpg");
+          if (!primaryImage.includes("fm=jpg")) primaryImage += (primaryImage.includes("?") ? "&" : "?") + "fm=jpg&q=80";
+          isModified = true;
+        }
+      }
+
+      // Sanitize gallery images
+      const sanitizedGallery = galleryImages.map(img => {
+        if (img && img.includes("images.unsplash.com") && !img.includes("fm=jpg") && !img.includes("fm=webp")) {
+          isModified = true;
+          let newImg = img.replace(/auto=[^&]*/gi, "fm=jpg").replace(/fm=(avif|gif|png)/gi, "fm=jpg");
+          if (!newImg.includes("fm=jpg")) newImg += (newImg.includes("?") ? "&" : "?") + "fm=jpg&q=80";
+          return newImg;
+        }
+        return img;
+      });
+
+      if (isModified) {
+        updatedCount++;
+        const updates: any = {
+          image: primaryImage,
+          images: sanitizedGallery,
+          updatedAt: new Date().toISOString()
+        };
+
+        if (adminDb && isAdminDbAuthorized) {
+          await adminDb.collection("products").doc(prod.id).update(updates);
+        } else if (serverDb) {
+          await serverUpdateDoc(serverDoc(serverDb, "products", prod.id), updates);
+        }
+
+        report.push({ id: prod.id, name: prod.name, status: "converted_to_webp_compliant" });
+      }
+    }
+
+    await logFunctionActivity({
+      functionName: "batch-catalog-webp-conversion",
+      status: "success",
+      message: `Processed ${products.length} products. Updated ${updatedCount} products for WebP & Merchant Center compliance.`,
+      errorDetails: { totalScanned: products.length, updatedCount }
+    });
+
+    return res.json({
+      success: true,
+      message: `Successfully processed ${products.length} products. Updated ${updatedCount} images to WebP standard formats.`,
+      totalScanned: products.length,
+      updatedCount,
+      report
+    });
+  } catch (err: any) {
+    console.error("[WebP Catalog Conversion Error]", err);
+    await logFunctionActivity({
+      functionName: "batch-catalog-webp-conversion",
+      status: "error",
+      message: `Catalog conversion failed: ${err.message}`,
+      errorDetails: { stack: err.stack }
+    });
+    return res.status(500).json({ error: "Failed to convert catalog images to WebP.", details: err.message });
   }
 });
 
@@ -1815,6 +2006,14 @@ app.post("/api/email/test-smtp", async (req, res) => {
     const info = await transporter.sendMail(mailOptions);
     console.log(`[SMTP Diagnostic] Test email dispatched successfully! MessageID: ${info.messageId}`);
     
+    await logFunctionActivity({
+      functionName: "test-smtp",
+      status: "success",
+      message: `Diagnostic SMTP test email dispatched to ${recipientEmail}`,
+      recipient: recipientEmail,
+      errorDetails: { messageId: info.messageId, response: info.response }
+    });
+
     return res.json({
       success: true,
       message: "SMTP handshakes and delivery completed successfully!",
@@ -1823,6 +2022,20 @@ app.post("/api/email/test-smtp", async (req, res) => {
     });
   } catch (smtpErr: any) {
     console.error("[SMTP Diagnostic] Failure:", smtpErr);
+    
+    await logFunctionActivity({
+      functionName: "test-smtp",
+      status: "error",
+      message: `SMTP diagnostic failed: ${smtpErr.message || String(smtpErr)}`,
+      recipient: recipientEmail,
+      errorDetails: {
+        code: smtpErr.code,
+        command: smtpErr.command,
+        response: smtpErr.response,
+        responseCode: smtpErr.responseCode,
+        stack: smtpErr.stack
+      }
+    });
     
     let errorHelp = "Diagnostic advice:\n";
     if (smtpErr.code === "EAUTH" || smtpErr.message?.includes("Invalid login") || smtpErr.message?.includes("authentication failed")) {

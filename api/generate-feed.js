@@ -163,6 +163,38 @@ function cleanDescription(htmlOrText, prodName, prodBrand) {
   return text;
 }
 
+function sanitizeGoogleMerchantImageLink(rawUrl, hostUrl) {
+  if (!rawUrl) return `${hostUrl}/logo.jpg`;
+  
+  let url = String(rawUrl).trim();
+  if (!url || url.startsWith("data:")) return `${hostUrl}/logo.jpg`;
+
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    url = `${hostUrl}${url.startsWith("/") ? "" : "/"}${url}`;
+  }
+
+  if (url.includes("images.unsplash.com")) {
+    url = url.replace(/auto=[^&]*/gi, "fm=jpg");
+    url = url.replace(/fm=(webp|avif|gif|png)/gi, "fm=jpg");
+    if (!url.includes("fm=jpg")) {
+      url += (url.includes("?") ? "&" : "?") + "fm=jpg&q=80&fit=max";
+    }
+  }
+
+  const lower = url.toLowerCase();
+  if (lower.includes(".svg") || lower.includes(".html") || lower.includes(".htm")) {
+    return `${hostUrl}/logo.jpg`;
+  }
+
+  try {
+    url = encodeURI(url);
+  } catch (e) {
+    return `${hostUrl}/logo.jpg`;
+  }
+
+  return url;
+}
+
 export default async function handler(req, res) {
   try {
     const products = await fetchProducts();
@@ -191,51 +223,7 @@ export default async function handler(req, res) {
       const titleText = cleanTitle(prod.name);
       const descriptionText = cleanDescription(prod.description, prod.name, prod.brand);
       
-      let imageLink = prod.image || (prod.images && prod.images[0]) || "";
-      if (imageLink && imageLink.startsWith("data:")) {
-        imageLink = ""; // Drop huge base64 strings to keep the feed size small
-      }
-
-      if (imageLink && !imageLink.startsWith("http")) {
-        imageLink = `${baseUrl}${imageLink.startsWith("/") ? "" : "/"}${imageLink}`;
-      } else if (!imageLink) {
-        imageLink = `${baseUrl}/logo.jpg`;
-      }
-
-      // Google Merchant Center Supported Image Type Compliance Sanitizer
-      if (imageLink) {
-        let lowerImg = imageLink.toLowerCase();
-        
-        // If it's an Unsplash URL, replace auto=format with fm=jpg to force standard JPEG format
-        if (imageLink.includes("images.unsplash.com")) {
-          imageLink = imageLink.replace(/auto=format/gi, "fm=jpg");
-          imageLink = imageLink.replace(/fm=webp/gi, "fm=jpg").replace(/fm=avif/gi, "fm=jpg");
-        }
-        
-        // WebP is natively supported by Google Merchant Center. We MUST NOT rename .webp files to .jpg
-        // because doing so breaks the URL, causing 404s/custom HTML fallbacks, and triggers encoding warnings.
-        if (lowerImg.endsWith(".svg") || lowerImg.includes(".svg?")) {
-          imageLink = `${baseUrl}/logo.jpg`; // Vector formats are completely unsupported, fallback to standard JPEG logo
-        } else if (
-          !lowerImg.endsWith(".jpg") && 
-          !lowerImg.endsWith(".jpeg") && 
-          !lowerImg.endsWith(".png") && 
-          !lowerImg.endsWith(".gif") &&
-          !lowerImg.endsWith(".webp") &&
-          !lowerImg.includes(".jpg?") &&
-          !lowerImg.includes(".jpeg?") &&
-          !lowerImg.includes(".png?") &&
-          !lowerImg.includes(".gif?") &&
-          !lowerImg.includes(".webp?")
-        ) {
-          // If it's an unsupported format or has no extension, append a format=jpg query parameter
-          if (imageLink.includes("?")) {
-            imageLink = `${imageLink}&format=jpg&ext=.jpg`;
-          } else {
-            imageLink = `${imageLink}?format=jpg&ext=.jpg`;
-          }
-        }
-      }
+      let imageLink = sanitizeGoogleMerchantImageLink(prod.image || (prod.images && prod.images[0]) || "", baseUrl);
 
       let googleProductCategory = "Electronics > Computers";
       const lowerCat = (prod.category || "").toLowerCase();

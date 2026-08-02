@@ -6,6 +6,7 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useStore } from "../StoreContext";
+import { compressAndConvertToWebP } from "../utils/imageCompressor";
 import D3FinancialOverview from "./D3FinancialOverview";
 import Pagination from "./Pagination";
 import { 
@@ -363,7 +364,7 @@ function OrderCourierEditor({
   onSave,
 }: {
   ord: Order;
-  onSave: (courierName: string, courierWaybill: string) => void;
+  onSave: (courierName: string, courierWaybill: string, courierPhone: string) => void;
 }) {
   const getInitialCourier = () => {
     const name = ord.courierName || "";
@@ -376,8 +377,13 @@ function OrderCourierEditor({
     return (ord.courierWaybill || "").replace(/\D/g, "");
   };
 
+  const getInitialPhone = () => {
+    return ord.courierPhone || "+254 703 077 000";
+  };
+
   const [courierName, setCourierName] = useState<string>(getInitialCourier());
   const [courierWaybill, setCourierWaybill] = useState<string>(getInitialTracking());
+  const [courierPhone, setCourierPhone] = useState<string>(getInitialPhone());
   const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
@@ -388,17 +394,18 @@ function OrderCourierEditor({
 
     setCourierName(canonicalName);
     setCourierWaybill((ord.courierWaybill || "").replace(/\D/g, ""));
-  }, [ord.courierName, ord.courierWaybill]);
+    setCourierPhone(ord.courierPhone || "+254 703 077 000");
+  }, [ord.courierName, ord.courierWaybill, ord.courierPhone]);
 
-  const triggerSave = (selectedCourier: string, waybillDigits: string) => {
-    onSave(selectedCourier, waybillDigits);
+  const triggerSave = (selectedCourier: string, waybillDigits: string, phoneStr: string) => {
+    onSave(selectedCourier, waybillDigits, phoneStr);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2000);
   };
 
   const handleCourierSelect = (selectedCourier: string) => {
     setCourierName(selectedCourier);
-    triggerSave(selectedCourier, courierWaybill);
+    triggerSave(selectedCourier, courierWaybill, courierPhone);
   };
 
   const handleWaybillChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -406,8 +413,12 @@ function OrderCourierEditor({
     setCourierWaybill(numericOnly);
   };
 
-  const handleWaybillBlur = () => {
-    triggerSave(courierName, courierWaybill);
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCourierPhone(e.target.value);
+  };
+
+  const handleBlur = () => {
+    triggerSave(courierName, courierWaybill, courierPhone);
   };
 
   return (
@@ -434,9 +445,21 @@ function OrderCourierEditor({
           pattern="[0-9]*"
           value={courierWaybill}
           onChange={handleWaybillChange}
-          onBlur={handleWaybillBlur}
-          placeholder="Tracking # (digits)"
+          onBlur={handleBlur}
+          placeholder="Waybill/Tracking #"
           className="flex-1 w-full bg-[#0A0A0A] border border-white/10 rounded-md px-2 py-1 text-white text-[10px] font-mono focus:outline-hidden focus:border-[#C5A059]"
+        />
+      </div>
+
+      <div className="flex items-center gap-1.5 pt-0.5">
+        <span className="text-white/40 text-[9px]">Helpline:</span>
+        <input
+          type="text"
+          value={courierPhone}
+          onChange={handlePhoneChange}
+          onBlur={handleBlur}
+          placeholder="Courier Helpline Phone"
+          className="flex-1 bg-[#0A0A0A] border border-white/10 rounded-md px-2 py-0.5 text-emerald-400 text-[10px] font-mono focus:outline-hidden focus:border-[#C5A059]"
         />
       </div>
     </div>
@@ -2501,49 +2524,8 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
     e.target.value = ""; // Clear
   };
 
-  const compressImage = (file: File, maxWidth = 800, maxHeight = 800, quality = 0.75): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height) {
-            if (width > maxWidth) {
-              height = Math.round((height * maxWidth) / width);
-              width = maxWidth;
-            }
-          } else {
-            if (height > maxHeight) {
-              width = Math.round((width * maxHeight) / height);
-              height = maxHeight;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) {
-            resolve(e.target?.result as string);
-            return;
-          }
-          ctx.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL("image/jpeg", quality);
-          resolve(dataUrl);
-        };
-        img.onerror = () => {
-          reject(new Error("Failed to load image for compression"));
-        };
-        img.src = e.target?.result as string;
-      };
-      reader.onerror = () => {
-        reject(new Error("Failed to read file"));
-      };
-      reader.readAsDataURL(file);
-    });
+  const compressImage = (file: File, maxWidth = 1000, maxHeight = 1000, quality = 0.80): Promise<string> => {
+    return compressAndConvertToWebP(file, { maxWidth, maxHeight, quality, forceFormat: "image/webp" });
   };
 
   const handleBulkImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -5585,13 +5567,13 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                             {/* Admin Courier Details Editor */}
                             <OrderCourierEditor
                               ord={ord}
-                              onSave={(courierName, courierWaybill) => {
+                              onSave={(courierName, courierWaybill, courierPhone) => {
                                 updateOrderStatus(
                                   ord.id,
                                   ord.paymentStatus,
                                   ord.shippingStatus,
                                   ord.receiptNo,
-                                  { courierName, courierWaybill }
+                                  { courierName, courierWaybill, courierPhone }
                                 );
                               }}
                             />
