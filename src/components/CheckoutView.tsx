@@ -976,15 +976,31 @@ export default function CheckoutView() {
                   </div>
 
                   {/* ACTIVE SHIPPING RULE ANNOUNCEMENT */}
-                  <div className="p-4 rounded-2xl border border-emerald-500/20 bg-emerald-950/10 transition-all mt-4 space-y-1.5">
-                    <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-mono px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                      {selectedCounty} County Delivery Rule
+                  <div className={`p-4 rounded-2xl border transition-all mt-4 space-y-1.5 ${
+                    selectedCounty === "Nairobi" 
+                      ? "border-emerald-500/20 bg-emerald-950/10" 
+                      : "border-[#C5A059]/20 bg-[#C5A059]/5"
+                  }`}>
+                    <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border ${
+                      selectedCounty === "Nairobi"
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                        : "bg-[#C5A059]/10 text-[#C5A059] border-[#C5A059]/20"
+                    }`}>
+                      {selectedCounty} County Delivery Terms
                     </span>
-                    <p className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
-                      M-Pesa Express Checkout • Free Delivery
+                    <p className={`text-xs font-semibold flex items-center gap-1 ${
+                      selectedCounty === "Nairobi" ? "text-emerald-400" : "text-[#C5A059]"
+                    }`}>
+                      {selectedCounty === "Nairobi" 
+                        ? "Nairobi County • Free Delivery" 
+                        : "Upcountry Delivery • Courier Fee Communicated by Tech Sokoni Kenya"}
                     </p>
-                    <p className="text-[10.5px] text-white/40 leading-relaxed font-sans">
-                      Addresses in <strong>{selectedCounty} County</strong> qualify for <strong>Free Delivery Promo</strong>. Settlement is completed securely via M-Pesa Express STK prompt prior to courier dispatch.
+                    <p className="text-[10.5px] text-white/60 leading-relaxed font-sans">
+                      {selectedCounty === "Nairobi" ? (
+                        <>Deliveries within <strong>Nairobi County</strong> qualify for <strong>FREE DELIVERY</strong>. Settlement is completed securely via M-Pesa Express prior to dispatch.</>
+                      ) : (
+                        <>Deliveries outside Nairobi (<strong>{selectedCounty} County</strong>) incur a courier fee that will be communicated directly to you by <strong>Tech Sokoni Kenya</strong> upon order confirmation.</>
+                      )}
                     </p>
                   </div>
 
@@ -1046,8 +1062,10 @@ export default function CheckoutView() {
                 </div>
                 <div className="flex justify-between text-white/50">
                   <span>Nationwide Courier Dispatch Duty</span>
-                  <span className="font-mono text-emerald-500 font-bold">
-                    KES 0 (FREE Promo)
+                  <span className="font-mono text-xs font-bold text-[#C5A059] text-right">
+                    {selectedCounty === "Nairobi" 
+                      ? "KES 0 (FREE - Nairobi Delivery)" 
+                      : "Fee communicated by Tech Sokoni Kenya (Outside Nairobi)"}
                   </span>
                 </div>
               </div>

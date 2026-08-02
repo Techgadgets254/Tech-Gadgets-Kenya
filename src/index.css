@@ -1489,6 +1489,13 @@ html.light-theme .markdown-body th {
     width: 100% !important;
     border-collapse: collapse !important;
     margin-top: 16px !important;
+    page-break-inside: auto !important;
+  }
+
+  .printable-invoice tr,
+  #print-invoice-area tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto !important;
   }
 
   .printable-invoice th,
@@ -1505,6 +1512,26 @@ html.light-theme .markdown-body th {
   #print-invoice-area th {
     background-color: #f3f4f6 !important;
     font-weight: bold !important;
+  }
+
+  /* Signature & Footer Stamp Page Break & Scaling */
+  .signature-area,
+  .signature-block,
+  .invoice-footer-block {
+    page-break-inside: avoid !important;
+  }
+
+  .signature-area img,
+  .signature-block img {
+    height: 60px !important;
+    max-height: 65px !important;
+    width: auto !important;
+    object-fit: contain !important;
+    mix-blend-mode: multiply !important;
+    filter: contrast(220%) brightness(95%) grayscale(100%) !important;
+    transform: scale(1.15) !important;
+    display: block !important;
+    margin: 0 auto !important;
   }
 
   .print-page-break {

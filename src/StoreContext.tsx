@@ -1186,25 +1186,42 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         console.warn("Could not adjust stock directly due to permission limits, skipping local stock adjustment:", stockErr);
       }
 
-      // Trigger instant WhatsApp Notification to owner/admin phone 0792620789
+      const createdOrder = { id: docRef.id, ...orderData } as Order;
+
+      // Update local state immediately so new order shows up right away
+      setOrders(prev => [createdOrder, ...prev]);
+
+      // Trigger instant Email Notification to admin (techgadgetsk@gmail.com)
       try {
+        fetch("/api/order/notify-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId: docRef.id,
+            order: createdOrder,
+            updateType: "New Order Placed"
+          })
+        }).catch(err => console.error("Async admin order email notify failed:", err));
+
+        // Background call to WhatsApp API route (which also triggers secondary admin email fallback)
         fetch("/api/whatsapp/notify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             orderId: docRef.id,
-            recipient: "0792620789", // Verified admin number requested
+            recipient: "0792620789",
             customerName: details.customerName,
             customerPhone: details.customerPhone,
             totalAmount: orderData.totalAmount,
-            items: items
+            items: items,
+            shippingAddress: details.shippingAddress
           })
         }).catch(err => console.error("Async WhatsApp notify background call failed:", err));
       } catch (notifyErr) {
-        console.error("Failed triggering background WhatsApp notification request:", notifyErr);
+        console.error("Failed triggering background notification requests:", notifyErr);
       }
 
-      return { id: docRef.id, ...orderData } as Order;
+      return createdOrder;
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, "orders");
       return null;
@@ -1269,11 +1286,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (data.success && data.status === "success" && data.receiptNo) {
         const receipt = data.receiptNo;
         const orderRef = doc(db, "orders", orderId);
-        await updateDoc(orderRef, {
-          paymentStatus: "Paid",
+        const updateData = {
+          paymentStatus: "Paid" as const,
           receiptNo: receipt,
           updatedAt: new Date().toISOString()
-        });
+        };
+        await updateDoc(orderRef, updateData);
+
+        // Update local state immediately for instant UI reflection in fulfillment queue
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...updateData } : o));
+
+        // Trigger instant admin email alert
+        fetch("/api/order/notify-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId,
+            order: { id: orderId, paymentStatus: "Paid", receiptNo: receipt },
+            updateType: `Payment Received: Order #${orderId.substring(0, 8).toUpperCase()} Paid (Ref: ${receipt})`
+          })
+        }).catch(err => console.error("Admin payment notification email failed:", err));
 
         return {
           success: true,
@@ -1283,11 +1315,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         };
       } else if (data.status === "failed" || data.status === "cancelled") {
         const orderRef = doc(db, "orders", orderId);
-        await updateDoc(orderRef, {
-          paymentStatus: "Failed",
+        const failData = {
+          paymentStatus: "Failed" as const,
           cancellationReason: data.error || data.message || "Payment cancelled or failed on mobile handset.",
           updatedAt: new Date().toISOString()
-        });
+        };
+        await updateDoc(orderRef, failData);
+
+        // Update local state immediately
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...failData } : o));
 
         return {
           success: false,
@@ -1499,6 +1535,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (courierDetails.courierPhone !== undefined) updates.courierPhone = courierDetails.courierPhone;
       }
       await updateDoc(orderRef, updates);
+
+      // Update local state immediately for instant UI feedback in fulfillment queue
+      setOrders(prev => prev.map(o => o.id === id ? { ...o, ...updates } : o));
+
+      // Dispatch admin email notification on order update
+      fetch("/api/order/notify-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: id,
+          order: { id, paymentStatus, shippingStatus, receiptNo, ...courierDetails },
+          updateType: `Order #${id.substring(0, 8).toUpperCase()} Updated (Payment: ${paymentStatus}, Delivery: ${shippingStatus})`
+        })
+      }).catch(err => console.warn("Admin update email notification failed:", err));
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `orders/${id}`);
     }

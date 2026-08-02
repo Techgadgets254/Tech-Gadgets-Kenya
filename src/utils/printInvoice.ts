@@ -419,7 +419,11 @@ export function generateInvoiceHtml(order: Order): string {
         </div>
         <div class="totals-row">
           <span>Courier Dispatch Fee:</span>
-          <span style="font-family: monospace; font-weight: 600;">KES 0 (FREE)</span>
+          <span style="font-family: monospace; font-weight: 600; color: #111827;">
+            ${(order.shippingAddress || "").toLowerCase().includes("nairobi")
+              ? "KES 0 (FREE Delivery - Nairobi)"
+              : "Communicated by Tech Sokoni Kenya (Outside Nairobi)"}
+          </span>
         </div>
         <div class="totals-row grand-total">
           <span>Total Billed Amount:</span>
@@ -453,10 +457,12 @@ export function generateInvoiceHtml(order: Order): string {
         <p>Phone: 0792620789 / +254 792 620 789 • Email: shop@techsokoni.com</p>
       </div>
 
-      <div class="signature-area" style="display: flex; flex-direction: column; align-items: center; text-align: center; width: 160px; margin-left: auto;">
-        <img src="${signatureImg}" alt="Adam Kassim Signature" style="height: 42px; max-width: 140px; object-fit: contain; margin-bottom: 2px; mix-blend-mode: multiply; filter: contrast(180%) grayscale(100%); display: block; margin: 0 auto;" />
-        <div class="signature-line" style="border-top: 1.5px solid #111827; width: 140px; padding-top: 3px; font-weight: 800; font-size: 10px; color: #111827; font-family: monospace; text-align: center; margin: 0 auto;">Adam Kassim</div>
-        <p style="font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; width: 140px; text-align: center; margin: 2px auto 0 auto;">Authorized Signatory & Store Stamp</p>
+      <div class="signature-area" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; width: 180px; margin-left: auto;">
+        <div style="height: 62px; display: flex; items-center; justify-content: center; margin-bottom: 2px;">
+          <img src="${signatureImg}" alt="Adam Kassim Signature" style="height: 60px; max-width: 170px; object-fit: contain; mix-blend-mode: multiply; filter: contrast(220%) brightness(95%) grayscale(100%); transform: scale(1.15); display: block; margin: 0 auto;" />
+        </div>
+        <div class="signature-line" style="border-top: 2px solid #111827; width: 160px; padding-top: 4px; font-weight: 800; font-size: 11px; color: #111827; font-family: monospace; text-align: center; margin: 0 auto;">Adam Kassim</div>
+        <p style="font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #4b5563; width: 160px; text-align: center; margin: 2px auto 0 auto;">Authorized Signatory & Store Stamp</p>
       </div>
     </div>
   </div>

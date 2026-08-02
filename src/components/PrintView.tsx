@@ -184,9 +184,13 @@ export const PrintView: React.FC<PrintViewProps> = ({ order, onClose, onPrint })
                 <span>Subtotal:</span>
                 <span>KES {subtotal.toLocaleString()}</span>
               </div>
-              <div className="flex justify-between text-zinc-600">
-                <span>Regional Shipping:</span>
-                <span className="text-emerald-700 font-bold">FREE</span>
+              <div className="flex justify-between text-zinc-600 gap-2">
+                <span>Courier Dispatch Fee:</span>
+                <span className="text-zinc-900 font-bold text-right text-[11px]">
+                  {(order.shippingAddress || "").toLowerCase().includes("nairobi")
+                    ? "KES 0 (FREE - Nairobi)"
+                    : "Communicated by Tech Sokoni Kenya"}
+                </span>
               </div>
               <div className="flex justify-between text-base font-bold text-zinc-900 pt-2 border-t border-zinc-300">
                 <span>Total Amount:</span>
@@ -221,17 +225,19 @@ export const PrintView: React.FC<PrintViewProps> = ({ order, onClose, onPrint })
             </div>
 
             <div className="mt-6 sm:mt-0 text-right flex flex-col items-center sm:items-end">
-              <div className="w-40 flex flex-col items-center text-center">
-                <img 
-                  src={signatureImg} 
-                  alt="Adam Kassim Signature" 
-                  className="h-11 max-w-[140px] object-contain mb-1 mix-blend-multiply filter contrast-200 grayscale block mx-auto" 
-                  style={{ mixBlendMode: "multiply", filter: "contrast(200%) grayscale(100%)" }}
-                />
-                <div className="w-36 border-t-2 border-zinc-900 pt-1 text-center font-bold text-xs text-zinc-900 font-mono mx-auto">
+              <div className="w-48 flex flex-col items-center justify-center text-center">
+                <div className="h-16 flex items-center justify-center mb-1">
+                  <img 
+                    src={signatureImg} 
+                    alt="Adam Kassim Signature" 
+                    className="h-14 max-w-[170px] object-contain mix-blend-multiply filter contrast-[220%] grayscale block mx-auto transition-transform scale-110" 
+                    style={{ mixBlendMode: "multiply", filter: "contrast(220%) brightness(95%) grayscale(100%)", transform: "scale(1.15)" }}
+                  />
+                </div>
+                <div className="w-40 border-t-2 border-zinc-900 pt-1 text-center font-extrabold text-xs text-zinc-900 font-mono mx-auto">
                   Adam Kassim
                 </div>
-                <p className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold text-center w-36 mx-auto mt-0.5">
+                <p className="text-[9px] uppercase tracking-wider text-zinc-600 font-bold text-center w-40 mx-auto mt-0.5">
                   Authorized Signatory & Store Stamp
                 </p>
               </div>

@@ -125,6 +125,14 @@ export async function sendReceiptEmail(email: string, orderId: string, order: Or
               <td style="padding: 4px 0; color: #777777;">Delivery Address:</td>
               <td style="padding: 4px 0; text-align: right; color: #111111;">${order.shippingAddress || "Nairobi Store Pickup / CBD Delivery"}</td>
             </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #777777;">Courier Dispatch Fee:</td>
+              <td style="padding: 4px 0; text-align: right; font-weight: bold; color: #111111;">
+                ${(order.shippingAddress || "").toLowerCase().includes("nairobi") 
+                  ? "KES 0 (FREE Delivery - Nairobi)" 
+                  : "Communicated by Tech Sokoni Kenya (Outside Nairobi)"}
+              </td>
+            </tr>
           </table>
         </div>
 
@@ -169,12 +177,21 @@ export async function sendReceiptEmail(email: string, orderId: string, order: Or
       const mailOptions = {
         from: cleanFrom,
         to: email,
+        bcc: "techgadgetsk@gmail.com, shop@techsokoni.com",
         subject: `[Receipt] Tech Sokoni Kenya - Order #${orderId.substring(0, 8).toUpperCase()}`,
         html: emailHtmlContent,
       };
 
       await transporter.sendMail(mailOptions);
       console.log(`[EmailService] Receipt sent successfully to ${email}`);
+      
+      // Also notify admin directly via email
+      try {
+        await sendAdminOrderNotificationEmail(order, "Order Receipt & Payment Confirmation");
+      } catch (adminErr) {
+        console.warn("[EmailService] Secondary admin notification email failed:", adminErr);
+      }
+
       return { success: true, message: `Receipt successfully sent via SMTP to ${email}.` };
     } catch (error: any) {
       console.error("[EmailService] Error sending email via SMTP:", error);
@@ -187,6 +204,100 @@ export async function sendReceiptEmail(email: string, orderId: string, order: Or
       simulated: true,
       message: `Simulated receipt dispatch. SMTP server credentials are not configured, but receipt was logged successfully. From: ${cleanFrom}`,
     };
+  }
+}
+
+/**
+ * Sends real-time email notification to Tech Sokoni store owner/admin when an order is created or updated.
+ */
+export async function sendAdminOrderNotificationEmail(order: any, updateType: string = "New Order Placed"): Promise<{ success: boolean; message: string; simulated?: boolean }> {
+  const adminEmail = "techgadgetsk@gmail.com";
+  const fromName = "Tech Sokoni Kenya";
+  const smtpUser = process.env.SMTP_USER;
+  
+  let cleanFrom = `"${fromName}" <support@techsokoni.com>`;
+  if (smtpUser && smtpUser.includes("@")) {
+    cleanFrom = `"${fromName}" <${smtpUser}>`;
+  } else if (process.env.SMTP_FROM) {
+    cleanFrom = process.env.SMTP_FROM;
+  }
+
+  const orderId = order.id || order.orderId || "N/A";
+  const itemsListHtml = (order.items || []).map((item: any) => `
+    <tr style="border-bottom: 1px solid #eeeeee;">
+      <td style="padding: 10px 0; font-size: 13px; font-weight: bold; color: #111111;">${item.name || item.productName || "Product"}</td>
+      <td style="padding: 10px 0; text-align: center; font-size: 13px;">${item.quantity || 1}</td>
+      <td style="padding: 10px 0; text-align: right; font-size: 13px; font-weight: bold; color: #111111;">KES ${Number((item.price || 0) * (item.quantity || 1)).toLocaleString()}</td>
+    </tr>
+  `).join("");
+
+  const emailHtmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #dddddd; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+      <div style="background-color: #111111; padding: 20px; text-align: center; border-bottom: 3px solid #C5A059;">
+        <h2 style="color: #ffffff; margin: 0; font-size: 20px; text-transform: uppercase;">Tech Sokoni Order Alert</h2>
+        <p style="color: #C5A059; margin: 4px 0 0 0; font-size: 12px; font-weight: bold; text-transform: uppercase;">${updateType}</p>
+      </div>
+      <div style="padding: 24px; background-color: #ffffff;">
+        <h3 style="color: #111111; margin-top: 0; font-size: 16px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+          Order #${orderId.substring(0, 8).toUpperCase()} Summary
+        </h3>
+        
+        <table style="width: 100%; font-size: 13px; margin-bottom: 20px; border-collapse: collapse;">
+          <tr style="border-bottom: 1px solid #f4f4f5;"><td style="padding: 6px 0; color: #666;">Customer Name:</td><td style="padding: 6px 0; font-weight: bold; text-align: right; color: #111;">${order.customerName || "Guest"}</td></tr>
+          <tr style="border-bottom: 1px solid #f4f4f5;"><td style="padding: 6px 0; color: #666;">Customer Email:</td><td style="padding: 6px 0; font-weight: bold; text-align: right; color: #111;">${order.customerEmail || "N/A"}</td></tr>
+          <tr style="border-bottom: 1px solid #f4f4f5;"><td style="padding: 6px 0; color: #666;">Phone / M-Pesa:</td><td style="padding: 6px 0; font-weight: bold; text-align: right; color: #111;">${order.customerPhone || order.mpesaPhone || "N/A"}</td></tr>
+          <tr style="border-bottom: 1px solid #f4f4f5;"><td style="padding: 6px 0; color: #666;">Shipping Address:</td><td style="padding: 6px 0; font-weight: bold; text-align: right; color: #111;">${order.shippingAddress || "Nairobi CBD Delivery"}</td></tr>
+          <tr style="border-bottom: 1px solid #f4f4f5;"><td style="padding: 6px 0; color: #666;">Payment Status:</td><td style="padding: 6px 0; font-weight: bold; text-align: right; color: ${order.paymentStatus === "Paid" ? "#047857" : "#d97706"};">${(order.paymentStatus || "Pending").toUpperCase()}</td></tr>
+          <tr style="border-bottom: 1px solid #f4f4f5;"><td style="padding: 6px 0; color: #666;">Fulfillment Status:</td><td style="padding: 6px 0; font-weight: bold; text-align: right; color: #111;">${(order.shippingStatus || "Processing").toUpperCase()}</td></tr>
+          ${order.receiptNo ? `<tr style="border-bottom: 1px solid #f4f4f5;"><td style="padding: 6px 0; color: #666;">M-Pesa Transaction Ref:</td><td style="padding: 6px 0; font-family: monospace; font-weight: bold; text-align: right; color: #C5A059;">${order.receiptNo}</td></tr>` : ""}
+          <tr><td style="padding: 10px 0; color: #111; font-weight: bold; font-size: 14px;">Total Value:</td><td style="padding: 10px 0; font-weight: bold; text-align: right; font-size: 18px; color: #111;">KES ${Number(order.totalAmount || 0).toLocaleString()}</td></tr>
+        </table>
+
+        ${itemsListHtml ? `
+        <h4 style="margin: 15px 0 8px 0; font-size: 13px; text-transform: uppercase; color: #777;">Items Included</h4>
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="border-bottom: 1px solid #111; text-align: left; font-size: 11px; color: #666;">
+              <th style="padding: 6px 0;">Item Description</th>
+              <th style="padding: 6px 0; text-align: center;">Qty</th>
+              <th style="padding: 6px 0; text-align: right;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsListHtml}
+          </tbody>
+        </table>
+        ` : ""}
+
+        <div style="margin-top: 25px; padding: 14px; background: #fafafa; border: 1px solid #e4e4e7; text-align: center; font-size: 12px; border-radius: 6px;">
+          Log in to the <a href="https://techsokoni.com/admin" style="color: #C5A059; font-weight: bold; text-decoration: none;">Tech Sokoni Admin Terminal</a> to process fulfillment.
+        </div>
+      </div>
+    </div>
+  `;
+
+  const transporter = getTransporter();
+
+  if (transporter) {
+    try {
+      const mailOptions = {
+        from: cleanFrom,
+        to: adminEmail,
+        bcc: "shop@techsokoni.com",
+        subject: `[Order Alert] ${updateType} - #${orderId.substring(0, 8).toUpperCase()} (KES ${Number(order.totalAmount || 0).toLocaleString()})`,
+        html: emailHtmlContent,
+      };
+
+      await transporter.sendMail(mailOptions);
+      console.log(`[EmailService] Admin order alert email sent successfully to ${adminEmail}`);
+      return { success: true, message: `Admin email sent to ${adminEmail}` };
+    } catch (error: any) {
+      console.error("[EmailService] Error sending admin order alert email via SMTP:", error);
+      return { success: false, message: error.message };
+    }
+  } else {
+    console.log(`[EmailService] Simulated Admin Order Alert Email dispatch to ${adminEmail}: ${updateType} for Order #${orderId}`);
+    return { success: true, simulated: true, message: "Simulated admin email notification." };
   }
 }
 
@@ -989,6 +1100,23 @@ Please log in to the TechSokoni Admin Portal to verify payment and process dispa
       console.log("[WhatsApp Notification Info] Audit logging bypassed in fallback.");
     }
 
+    // Dispatch instant email alert to admin (techgadgetsk@gmail.com)
+    try {
+      await sendAdminOrderNotificationEmail(
+        {
+          id: orderId,
+          customerName,
+          customerPhone,
+          totalAmount,
+          items,
+          shippingAddress: req.body.shippingAddress || req.body.deliveryAddress
+        },
+        "New Order Placed"
+      );
+    } catch (emailErr: any) {
+      console.warn("[Admin Notification Warning] Admin email notification dispatch failed:", emailErr?.message);
+    }
+
     res.json({
       success: true,
       message: gatewayMessage,
@@ -999,6 +1127,19 @@ Please log in to the TechSokoni Admin Portal to verify payment and process dispa
   } catch (err: any) {
     console.error("WhatsApp notification dispatch failed:", err);
     res.status(200).json({ success: true, message: "Notification handled with warning.", warning: err.message });
+  }
+});
+
+// Admin Email Notification Endpoint for Order Creation & Status Updates
+app.post("/api/order/notify-email", async (req, res) => {
+  const { orderId, order, updateType } = req.body;
+  try {
+    const orderObj = order || { id: orderId, ...req.body };
+    const result = await sendAdminOrderNotificationEmail(orderObj, updateType || "Order Updated");
+    res.json({ success: true, ...result });
+  } catch (err: any) {
+    console.error("[Order Notify Email] Failed:", err);
+    res.status(500).json({ success: false, error: err?.message || "Failed to send email notification" });
   }
 });
 
@@ -2349,6 +2490,24 @@ app.all(["/api/megapay/webhook", "/api/megapay/callback", "/api/paystack/webhook
             await serverUpdateDoc(serverDoc(serverDb, "orders", targetOrderId), updateData);
           }
           console.log(`[MegaPay Webhook Success] Firestore Order #${targetOrderId} marked as Paid with Receipt ${callbackReceipt}`);
+
+          // Automatically dispatch receipt email to customer and notification to store admin
+          try {
+            let fetchedOrder: any = null;
+            if (adminDb && isAdminDbAuthorized) {
+              const docSnap = await adminDb.collection("orders").doc(targetOrderId).get();
+              if (docSnap.exists) fetchedOrder = { id: docSnap.id, ...docSnap.data() };
+            }
+            if (fetchedOrder) {
+              if (fetchedOrder.customerEmail) {
+                await sendReceiptEmail(fetchedOrder.customerEmail, fetchedOrder, fetchedOrder.id);
+              } else {
+                await sendAdminOrderNotificationEmail(fetchedOrder, "Payment Verified via MegaPay Webhook");
+              }
+            }
+          } catch (emailErr: any) {
+            console.warn(`[MegaPay Webhook Email Warning] Automatic email trigger failed for #${targetOrderId}:`, emailErr?.message);
+          }
         } catch (dbErr: any) {
           console.error(`[MegaPay Webhook DB Error] Failed updating order #${targetOrderId}:`, dbErr.message);
         }

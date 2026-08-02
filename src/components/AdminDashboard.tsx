@@ -363,7 +363,7 @@ function OrderCourierEditor({
   onSave,
 }: {
   ord: Order;
-  onSave: (courierName: string, courierWaybill: string, courierPhone: string) => void;
+  onSave: (courierName: string, courierWaybill: string) => void;
 }) {
   const getInitialCourier = () => {
     const name = ord.courierName || "";
@@ -376,20 +376,8 @@ function OrderCourierEditor({
     return (ord.courierWaybill || "").replace(/\D/g, "");
   };
 
-  const getDefaultPhoneForCourier = (name: string) => {
-    if (name.toLowerCase().includes("fargo")) return "254703030000";
-    if (name.toLowerCase().includes("tech sokoni") || name.toLowerCase().includes("sokoni") || name.toLowerCase().includes("nairobi")) return "254793090200";
-    return "254703077000";
-  };
-
-  const getInitialPhone = () => {
-    if (ord.courierPhone) return ord.courierPhone;
-    return getDefaultPhoneForCourier(getInitialCourier());
-  };
-
   const [courierName, setCourierName] = useState<string>(getInitialCourier());
   const [courierWaybill, setCourierWaybill] = useState<string>(getInitialTracking());
-  const [courierPhone, setCourierPhone] = useState<string>(getInitialPhone());
   const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
@@ -400,20 +388,17 @@ function OrderCourierEditor({
 
     setCourierName(canonicalName);
     setCourierWaybill((ord.courierWaybill || "").replace(/\D/g, ""));
-    setCourierPhone(ord.courierPhone || getDefaultPhoneForCourier(canonicalName));
-  }, [ord.courierName, ord.courierWaybill, ord.courierPhone]);
+  }, [ord.courierName, ord.courierWaybill]);
 
-  const triggerSave = (selectedCourier: string, waybillDigits: string, phoneVal: string) => {
-    onSave(selectedCourier, waybillDigits, phoneVal);
+  const triggerSave = (selectedCourier: string, waybillDigits: string) => {
+    onSave(selectedCourier, waybillDigits);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2000);
   };
 
   const handleCourierSelect = (selectedCourier: string) => {
     setCourierName(selectedCourier);
-    const defaultPhone = getDefaultPhoneForCourier(selectedCourier);
-    setCourierPhone(defaultPhone);
-    triggerSave(selectedCourier, courierWaybill, defaultPhone);
+    triggerSave(selectedCourier, courierWaybill);
   };
 
   const handleWaybillChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -422,16 +407,7 @@ function OrderCourierEditor({
   };
 
   const handleWaybillBlur = () => {
-    triggerSave(courierName, courierWaybill, courierPhone);
-  };
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const numericOnly = e.target.value.replace(/\D/g, "");
-    setCourierPhone(numericOnly);
-  };
-
-  const handlePhoneBlur = () => {
-    triggerSave(courierName, courierWaybill, courierPhone);
+    triggerSave(courierName, courierWaybill);
   };
 
   return (
@@ -441,117 +417,27 @@ function OrderCourierEditor({
         {isSaved && <span className="text-emerald-400 text-[9px] font-sans font-bold">✓ Saved</span>}
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-center gap-1.5">
-          <select
-            value={courierName}
-            onChange={(e) => handleCourierSelect(e.target.value)}
-            className="bg-[#0A0A0A] border border-white/10 rounded-md px-2 py-1 text-white font-mono text-[10px] focus:outline-hidden focus:border-[#C5A059] cursor-pointer"
-          >
-            <option value="G4S">G4S</option>
-            <option value="Fargo">Fargo</option>
-            <option value="Tech Sokoni (Nairobi Delivery)">Tech Sokoni (Nairobi Delivery)</option>
-          </select>
-
-          <input
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={courierWaybill}
-            onChange={handleWaybillChange}
-            onBlur={handleWaybillBlur}
-            placeholder="Tracking # (digits)"
-            className="flex-1 w-full bg-[#0A0A0A] border border-white/10 rounded-md px-2 py-1 text-white text-[10px] font-mono focus:outline-hidden focus:border-[#C5A059]"
-          />
-        </div>
+      <div className="flex items-center gap-1.5">
+        <select
+          value={courierName}
+          onChange={(e) => handleCourierSelect(e.target.value)}
+          className="bg-[#0A0A0A] border border-white/10 rounded-md px-2 py-1 text-white font-mono text-[10px] focus:outline-hidden focus:border-[#C5A059] cursor-pointer"
+        >
+          <option value="G4S">G4S</option>
+          <option value="Fargo">Fargo</option>
+          <option value="Tech Sokoni (Nairobi Delivery)">Tech Sokoni (Nairobi Delivery)</option>
+        </select>
 
         <input
           type="text"
           inputMode="numeric"
           pattern="[0-9]*"
-          value={courierPhone}
-          onChange={handlePhoneChange}
-          onBlur={handlePhoneBlur}
-          placeholder="Courier Phone (254...)"
-          className="w-full bg-[#0A0A0A] border border-white/10 rounded-md px-2 py-1 text-white text-[10px] font-mono focus:outline-hidden focus:border-[#C5A059]"
+          value={courierWaybill}
+          onChange={handleWaybillChange}
+          onBlur={handleWaybillBlur}
+          placeholder="Tracking # (digits)"
+          className="flex-1 w-full bg-[#0A0A0A] border border-white/10 rounded-md px-2 py-1 text-white text-[10px] font-mono focus:outline-hidden focus:border-[#C5A059]"
         />
-      </div>
-    </div>
-  );
-}
-
-function EditableCourierPhone({
-  ord,
-  onSave,
-}: {
-  ord: Order;
-  onSave: (phone: string) => void;
-}) {
-  const sanitizeToKenyanDigits = (val: string) => {
-    let digits = (val || "").replace(/\D/g, "");
-    if (digits.startsWith("0")) {
-      digits = "254" + digits.substring(1);
-    }
-    return digits;
-  };
-
-  const getInitialValue = () => {
-    if (ord.courierPhone) {
-      return sanitizeToKenyanDigits(ord.courierPhone);
-    }
-    const name = ord.courierName || "";
-    if (name.toLowerCase().includes("fargo")) return "254703030000";
-    if (name.toLowerCase().includes("tech sokoni") || name.toLowerCase().includes("sokoni") || name.toLowerCase().includes("nairobi")) return "254793090200";
-    return "254703077000";
-  };
-
-  const [phone, setPhone] = useState<string>(getInitialValue());
-  const [isSaved, setIsSaved] = useState(false);
-
-  useEffect(() => {
-    if (ord.courierPhone) {
-      setPhone(sanitizeToKenyanDigits(ord.courierPhone));
-    }
-  }, [ord.courierPhone]);
-
-  const isValidKenyan = phone.startsWith("254") && phone.length === 12;
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawDigits = e.target.value.replace(/\D/g, "");
-    setPhone(rawDigits);
-  };
-
-  const handleBlur = () => {
-    const formatted = sanitizeToKenyanDigits(phone);
-    setPhone(formatted);
-    onSave(formatted);
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 2000);
-  };
-
-  return (
-    <div className="space-y-1 font-mono text-[10px] min-w-[145px]">
-      <input
-        type="text"
-        inputMode="numeric"
-        pattern="[0-9]*"
-        value={phone}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        placeholder="254XXXXXXXXX"
-        className={`w-full bg-[#0A0A0A] border rounded-lg px-2.5 py-1 text-white text-[11px] font-mono focus:outline-hidden transition-colors ${
-          isValidKenyan
-            ? "border-emerald-500/40 focus:border-emerald-400"
-            : "border-amber-500/40 focus:border-amber-400 text-amber-200"
-        }`}
-      />
-      <div className="flex items-center justify-between text-[9px]">
-        {isValidKenyan ? (
-          <span className="text-emerald-400 font-bold">✓ Valid (254...)</span>
-        ) : (
-          <span className="text-amber-400 font-medium">Starts with 254</span>
-        )}
-        {isSaved && <span className="text-emerald-400 font-bold">Saved</span>}
       </div>
     </div>
   );
@@ -5469,8 +5355,36 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
       {/* FULFILLMENT QUEUE QUEUE STATE */}
       {activeSubTab === "orders" && (
         <div className="space-y-4 animate-fadeIn">
+          {newMpesaAlert && (
+            <div className="p-4 bg-emerald-500/10 border border-emerald-500/40 rounded-2xl flex items-center justify-between animate-pulse shadow-lg shadow-emerald-500/10">
+              <div className="flex items-center gap-3">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+                <div>
+                  <h4 className="text-xs font-mono font-bold text-emerald-400 flex items-center gap-1.5">
+                    ⚡ MEGAPAY PAYMENT WEBHOOK CALLBACK VERIFIED
+                  </h4>
+                  <p className="text-[11px] font-mono text-white/80">
+                    Order <strong className="text-white">#{newMpesaAlert.id.slice(0, 8).toUpperCase()}</strong> for <strong className="text-emerald-300">KES {newMpesaAlert.amount.toLocaleString()}</strong> from {newMpesaAlert.customer} (Ref: {newMpesaAlert.receipt})
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setNewMpesaAlert(null)}
+                className="text-xs font-mono text-emerald-400 hover:text-white px-3 py-1 bg-emerald-500/20 rounded-lg border border-emerald-500/30 cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           <div className="flex justify-between items-center text-xs font-mono text-white/40 font-bold">
-            <span>DISPATCH QUEUE PROCESSING FLOW</span>
+            <span className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              DISPATCH QUEUE PROCESSING FLOW
+            </span>
             <span>REAL-TIME SNAPSHOT CONNECTED</span>
           </div>
 
@@ -5588,15 +5502,12 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                           )}
                         </div>
                       </th>
-                      <th className="p-2.5 sm:p-4 text-[#C5A059] font-mono">
-                        Courier Phone
-                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5 font-sans text-white/80 text-[11px] sm:text-xs">
                     {sortedOrders.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="p-8 text-center text-white/30 font-mono uppercase tracking-wider bg-black/10">
+                        <td colSpan={6} className="p-8 text-center text-white/30 font-mono uppercase tracking-wider bg-black/10">
                           No customer orders recorded in the terminal database matching active conditions
                         </td>
                       </tr>
@@ -5674,31 +5585,13 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                             {/* Admin Courier Details Editor */}
                             <OrderCourierEditor
                               ord={ord}
-                              onSave={(courierName, courierWaybill, courierPhone) => {
+                              onSave={(courierName, courierWaybill) => {
                                 updateOrderStatus(
                                   ord.id,
                                   ord.paymentStatus,
                                   ord.shippingStatus,
                                   ord.receiptNo,
-                                  { courierName, courierWaybill, courierPhone }
-                                );
-                              }}
-                            />
-                          </td>
-                          <td className="p-2.5 sm:p-4 whitespace-nowrap align-top">
-                            <EditableCourierPhone
-                              ord={ord}
-                              onSave={(updatedPhone) => {
-                                updateOrderStatus(
-                                  ord.id,
-                                  ord.paymentStatus,
-                                  ord.shippingStatus,
-                                  ord.receiptNo,
-                                  {
-                                    courierName: ord.courierName,
-                                    courierWaybill: ord.courierWaybill,
-                                    courierPhone: updatedPhone,
-                                  }
+                                  { courierName, courierWaybill }
                                 );
                               }}
                             />
