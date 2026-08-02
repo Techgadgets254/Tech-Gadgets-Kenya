@@ -71,7 +71,7 @@ export const PrintView: React.FC<PrintViewProps> = ({ order, onClose, onPrint })
                 <img 
                   src={brandLogoImg} 
                   alt="Tech Sokoni Kenya Logo" 
-                  className="w-10 h-10 rounded-lg border border-zinc-300 object-cover" 
+                  className="w-12 h-12 rounded-lg border border-zinc-300 object-contain bg-white shrink-0" 
                 />
                 <div>
                   <h1 className="text-xl font-black text-zinc-900 tracking-tight uppercase">Tech Sokoni Kenya</h1>
@@ -111,7 +111,7 @@ export const PrintView: React.FC<PrintViewProps> = ({ order, onClose, onPrint })
                 <img
                   src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(order.id || "TS-ORD")}`}
                   alt={`QR Code for Order ${order.id}`}
-                  className="w-12 h-12 rounded-md border border-zinc-300 p-0.5 bg-white"
+                  className="w-12 h-12 rounded-md border border-zinc-300 p-0.5 bg-white object-contain shrink-0 block"
                   referrerPolicy="no-referrer"
                 />
               </div>
@@ -220,12 +220,21 @@ export const PrintView: React.FC<PrintViewProps> = ({ order, onClose, onPrint })
               <p className="mt-1 italic">Thank you for choosing Tech Sokoni Kenya for your technology hardware needs.</p>
             </div>
 
-            <div className="mt-6 sm:mt-0 text-right flex flex-col items-end">
-              <img src={signatureImg} alt="Adam Kassim Signature" className="h-12 max-w-[160px] object-contain mb-1" />
-              <div className="w-40 border-t-2 border-zinc-900 pt-1 text-center font-bold text-xs text-zinc-900 font-mono">
-                Adam Kassim
+            <div className="mt-6 sm:mt-0 text-right flex flex-col items-center sm:items-end">
+              <div className="w-40 flex flex-col items-center text-center">
+                <img 
+                  src={signatureImg} 
+                  alt="Adam Kassim Signature" 
+                  className="h-11 max-w-[140px] object-contain mb-1 mix-blend-multiply filter contrast-200 grayscale block mx-auto" 
+                  style={{ mixBlendMode: "multiply", filter: "contrast(200%) grayscale(100%)" }}
+                />
+                <div className="w-36 border-t-2 border-zinc-900 pt-1 text-center font-bold text-xs text-zinc-900 font-mono mx-auto">
+                  Adam Kassim
+                </div>
+                <p className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold text-center w-36 mx-auto mt-0.5">
+                  Authorized Signatory & Store Stamp
+                </p>
               </div>
-              <p className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold text-center w-40">Authorized Signatory & Store Stamp</p>
             </div>
           </div>
         </div>

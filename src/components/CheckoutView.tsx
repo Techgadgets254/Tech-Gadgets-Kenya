@@ -531,80 +531,39 @@ export default function CheckoutView() {
 
     const safaricomCheck = getSafaricomValidation(customerPhone);
     const activeEmail = (user?.email || guestEmail || "customer@techsokoni.com").trim() || "customer@techsokoni.com";
-
+    
     try {
-      if (isNairobi) {
-        const shippingFullAddress = `${deliveryDetails}, ${selectedCounty} County, Kenya (Nairobi - Free Delivery)`;
-        
-        setIsSTKProcessing(true);
-        setStkLogs([]);
-        updateSTKLog("Initiating M-Pesa Express Checkout...", 100);
+      const shippingFullAddress = `${deliveryDetails}, ${selectedCounty} County, Kenya (Free Delivery)`;
+      
+      setIsSTKProcessing(true);
+      setStkLogs([]);
+      updateSTKLog(`Initiating M-Pesa Express Checkout for ${selectedCounty} County...`, 100);
 
-        const orderObj = await createCheckoutOrder({
-          customerName,
-          customerEmail: activeEmail,
-          customerPhone,
-          shippingAddress: shippingFullAddress,
-          mpesaPhone: customerPhone,
-          totalAmount: Math.max(0, getCartTotal() + deliveryFee - discount),
-          referralCode: appliedPromo || undefined,
-          paymentProvider: "M-Pesa Express"
-        });
+      const orderObj = await createCheckoutOrder({
+        customerName,
+        customerEmail: activeEmail,
+        customerPhone,
+        shippingAddress: shippingFullAddress,
+        mpesaPhone: customerPhone,
+        totalAmount: Math.max(0, getCartTotal() + deliveryFee - discount),
+        referralCode: appliedPromo || undefined,
+        paymentProvider: "M-Pesa Express"
+      });
 
-        if (!orderObj) {
-          setIsSTKProcessing(false);
-          alert("Could not create database record for order. Please try again.");
-          return;
-        }
-
-        setCurrentCreatedOrder(orderObj);
+      if (!orderObj) {
         setIsSTKProcessing(false);
-
-        // Open M-Pesa Express Payment Handler
-        setActivePaymentOrderId(orderObj.id);
-        setActivePaymentEmail(activeEmail || "techgadgetsk@gmail.com");
-        setActivePaymentAmount(orderObj.totalAmount);
-        setIsPaymentHandlerOpen(true);
-      } else {
-        // OUTSIDE NAIROBI: "no payment before delivery"
-        setIsSTKProcessing(true);
-        setStkLogs([]);
-
-        updateSTKLog("Parsing outside-Nairobi shipping parameters...", 150);
-        updateSTKLog("Validating logistics hub matching for county: " + selectedCounty, 450);
-
-        const shippingFullAddress = `${deliveryDetails}, ${selectedCounty} County, Kenya (Outside Nairobi - Pay on Delivery)`;
-        
-        const orderObj = await createCheckoutOrder({
-          customerName,
-          customerEmail: activeEmail,
-          customerPhone,
-          shippingAddress: shippingFullAddress,
-          mpesaPhone: "PAY-ON-DELIVERY",
-          totalAmount: Math.max(0, getCartTotal() - discount),
-          referralCode: appliedPromo || undefined,
-          paymentProvider: "Delivery-Pay"
-        });
-
-        if (!orderObj) {
-          setIsSTKProcessing(false);
-          alert("Encountered database communication issue.");
-          return;
-        }
-
-        setCurrentCreatedOrder(orderObj);
-
-        updateSTKLog("Compiling free warehouse dispatch ledger...", 900);
-        updateSTKLog("Order queued as PENDING DELIVERY (Pay on Delivery Approved)", 1400);
-
-        setTimeout(() => {
-          setGeneratedReceipt("POD-APPROVED");
-          setGeneratedOrderId(orderObj.id);
-          setPaymentSuccess(true);
-          setIsSTKProcessing(false);
-          clearCart();
-        }, 2000);
+        alert("Could not create database record for order. Please try again.");
+        return;
       }
+
+      setCurrentCreatedOrder(orderObj);
+      setIsSTKProcessing(false);
+
+      // Open M-Pesa Express Payment Handler
+      setActivePaymentOrderId(orderObj.id);
+      setActivePaymentEmail(activeEmail || "techgadgetsk@gmail.com");
+      setActivePaymentAmount(orderObj.totalAmount);
+      setIsPaymentHandlerOpen(true);
     } catch (err: any) {
       console.error("Checkout submission failed:", err);
       setIsSTKProcessing(false);
@@ -662,10 +621,7 @@ export default function CheckoutView() {
                 <Loader2 className="w-6 h-6 animate-spin" />
               </div>
               <h3 className="font-sans font-semibold text-lg text-white">
-                {isNairobi 
-                  ? "M-Pesa Express Terminal" 
-                  : "Logistic Dispatch Routing"
-                }
+                M-Pesa Express Terminal
               </h3>
               <p className="text-white/40 text-xs mt-1">
                 Your credentials are encrypted over secure live TLS connection. Verified on live MegaPay server queues.
@@ -686,10 +642,7 @@ export default function CheckoutView() {
 
             <div className="mt-6 flex justify-between items-center text-[10px] text-white/30 font-mono">
               <span>
-                {isNairobi 
-                  ? "M-Pesa Commerce Bridge"
-                  : "Free Courier Dispatch"
-                }
+                M-Pesa Commerce Bridge
               </span>
               <span>Keep your tab open</span>
             </div>
@@ -707,14 +660,10 @@ export default function CheckoutView() {
           </div>
 
           <h2 className="font-sans font-semibold text-2xl tracking-tight text-white">
-            {generatedReceipt === "POD-APPROVED" ? "Fulfillment Dispatch Registered!" : "Payment Cleared Successfully!"}
+            Payment Cleared Successfully!
           </h2>
           <p className="text-white/40 text-xs sm:text-sm mt-3 max-w-md mx-auto leading-relaxed font-sans">
-            {generatedReceipt === "POD-APPROVED" ? (
-              <span>Your consignment for county <strong>{selectedCounty}</strong> is configured for <strong>Cash on Delivery (no payment before delivery required!)</strong>. Invoice #{generatedOrderId.substring(0, 8).toUpperCase()} stands queued for rapid courier loading.</span>
-            ) : (
-              <span>Your Nairobi purchase transition cleared in real time. Order <strong>#{generatedOrderId.substring(0, 8).toUpperCase()}</strong> has shifted directly into physical shipment fulfillment.</span>
-            )}
+            <span>Your purchase transition cleared in real time for <strong>{selectedCounty} County</strong>. Order <strong>#{generatedOrderId.substring(0, 8).toUpperCase()}</strong> has shifted directly into physical shipment fulfillment.</span>
           </p>
 
           {/* Redirection timer toast */}
@@ -1027,67 +976,46 @@ export default function CheckoutView() {
                   </div>
 
                   {/* ACTIVE SHIPPING RULE ANNOUNCEMENT */}
-                  <div className="p-4 rounded-2xl border transition-all mt-4">
-                    {isNairobi ? (
-                      <div className="space-y-1.5">
-                        <span className="bg-red-500/10 text-red-400 border border-red-500/20 text-[9px] font-mono px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                          Nairobi Shipping Rule Applied
-                        </span>
-                        <p className="text-xs text-white font-semibold">Payment Before Delivery Required</p>
-                        <p className="text-[10.5px] text-white/40 leading-relaxed font-sans">
-                          Nairobi addresses qualify for <strong>Free Delivery Promo</strong>. Settlement is completed via M-Pesa prior to vehicle dispatch.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-1.5">
-                        <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-mono px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                          Upcountry Shipping Rule Applied
-                        </span>
-                        <p className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
-                          No Payment Before Delivery • Free Shipping
-                        </p>
-                        <p className="text-[10.5px] text-white/40 leading-relaxed font-sans">
-                          Address corresponds outside Nairobi territory (<strong>{selectedCounty} County</strong>). Immediate pre-payment is **completely bypassed**; pay exclusively upon physically inspecting goods at your courier collection office.
-                        </p>
-                      </div>
-                    )}
+                  <div className="p-4 rounded-2xl border border-emerald-500/20 bg-emerald-950/10 transition-all mt-4 space-y-1.5">
+                    <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-mono px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                      {selectedCounty} County Delivery Rule
+                    </span>
+                    <p className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
+                      M-Pesa Express Checkout • Free Delivery
+                    </p>
+                    <p className="text-[10.5px] text-white/40 leading-relaxed font-sans">
+                      Addresses in <strong>{selectedCounty} County</strong> qualify for <strong>Free Delivery Promo</strong>. Settlement is completed securely via M-Pesa Express STK prompt prior to courier dispatch.
+                    </p>
                   </div>
 
-                  {/* PAYMENT TAB METHODS (Only enabled or relevant if Nairobi) */}
-                  {isNairobi ? (
-                    <div className="border-t border-white/5 pt-5 mt-6 space-y-4">
-                      <span className="font-mono text-[10px] text-emerald-400 font-bold uppercase tracking-wider">SELECT PAYMENT METHOD</span>
-                      <div className="grid grid-cols-1 gap-3">
-                        {/* Option 1: M-Pesa Express */}
-                        <div className="flex items-start gap-3 p-4 rounded-2xl border bg-emerald-950/20 border-emerald-500/40 text-white">
-                          <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0 text-black font-extrabold text-sm shadow-md shadow-emerald-500/20">
-                            M
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="text-xs font-bold font-sans text-emerald-400 flex items-center gap-2">
-                              M-Pesa Express Checkout
-                              <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-mono px-2 py-0.5 rounded-full border border-emerald-500/30 font-semibold">STK Push</span>
-                            </h4>
-                            <p className="text-[10.5px] text-white/60 mt-1 leading-normal font-sans">
-                              Receive an instant M-Pesa payment prompt on your phone screen to enter your PIN.
-                            </p>
-                          </div>
+                  {/* PAYMENT TAB METHODS */}
+                  <div className="border-t border-white/5 pt-5 mt-6 space-y-4">
+                    <span className="font-mono text-[10px] text-emerald-400 font-bold uppercase tracking-wider">SELECT PAYMENT METHOD</span>
+                    <div className="grid grid-cols-1 gap-3">
+                      {/* Option 1: M-Pesa Express */}
+                      <div className="flex items-start gap-3 p-4 rounded-2xl border bg-emerald-950/20 border-emerald-500/40 text-white">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0 text-black font-extrabold text-sm shadow-md shadow-emerald-500/20">
+                          M
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-xs font-bold font-sans text-emerald-400 flex items-center gap-2">
+                            M-Pesa Express Checkout
+                            <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-mono px-2 py-0.5 rounded-full border border-emerald-500/30 font-semibold">STK Push</span>
+                          </h4>
+                          <p className="text-[10.5px] text-white/60 mt-1 leading-normal font-sans">
+                            Receive an instant M-Pesa payment prompt on your phone screen to enter your PIN.
+                          </p>
                         </div>
                       </div>
                     </div>
-                  ) : null}
+                  </div>
 
                   <button
                     type="submit"
                     className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-sans font-extrabold py-3.5 px-4 rounded-xl shadow-lg transition-all mt-6 flex items-center justify-center gap-2 cursor-pointer text-sm transform hover:scale-[1.01] duration-200"
                   >
                     <Smartphone className="w-5 h-5 text-black shrink-0" />
-                    <span>
-                      {isNairobi 
-                        ? "Proceed to Pay via M-Pesa Express"
-                        : "Place Order (Pay on Delivery)"
-                      }
-                    </span>
+                    <span>Proceed to Pay via M-Pesa Express</span>
                   </button>
                 </form>
               </div>
@@ -1117,7 +1045,7 @@ export default function CheckoutView() {
                   <span className="font-mono text-xs">KES 0 (FREE Accrued)</span>
                 </div>
                 <div className="flex justify-between text-white/50">
-                  <span>Nairobi Courier Dispatch Duty</span>
+                  <span>Nationwide Courier Dispatch Duty</span>
                   <span className="font-mono text-emerald-500 font-bold">
                     KES 0 (FREE Promo)
                   </span>
@@ -1168,10 +1096,7 @@ export default function CheckoutView() {
                   <strong>Fulfillment Assurance Policy:</strong>
                 </div>
                 <p>
-                  {isNairobi 
-                    ? "Addresses within Nairobi receive same-day delivery via express cycle courier following STK or Visa automated confirmation."
-                    : `Outside Nairobi deliveries (such as ${selectedCounty} county) bypass prepayment entirely with strict physical inspection prior to cash release.`
-                  }
+                  All addresses across {selectedCounty} County and all 47 Kenyan counties receive express courier delivery following M-Pesa automated payment confirmation.
                 </p>
               </div>
             </div>

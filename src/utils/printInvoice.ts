@@ -75,11 +75,14 @@ export function generateInvoiceHtml(order: Order): string {
       gap: 10px;
     }
     .brand-logo {
-      width: 40px;
-      height: 40px;
+      width: 48px;
+      height: 48px;
       border-radius: 6px;
       border: 1px solid #d1d5db;
-      object-fit: cover;
+      object-fit: contain;
+      background: #ffffff;
+      display: block;
+      margin: 0 auto;
     }
     .brand-title {
       font-size: 18px;
@@ -356,7 +359,7 @@ export function generateInvoiceHtml(order: Order): string {
           <img 
             src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(order.id || 'TS-ORD')}" 
             alt="Order ID QR Code" 
-            style="width: 44px; height: 44px; border-radius: 4px; border: 1px solid #d1d5db; padding: 2px; background: #ffffff; object-fit: contain;" 
+            style="width: 48px; height: 48px; border-radius: 4px; border: 1px solid #d1d5db; padding: 2px; background: #ffffff; object-fit: contain; margin: 0 auto; display: block;" 
           />
         </div>
       </div>
@@ -450,10 +453,10 @@ export function generateInvoiceHtml(order: Order): string {
         <p>Phone: 0792620789 / +254 792 620 789 • Email: shop@techsokoni.com</p>
       </div>
 
-      <div class="signature-area" style="display: flex; flex-direction: column; align-items: flex-end; text-align: center; width: 160px;">
-        <img src="${signatureImg}" alt="Adam Kassim Signature" style="height: 48px; max-width: 150px; object-fit: contain; margin-bottom: 2px;" />
-        <div class="signature-line" style="border-top: 1.5px solid #111827; width: 140px; padding-top: 2px; font-weight: 800; font-size: 10px; color: #111827; font-family: monospace;">Adam Kassim</div>
-        <p style="font-size: 8px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; width: 140px;">Authorized Signatory & Store Stamp</p>
+      <div class="signature-area" style="display: flex; flex-direction: column; align-items: center; text-align: center; width: 160px; margin-left: auto;">
+        <img src="${signatureImg}" alt="Adam Kassim Signature" style="height: 42px; max-width: 140px; object-fit: contain; margin-bottom: 2px; mix-blend-mode: multiply; filter: contrast(180%) grayscale(100%); display: block; margin: 0 auto;" />
+        <div class="signature-line" style="border-top: 1.5px solid #111827; width: 140px; padding-top: 3px; font-weight: 800; font-size: 10px; color: #111827; font-family: monospace; text-align: center; margin: 0 auto;">Adam Kassim</div>
+        <p style="font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; width: 140px; text-align: center; margin: 2px auto 0 auto;">Authorized Signatory & Store Stamp</p>
       </div>
     </div>
   </div>

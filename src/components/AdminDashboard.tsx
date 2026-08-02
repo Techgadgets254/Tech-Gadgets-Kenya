@@ -368,6 +368,7 @@ function OrderCourierEditor({
   const getInitialCourier = () => {
     const name = ord.courierName || "";
     if (name.toLowerCase().includes("fargo")) return "Fargo";
+    if (name.toLowerCase().includes("tech sokoni") || name.toLowerCase().includes("sokoni") || name.toLowerCase().includes("nairobi")) return "Tech Sokoni (Nairobi Delivery)";
     return "G4S";
   };
 
@@ -375,26 +376,44 @@ function OrderCourierEditor({
     return (ord.courierWaybill || "").replace(/\D/g, "");
   };
 
+  const getDefaultPhoneForCourier = (name: string) => {
+    if (name.toLowerCase().includes("fargo")) return "254703030000";
+    if (name.toLowerCase().includes("tech sokoni") || name.toLowerCase().includes("sokoni") || name.toLowerCase().includes("nairobi")) return "254793090200";
+    return "254703077000";
+  };
+
+  const getInitialPhone = () => {
+    if (ord.courierPhone) return ord.courierPhone;
+    return getDefaultPhoneForCourier(getInitialCourier());
+  };
+
   const [courierName, setCourierName] = useState<string>(getInitialCourier());
   const [courierWaybill, setCourierWaybill] = useState<string>(getInitialTracking());
+  const [courierPhone, setCourierPhone] = useState<string>(getInitialPhone());
   const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
     const name = ord.courierName || "";
-    setCourierName(name.toLowerCase().includes("fargo") ? "Fargo" : "G4S");
-    setCourierWaybill((ord.courierWaybill || "").replace(/\D/g, ""));
-  }, [ord.courierName, ord.courierWaybill]);
+    let canonicalName = "G4S";
+    if (name.toLowerCase().includes("fargo")) canonicalName = "Fargo";
+    else if (name.toLowerCase().includes("tech sokoni") || name.toLowerCase().includes("sokoni") || name.toLowerCase().includes("nairobi")) canonicalName = "Tech Sokoni (Nairobi Delivery)";
 
-  const triggerSave = (selectedCourier: string, waybillDigits: string) => {
-    const phone = selectedCourier === "Fargo" ? "+254 703 030 000" : "+254 703 077 000";
-    onSave(selectedCourier, waybillDigits, phone);
+    setCourierName(canonicalName);
+    setCourierWaybill((ord.courierWaybill || "").replace(/\D/g, ""));
+    setCourierPhone(ord.courierPhone || getDefaultPhoneForCourier(canonicalName));
+  }, [ord.courierName, ord.courierWaybill, ord.courierPhone]);
+
+  const triggerSave = (selectedCourier: string, waybillDigits: string, phoneVal: string) => {
+    onSave(selectedCourier, waybillDigits, phoneVal);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2000);
   };
 
   const handleCourierSelect = (selectedCourier: string) => {
     setCourierName(selectedCourier);
-    triggerSave(selectedCourier, courierWaybill);
+    const defaultPhone = getDefaultPhoneForCourier(selectedCourier);
+    setCourierPhone(defaultPhone);
+    triggerSave(selectedCourier, courierWaybill, defaultPhone);
   };
 
   const handleWaybillChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -403,7 +422,16 @@ function OrderCourierEditor({
   };
 
   const handleWaybillBlur = () => {
-    triggerSave(courierName, courierWaybill);
+    triggerSave(courierName, courierWaybill, courierPhone);
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const numericOnly = e.target.value.replace(/\D/g, "");
+    setCourierPhone(numericOnly);
+  };
+
+  const handlePhoneBlur = () => {
+    triggerSave(courierName, courierWaybill, courierPhone);
   };
 
   return (
@@ -413,26 +441,117 @@ function OrderCourierEditor({
         {isSaved && <span className="text-emerald-400 text-[9px] font-sans font-bold">✓ Saved</span>}
       </div>
 
-      <div className="flex items-center gap-1.5">
-        <select
-          value={courierName}
-          onChange={(e) => handleCourierSelect(e.target.value)}
-          className="bg-[#0A0A0A] border border-white/10 rounded-md px-2 py-1 text-white font-mono text-[10px] focus:outline-hidden focus:border-[#C5A059] cursor-pointer"
-        >
-          <option value="G4S">G4S</option>
-          <option value="Fargo">Fargo</option>
-        </select>
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-1.5">
+          <select
+            value={courierName}
+            onChange={(e) => handleCourierSelect(e.target.value)}
+            className="bg-[#0A0A0A] border border-white/10 rounded-md px-2 py-1 text-white font-mono text-[10px] focus:outline-hidden focus:border-[#C5A059] cursor-pointer"
+          >
+            <option value="G4S">G4S</option>
+            <option value="Fargo">Fargo</option>
+            <option value="Tech Sokoni (Nairobi Delivery)">Tech Sokoni (Nairobi Delivery)</option>
+          </select>
+
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={courierWaybill}
+            onChange={handleWaybillChange}
+            onBlur={handleWaybillBlur}
+            placeholder="Tracking # (digits)"
+            className="flex-1 w-full bg-[#0A0A0A] border border-white/10 rounded-md px-2 py-1 text-white text-[10px] font-mono focus:outline-hidden focus:border-[#C5A059]"
+          />
+        </div>
 
         <input
           type="text"
           inputMode="numeric"
           pattern="[0-9]*"
-          value={courierWaybill}
-          onChange={handleWaybillChange}
-          onBlur={handleWaybillBlur}
-          placeholder="Tracking # (digits only)"
-          className="flex-1 w-full bg-[#0A0A0A] border border-white/10 rounded-md px-2 py-1 text-white text-[10px] font-mono focus:outline-hidden focus:border-[#C5A059]"
+          value={courierPhone}
+          onChange={handlePhoneChange}
+          onBlur={handlePhoneBlur}
+          placeholder="Courier Phone (254...)"
+          className="w-full bg-[#0A0A0A] border border-white/10 rounded-md px-2 py-1 text-white text-[10px] font-mono focus:outline-hidden focus:border-[#C5A059]"
         />
+      </div>
+    </div>
+  );
+}
+
+function EditableCourierPhone({
+  ord,
+  onSave,
+}: {
+  ord: Order;
+  onSave: (phone: string) => void;
+}) {
+  const sanitizeToKenyanDigits = (val: string) => {
+    let digits = (val || "").replace(/\D/g, "");
+    if (digits.startsWith("0")) {
+      digits = "254" + digits.substring(1);
+    }
+    return digits;
+  };
+
+  const getInitialValue = () => {
+    if (ord.courierPhone) {
+      return sanitizeToKenyanDigits(ord.courierPhone);
+    }
+    const name = ord.courierName || "";
+    if (name.toLowerCase().includes("fargo")) return "254703030000";
+    if (name.toLowerCase().includes("tech sokoni") || name.toLowerCase().includes("sokoni") || name.toLowerCase().includes("nairobi")) return "254793090200";
+    return "254703077000";
+  };
+
+  const [phone, setPhone] = useState<string>(getInitialValue());
+  const [isSaved, setIsSaved] = useState(false);
+
+  useEffect(() => {
+    if (ord.courierPhone) {
+      setPhone(sanitizeToKenyanDigits(ord.courierPhone));
+    }
+  }, [ord.courierPhone]);
+
+  const isValidKenyan = phone.startsWith("254") && phone.length === 12;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawDigits = e.target.value.replace(/\D/g, "");
+    setPhone(rawDigits);
+  };
+
+  const handleBlur = () => {
+    const formatted = sanitizeToKenyanDigits(phone);
+    setPhone(formatted);
+    onSave(formatted);
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 2000);
+  };
+
+  return (
+    <div className="space-y-1 font-mono text-[10px] min-w-[145px]">
+      <input
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        value={phone}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        placeholder="254XXXXXXXXX"
+        className={`w-full bg-[#0A0A0A] border rounded-lg px-2.5 py-1 text-white text-[11px] font-mono focus:outline-hidden transition-colors ${
+          isValidKenyan
+            ? "border-emerald-500/40 focus:border-emerald-400"
+            : "border-amber-500/40 focus:border-amber-400 text-amber-200"
+        }`}
+      />
+      <div className="flex items-center justify-between text-[9px]">
+        {isValidKenyan ? (
+          <span className="text-emerald-400 font-bold">✓ Valid (254...)</span>
+        ) : (
+          <span className="text-amber-400 font-medium">Starts with 254</span>
+        )}
+        {isSaved && <span className="text-emerald-400 font-bold">Saved</span>}
       </div>
     </div>
   );
@@ -5469,12 +5588,15 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                           )}
                         </div>
                       </th>
+                      <th className="p-2.5 sm:p-4 text-[#C5A059] font-mono">
+                        Courier Phone
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5 font-sans text-white/80 text-[11px] sm:text-xs">
                     {sortedOrders.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-white/30 font-mono uppercase tracking-wider bg-black/10">
+                        <td colSpan={7} className="p-8 text-center text-white/30 font-mono uppercase tracking-wider bg-black/10">
                           No customer orders recorded in the terminal database matching active conditions
                         </td>
                       </tr>
@@ -5563,12 +5685,41 @@ Do not include any Markdown like asterisks, list markers, or bullet points. Just
                               }}
                             />
                           </td>
+                          <td className="p-2.5 sm:p-4 whitespace-nowrap align-top">
+                            <EditableCourierPhone
+                              ord={ord}
+                              onSave={(updatedPhone) => {
+                                updateOrderStatus(
+                                  ord.id,
+                                  ord.paymentStatus,
+                                  ord.shippingStatus,
+                                  ord.receiptNo,
+                                  {
+                                    courierName: ord.courierName,
+                                    courierWaybill: ord.courierWaybill,
+                                    courierPhone: updatedPhone,
+                                  }
+                                );
+                              }}
+                            />
+                          </td>
                         </tr>
                       ))
                     )}
                   </tbody>
                 </table>
               </div>
+            )}
+            {sortedOrders.length > 0 && (
+              <Pagination
+                currentPage={ordersPage}
+                totalPages={totalOrderPages}
+                totalItems={sortedOrders.length}
+                itemsPerPage={FULFILLMENT_ORDERS_PER_PAGE}
+                onPageChange={setOrdersPage}
+                itemNameSingular="order"
+                itemNamePlural="orders"
+              />
             )}
           </div>
         </div>
