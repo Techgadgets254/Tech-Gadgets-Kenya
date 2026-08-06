@@ -95,6 +95,18 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
+  // Lock body scrolling when mobile drawer is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileMenuOpen]);
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setLocalSearch(e.target.value);
     if (activeView !== "shop") {
@@ -268,18 +280,6 @@ export default function Header() {
               >
                 <Newspaper className="w-3.5 h-3.5" />
                 <span>News</span>
-              </button>
-              <button
-                onClick={() => { setActiveView("return-policy"); setSearchQuery(""); }}
-                className={`px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 border ${
-                  activeView === "return-policy"
-                    ? "bg-[#C5A059]/10 text-[#C5A059] border-[#C5A059]/35"
-                    : "text-white/60 hover:text-white hover:bg-white/[0.02] border-transparent"
-                }`}
-                title="Google Merchant Verified 30-Day Return Policy"
-              >
-                <RotateCcw className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span>Returns</span>
               </button>
             </nav>
 
@@ -558,125 +558,281 @@ export default function Header() {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Mobile Drawer Slide-down Navigation Panel */}
+      </div>      {/* Mobile Sliding Drawer Navigation Overlay */}
       <AnimatePresence>
         {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.25, ease: "easeInOut" }}
-            className={`md:hidden border-b overflow-hidden text-left ${
-              isLight ? "bg-zinc-50 border-zinc-200" : "bg-[#0A0A0A] border-white/10"
-            }`}
-          >
-            <div className="p-4 space-y-4">
-              
-              {/* Profile card if authenticated */}
-              {user && (
-                <div className={`flex items-center gap-3.5 border rounded-2xl p-3.5 ${
-                  isLight ? "bg-white border-zinc-200" : "bg-white/[0.02] border-white/5"
-                }`}>
-                  {user.photoURL ? (
+          <>
+            {/* Dark Backdrop Overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setMobileMenuOpen(false)}
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 md:hidden"
+            />
+
+            {/* Sliding Drawer Panel */}
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 300 }}
+              className={`fixed top-0 right-0 bottom-0 w-[85%] max-w-sm z-50 shadow-2xl flex flex-col border-l md:hidden ${
+                isLight ? "bg-white border-zinc-200 text-zinc-900" : "bg-[#0E0E0E] border-white/10 text-white"
+              }`}
+            >
+              {/* Drawer Header */}
+              <div className={`p-4 border-b flex items-center justify-between shrink-0 ${
+                isLight ? "border-zinc-200 bg-zinc-50" : "border-white/10 bg-[#121212]"
+              }`}>
+                <div 
+                  className="flex items-center gap-2.5 cursor-pointer"
+                  onClick={() => { setActiveView("home"); setLocalSearch(""); setSearchQuery(""); setMobileMenuOpen(false); }}
+                >
+                  <div className="w-8 h-8 bg-[#0F0F0F] rounded-lg flex items-center justify-center border border-[#C5A059]/40 overflow-hidden shrink-0">
                     <img 
-                      src={user.photoURL} 
-                      alt="User profile" 
-                      className={`w-10 h-10 rounded-xl object-cover border ${isLight ? "border-zinc-200" : "border-white/10"}`}
+                      src={brandLogo} 
+                      alt="Tech Sokoni Kenya Logo" 
+                      className="w-full h-full object-cover"
                       referrerPolicy="no-referrer"
                     />
-                  ) : (
-                    <div className="w-10 h-10 bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/20 rounded-xl flex items-center justify-center font-bold text-sm">
-                      {user.displayName?.charAt(0) || "U"}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-xs font-black leading-tight truncate ${isLight ? "text-zinc-900" : "text-white"}`}>{user.displayName}</p>
-                    <p className={`text-[10px] font-mono truncate ${isLight ? "text-zinc-500" : "text-white/40"}`}>{user.email}</p>
-                    {userProfile?.role && (
-                      <span className="inline-block mt-1 px-1.5 py-0.5 text-[8px] font-mono rounded bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/20">
-                        {userProfile.role.toUpperCase()}
-                      </span>
-                    )}
+                  </div>
+                  <div>
+                    <span className="font-serif italic text-sm font-bold tracking-wider uppercase block leading-none text-[#C5A059]">
+                      TECH SOKONI
+                    </span>
+                    <span className="font-mono text-[8px] tracking-widest opacity-60 block font-bold mt-0.5">
+                      KENYA • MOBILE MENU
+                    </span>
                   </div>
                 </div>
-              )}
-
-              {/* Navigation items */}
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  onClick={() => { setActiveView("home"); setSearchQuery(""); setMobileMenuOpen(false); }}
-                  className={`py-3 rounded-xl text-center text-xs font-bold transition-all border flex flex-col items-center justify-center gap-1.5 ${
-                    activeView === "home"
-                      ? "bg-[#C5A059]/10 text-[#C5A059] border-[#C5A059]/35"
-                      : isLight 
-                        ? "bg-white text-zinc-600 border-zinc-200 hover:text-zinc-900"
-                        : "bg-white/[0.01] text-white/60 border-white/10 hover:text-white"
-                  }`}
-                >
-                  <Home className="w-4 h-4" />
-                  <span>Home</span>
-                </button>
 
                 <button
-                  onClick={() => { setActiveView("shop"); setSearchQuery(""); setMobileMenuOpen(false); }}
-                  className={`py-3 rounded-xl text-center text-xs font-bold transition-all border flex flex-col items-center justify-center gap-1.5 ${
-                    activeView === "shop"
-                      ? "bg-[#C5A059]/10 text-[#C5A059] border-[#C5A059]/35"
-                      : isLight 
-                        ? "bg-white text-zinc-600 border-zinc-200 hover:text-zinc-900"
-                        : "bg-white/[0.01] text-white/60 border-white/10 hover:text-white"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`p-2 rounded-xl border transition-all cursor-pointer ${
+                    isLight 
+                      ? "border-zinc-200 hover:bg-zinc-200 text-zinc-700" 
+                      : "border-white/10 hover:bg-white/10 text-white/80"
                   }`}
+                  title="Close Menu"
                 >
-                  <ShoppingBag className="w-4 h-4" />
-                  <span>Shop</span>
-                </button>
-
-                <button
-                  onClick={() => { setActiveView("news"); setSearchQuery(""); setMobileMenuOpen(false); }}
-                  className={`py-3 rounded-xl text-center text-xs font-bold transition-all border flex flex-col items-center justify-center gap-1.5 ${
-                    activeView === "news"
-                      ? "bg-[#C5A059]/10 text-[#C5A059] border-[#C5A059]/35"
-                      : isLight 
-                        ? "bg-white text-zinc-600 border-zinc-200 hover:text-zinc-900"
-                        : "bg-white/[0.01] text-white/60 border-white/10 hover:text-white"
-                  }`}
-                >
-                  <Newspaper className="w-4 h-4" />
-                  <span>News</span>
+                  <X className="w-4 h-4 text-[#C5A059]" />
                 </button>
               </div>
 
-              {/* Portal specific routes for mobile */}
-              <div className={`space-y-2 pt-2 border-t ${isLight ? "border-zinc-200" : "border-white/5"}`}>
-                {/* Mobile Theme Toggle Button */}
-                <button
-                  onClick={() => toggleTheme()}
-                  className={`w-full text-left py-2.5 px-3.5 rounded-xl border text-xs font-bold flex items-center justify-between cursor-pointer ${
-                    isLight 
-                      ? "bg-white border-zinc-200 text-zinc-800" 
-                      : "bg-white/[0.02] border-white/10 text-white"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    {theme === "dark" ? (
-                      <>
-                        <Sun className="w-4 h-4 text-[#C5A059]" />
-                        <span>Switch to Light Mode</span>
-                      </>
-                    ) : (
-                      <>
-                        <Moon className="w-4 h-4 text-[#C5A059]" />
-                        <span>Switch to Dark Mode</span>
-                      </>
-                    )}
-                  </div>
-                  <span className="text-[10px] font-mono opacity-50 capitalize">{theme} Mode</span>
-                </button>
+              {/* Scrollable Drawer Content Body */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-5">
+                
+                {/* Search Bar inside Drawer */}
+                <div className="relative flex items-center group">
+                  <Search className="w-3.5 h-3.5 text-white/30 absolute left-3 pointer-events-none group-focus-within:text-[#C5A059]" />
+                  <input
+                    type="text"
+                    value={localSearch}
+                    onChange={(e) => {
+                      handleSearchChange(e);
+                    }}
+                    placeholder="Search laptops, desktops, printers..."
+                    className={`w-full text-xs py-2.5 pl-9 pr-8 rounded-xl focus:outline-none font-sans border transition-all ${
+                      isLight
+                        ? "bg-zinc-100 border-zinc-200 text-zinc-900 focus:border-[#C5A059]"
+                        : "bg-[#161616] border-white/10 text-white focus:border-[#C5A059]"
+                    }`}
+                  />
+                  {localSearch && (
+                    <button
+                      onClick={() => { setLocalSearch(""); setSearchQuery(""); }}
+                      className="absolute right-3 text-[10px] font-mono opacity-50 hover:opacity-100 cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
 
+                {/* Profile Card / Sign In CTA */}
                 {user ? (
-                  <>
+                  <div className={`p-3.5 rounded-2xl border flex items-center gap-3 ${
+                    isLight ? "bg-zinc-50 border-zinc-200" : "bg-white/[0.03] border-white/10"
+                  }`}>
+                    {user.photoURL ? (
+                      <img 
+                        src={user.photoURL} 
+                        alt="User profile" 
+                        className="w-10 h-10 rounded-xl object-cover border border-[#C5A059]/30"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/30 rounded-xl flex items-center justify-center font-bold text-sm">
+                        {user.displayName?.charAt(0) || "U"}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-black truncate leading-tight">{user.displayName}</p>
+                      <p className="text-[10px] font-mono opacity-50 truncate">{user.email}</p>
+                      {userProfile?.role && (
+                        <span className="inline-block mt-1 px-2 py-0.5 text-[8px] font-mono rounded-md bg-[#C5A059]/15 text-[#C5A059] border border-[#C5A059]/30 font-bold uppercase">
+                          {userProfile.role}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setAuthModalMode("login"); setIsAuthModalOpen(true); setMobileMenuOpen(false); }}
+                    className="w-full py-3 rounded-xl bg-[#C5A059] text-black font-sans text-xs font-extrabold flex items-center justify-center gap-2 cursor-pointer tracking-wider shadow-lg hover:bg-[#C5A059]/90 active:scale-95 transition-all"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    <span>SIGN IN PORTAL</span>
+                  </button>
+                )}
+
+                {/* Primary Navigation Section */}
+                <div className="space-y-1">
+                  <p className="text-[9px] font-mono uppercase tracking-widest text-[#C5A059] font-bold px-1 mb-2">
+                    Store Navigation
+                  </p>
+
+                  <button
+                    onClick={() => { setActiveView("home"); setSearchQuery(""); setMobileMenuOpen(false); }}
+                    className={`w-full p-3 rounded-xl text-left text-xs font-bold transition-all border flex items-center justify-between cursor-pointer ${
+                      activeView === "home"
+                        ? "bg-[#C5A059]/15 text-[#C5A059] border-[#C5A059]/40 font-extrabold"
+                        : isLight 
+                          ? "bg-zinc-50 text-zinc-700 border-zinc-200 hover:bg-zinc-100"
+                          : "bg-white/[0.02] text-white/70 border-white/5 hover:bg-white/[0.05]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Home className="w-4 h-4 text-[#C5A059]" />
+                      <span>Home Showcase</span>
+                    </div>
+                    {activeView === "home" && <span className="w-1.5 h-1.5 rounded-full bg-[#C5A059]" />}
+                  </button>
+
+                  <button
+                    onClick={() => { setActiveView("shop"); setSearchQuery(""); setMobileMenuOpen(false); }}
+                    className={`w-full p-3 rounded-xl text-left text-xs font-bold transition-all border flex items-center justify-between cursor-pointer ${
+                      activeView === "shop"
+                        ? "bg-[#C5A059]/15 text-[#C5A059] border-[#C5A059]/40 font-extrabold"
+                        : isLight 
+                          ? "bg-zinc-50 text-zinc-700 border-zinc-200 hover:bg-zinc-100"
+                          : "bg-white/[0.02] text-white/70 border-white/5 hover:bg-white/[0.05]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <ShoppingBag className="w-4 h-4 text-[#C5A059]" />
+                      <span>Explore Catalog</span>
+                    </div>
+                    {activeView === "shop" && <span className="w-1.5 h-1.5 rounded-full bg-[#C5A059]" />}
+                  </button>
+
+                  <button
+                    onClick={() => { setActiveView("news"); setSearchQuery(""); setMobileMenuOpen(false); }}
+                    className={`w-full p-3 rounded-xl text-left text-xs font-bold transition-all border flex items-center justify-between cursor-pointer ${
+                      activeView === "news"
+                        ? "bg-[#C5A059]/15 text-[#C5A059] border-[#C5A059]/40 font-extrabold"
+                        : isLight 
+                          ? "bg-zinc-50 text-zinc-700 border-zinc-200 hover:bg-zinc-100"
+                          : "bg-white/[0.02] text-white/70 border-white/5 hover:bg-white/[0.05]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Newspaper className="w-4 h-4 text-[#C5A059]" />
+                      <span>Tech Bulletins & News</span>
+                    </div>
+                    {activeView === "news" && <span className="w-1.5 h-1.5 rounded-full bg-[#C5A059]" />}
+                  </button>
+                </div>
+
+                {/* Quick Actions & Settings */}
+                <div className="space-y-2 pt-3 border-t border-white/10">
+                  <p className="text-[9px] font-mono uppercase tracking-widest text-[#C5A059] font-bold px-1 mb-1">
+                    Quick Tools & Cart
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => { setActiveView("checkout"); setMobileMenuOpen(false); }}
+                      className={`p-3 rounded-xl border text-xs font-bold flex flex-col gap-1 items-start transition-all relative cursor-pointer ${
+                        cartItemCount > 0
+                          ? "bg-[#C5A059]/10 text-[#C5A059] border-[#C5A059]/30"
+                          : isLight ? "bg-zinc-50 border-zinc-200 text-zinc-800" : "bg-white/[0.02] border-white/10 text-white"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <ShoppingBag className="w-4 h-4 text-[#C5A059]" />
+                        {cartItemCount > 0 && (
+                          <span className="bg-[#C5A059] text-black font-sans text-[10px] font-black px-1.5 py-0.2 rounded-full">
+                            {cartItemCount}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[11px] font-bold mt-1">My Cart</span>
+                    </button>
+
+                    <button
+                      onClick={() => { setIsCompareOverlayOpen(true); setMobileMenuOpen(false); }}
+                      className={`p-3 rounded-xl border text-xs font-bold flex flex-col gap-1 items-start transition-all relative cursor-pointer ${
+                        compareList.length > 0
+                          ? "bg-[#C5A059]/10 text-[#C5A059] border-[#C5A059]/30"
+                          : isLight ? "bg-zinc-50 border-zinc-200 text-zinc-800" : "bg-white/[0.02] border-white/10 text-white"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <GitCompare className="w-4 h-4 text-[#C5A059]" />
+                        {compareList.length > 0 && (
+                          <span className="bg-[#C5A059] text-black font-sans text-[10px] font-black px-1.5 py-0.2 rounded-full">
+                            {compareList.length}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[11px] font-bold mt-1">Compare Matrix</span>
+                    </button>
+                  </div>
+
+                  {/* Theme Switcher */}
+                  <button
+                    onClick={() => toggleTheme()}
+                    className={`w-full p-3 rounded-xl border text-xs font-bold flex items-center justify-between cursor-pointer ${
+                      isLight 
+                        ? "bg-zinc-50 border-zinc-200 text-zinc-800 hover:bg-zinc-100" 
+                        : "bg-white/[0.02] border-white/10 text-white hover:bg-white/[0.05]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      {theme === "dark" ? (
+                        <Sun className="w-4 h-4 text-[#C5A059]" />
+                      ) : (
+                        <Moon className="w-4 h-4 text-[#C5A059]" />
+                      )}
+                      <span>Appearance Mode</span>
+                    </div>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#C5A059]/10 text-[#C5A059] font-bold uppercase">
+                      {theme}
+                    </span>
+                  </button>
+                </div>
+
+                {/* Portals & Sign Out */}
+                {user && (
+                  <div className="space-y-2 pt-3 border-t border-white/10">
+                    <p className="text-[9px] font-mono uppercase tracking-widest text-[#C5A059] font-bold px-1 mb-1">
+                      Account Portals
+                    </p>
+
+                    <button
+                      onClick={() => { setActiveView("client-dashboard"); setMobileMenuOpen(false); }}
+                      className={`w-full p-3 rounded-xl border text-xs font-bold flex items-center gap-3 cursor-pointer ${
+                        activeView === "client-dashboard"
+                          ? "bg-[#C5A059]/15 text-[#C5A059] border-[#C5A059]/40"
+                          : isLight ? "bg-zinc-50 border-zinc-200 text-zinc-800" : "bg-white/[0.02] border-white/10 text-white"
+                      }`}
+                    >
+                      <UserIcon className="w-4 h-4 text-[#C5A059]" />
+                      <span>Client Dashboard & Receipts</span>
+                    </button>
+
                     {(userProfile?.role === "admin" || user?.email === "techgadgetsk@gmail.com") && (
                       <>
                         <button
@@ -685,10 +841,10 @@ export default function Header() {
                             setActiveView("admin-dashboard");
                             setMobileMenuOpen(false);
                           }}
-                          className="w-full text-left py-2.5 px-3.5 rounded-xl bg-[#C5A059]/5 hover:bg-[#C5A059]/10 border border-[#C5A059]/25 text-[#C5A059] text-xs font-bold flex items-center gap-2 cursor-pointer"
+                          className="w-full p-3 rounded-xl bg-[#C5A059]/10 hover:bg-[#C5A059]/20 border border-[#C5A059]/30 text-[#C5A059] text-xs font-bold flex items-center gap-3 cursor-pointer"
                         >
                           <Settings className="w-4 h-4" />
-                          <span>Go to Admin Dashboard</span>
+                          <span>Admin Control Center</span>
                         </button>
                         <button
                           onClick={() => {
@@ -696,51 +852,44 @@ export default function Header() {
                             setActiveView("admin-dashboard");
                             setMobileMenuOpen(false);
                           }}
-                          className="w-full text-left py-2.5 px-3.5 rounded-xl bg-emerald-500/5 hover:bg-emerald-500/10 border border-emerald-500/25 text-[#25D366] text-xs font-bold flex items-center gap-2 cursor-pointer"
+                          className="w-full p-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-[#25D366] text-xs font-bold flex items-center gap-3 cursor-pointer"
                         >
                           <MessageSquare className="w-4 h-4 text-[#25D366]" />
-                          <span>WhatsApp Catalog Sync 💬</span>
+                          <span>WhatsApp Catalog Sync</span>
                         </button>
                       </>
                     )}
 
                     <button
-                      onClick={() => { setActiveView("client-dashboard"); setMobileMenuOpen(false); }}
-                      className={`w-full text-left py-2.5 px-3.5 rounded-xl border text-xs font-bold flex items-center gap-2 cursor-pointer ${
-                        isLight 
-                          ? "bg-white border-zinc-200 text-zinc-800" 
-                          : "bg-white/[0.02] border-white/10 text-white"
-                      }`}
-                    >
-                      <UserIcon className="w-4 h-4 text-[#C5A059]" />
-                      <span>Client Account / Saved Receipts</span>
-                    </button>
-
-                    <button
                       onClick={() => { logout(); setMobileMenuOpen(false); }}
-                      className={`w-full text-left py-2.5 px-3.5 rounded-xl border text-xs font-bold flex items-center gap-2 cursor-pointer ${
+                      className={`w-full p-3 rounded-xl border text-xs font-bold flex items-center gap-3 cursor-pointer ${
                         isLight 
                           ? "bg-red-50 border-red-200 text-red-600 hover:bg-red-100" 
-                          : "bg-red-500/5 hover:bg-red-500/10 border-red-500/20 text-red-400"
+                          : "bg-red-500/10 hover:bg-red-500/20 border-red-500/30 text-red-400"
                       }`}
                     >
                       <LogOut className="w-4 h-4" />
-                      <span>Sign Out of System</span>
+                      <span>Sign Out</span>
                     </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => { setAuthModalMode("login"); setIsAuthModalOpen(true); setMobileMenuOpen(false); }}
-                    className="w-full py-3 rounded-xl bg-[#C5A059] text-black font-sans text-xs font-extrabold flex items-center justify-center gap-2 cursor-pointer tracking-wider"
-                  >
-                    <LogIn className="w-4 h-4" />
-                    <span>SIGN IN PORTAL</span>
-                  </button>
+                  </div>
                 )}
+
               </div>
 
-            </div>
-          </motion.div>
+              {/* Drawer Footer */}
+              <div className={`p-4 border-t text-center shrink-0 ${
+                isLight ? "border-zinc-200 bg-zinc-50 text-zinc-500" : "border-white/10 bg-[#0A0A0A] text-white/40"
+              }`}>
+                <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#C5A059]">
+                  Tech Sokoni Kenya • Nairobi CBD
+                </p>
+                <p className="text-[9px] font-mono mt-0.5 opacity-60">
+                  Kenyatta Pioneer Bldg, 5th Flr Shop 514
+                </p>
+              </div>
+
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
 

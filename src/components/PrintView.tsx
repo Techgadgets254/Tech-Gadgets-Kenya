@@ -3,7 +3,6 @@ import { Order } from "../types";
 import { Printer, ShieldCheck, MapPin, Phone, Mail } from "lucide-react";
 import { printInvoiceIframe } from "../utils/printInvoice";
 import brandLogoImg from "../assets/images/tech_soko_logo_1783960703453.jpg";
-import signatureImg from "../assets/images/signature_adam_kassim_1785619369923.jpg";
 
 interface PrintViewProps {
   order: Order;
@@ -225,20 +224,18 @@ export const PrintView: React.FC<PrintViewProps> = ({ order, onClose, onPrint })
             </div>
 
             <div className="mt-6 sm:mt-0 text-right flex flex-col items-center sm:items-end">
-              <div className="w-48 flex flex-col items-center justify-center text-center">
-                <div className="h-16 flex items-center justify-center mb-1">
-                  <img 
-                    src={signatureImg} 
-                    alt="Adam Kassim Signature" 
-                    className="h-14 max-w-[170px] object-contain mix-blend-multiply filter contrast-[220%] grayscale block mx-auto transition-transform scale-110" 
-                    style={{ mixBlendMode: "multiply", filter: "contrast(220%) brightness(95%) grayscale(100%)", transform: "scale(1.15)" }}
-                  />
-                </div>
-                <div className="w-40 border-t-2 border-zinc-900 pt-1 text-center font-extrabold text-xs text-zinc-900 font-mono mx-auto">
-                  Adam Kassim
-                </div>
-                <p className="text-[9px] uppercase tracking-wider text-zinc-600 font-bold text-center w-40 mx-auto mt-0.5">
-                  Authorized Signatory & Store Stamp
+              <div className="stamp-box text-center">
+                {order.paymentStatus === "Paid" || (order.paymentStatus || "").toUpperCase() === "SUCCESS" || (order.paymentStatus || "").toUpperCase() === "COMPLETED" ? (
+                  <div className="paid-stamp-badge inline-block border-2 border-double border-emerald-700 text-emerald-700 bg-emerald-50 px-4 py-1.5 rounded-lg font-mono font-black text-sm tracking-widest uppercase -rotate-3 shadow-inner">
+                    ✓ PAID & VERIFIED
+                  </div>
+                ) : (
+                  <div className="inline-block border-2 border-double border-red-700 text-red-700 bg-red-50 px-4 py-1.5 rounded-lg font-mono font-black text-sm tracking-widest uppercase -rotate-3 shadow-inner">
+                    ⚠ PENDING PAYMENT
+                  </div>
+                )}
+                <p className="text-[9px] uppercase tracking-wider text-zinc-600 font-extrabold font-mono text-center mt-1">
+                  Official Store Clearance Stamp
                 </p>
               </div>
             </div>

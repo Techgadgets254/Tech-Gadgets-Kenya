@@ -1,6 +1,5 @@
 import { Order } from "../types";
 import brandLogoImg from "../assets/images/tech_soko_logo_1783960703453.jpg";
-import signatureImg from "../assets/images/signature_adam_kassim_1785619369923.jpg";
 
 export function generateInvoiceHtml(order: Order): string {
   const brandLogo = brandLogoImg;
@@ -457,12 +456,18 @@ export function generateInvoiceHtml(order: Order): string {
         <p>Phone: 0792620789 / +254 792 620 789 • Email: shop@techsokoni.com</p>
       </div>
 
-      <div class="signature-area" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; width: 180px; margin-left: auto;">
-        <div style="height: 62px; display: flex; items-center; justify-content: center; margin-bottom: 2px;">
-          <img src="${signatureImg}" alt="Adam Kassim Signature" style="height: 60px; max-width: 170px; object-fit: contain; mix-blend-mode: multiply; filter: contrast(220%) brightness(95%) grayscale(100%); transform: scale(1.15); display: block; margin: 0 auto;" />
-        </div>
-        <div class="signature-line" style="border-top: 2px solid #111827; width: 160px; padding-top: 4px; font-weight: 800; font-size: 11px; color: #111827; font-family: monospace; text-align: center; margin: 0 auto;">Adam Kassim</div>
-        <p style="font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #4b5563; width: 160px; text-align: center; margin: 2px auto 0 auto;">Authorized Signatory & Store Stamp</p>
+      <div class="stamp-box" style="text-align: center; margin-left: auto;">
+        ${(order.paymentStatus === "Paid" || (order.paymentStatus || "").toUpperCase() === "SUCCESS" || (order.paymentStatus || "").toUpperCase() === "COMPLETED") ? `
+          <div style="border: 3px double #047857; color: #047857; background: #ecfdf5; font-family: monospace; font-weight: 900; font-size: 13px; letter-spacing: 0.15em; text-transform: uppercase; padding: 6px 14px; border-radius: 6px; transform: rotate(-3deg); display: inline-block; box-shadow: inset 0 0 0 1px #047857;">
+            ✓ PAID & VERIFIED
+          </div>
+          <p style="font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #047857; margin-top: 4px; font-family: monospace;">Official Store Clearance Stamp</p>
+        ` : `
+          <div style="border: 3px double #dc2626; color: #dc2626; background: #fef2f2; font-family: monospace; font-weight: 900; font-size: 13px; letter-spacing: 0.15em; text-transform: uppercase; padding: 6px 14px; border-radius: 6px; transform: rotate(-3deg); display: inline-block; box-shadow: inset 0 0 0 1px #dc2626;">
+            ⚠ PENDING PAYMENT
+          </div>
+          <p style="font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #dc2626; margin-top: 4px; font-family: monospace;">Official Store Stamp</p>
+        `}
       </div>
     </div>
   </div>

@@ -48,6 +48,104 @@ import ProfileEditor from "./ProfileEditor";
 import { FIXED_ARTICLES, DAILY_ARTICLES, Article } from "./NewsView";
 import brandLogo from "../assets/images/tech_soko_logo_1783960703453.jpg";
 
+/** Visual Order Progress Tracker component mapping Firestore order statuses */
+export function OrderProgressTracker({ shippingStatus, paymentStatus }: { shippingStatus?: string; paymentStatus?: string }) {
+  const ship = (shippingStatus || "").trim().toLowerCase();
+  const pay = (paymentStatus || "").trim().toLowerCase();
+
+  const isCancelled = ship === "cancelled" || pay === "cancelled" || pay === "failed";
+
+  let currentStep = 1;
+  if (isCancelled) {
+    currentStep = -1;
+  } else if (ship === "delivered" || ship === "completed") {
+    currentStep = 4;
+  } else if (ship === "shipped" || ship === "in transit" || ship === "out for delivery" || ship === "dispatched") {
+    currentStep = 3;
+  } else if (ship === "processing" || ship === "packed" || pay === "paid" || pay === "success" || pay === "completed") {
+    currentStep = 2;
+  } else {
+    currentStep = 1;
+  }
+
+  const steps = [
+    { id: 1, label: "Pending", desc: "Order Placed", icon: Clock },
+    { id: 2, label: "Processing", desc: "Verifying & Packing", icon: Package },
+    { id: 3, label: "Shipped", desc: "Out for Courier", icon: Truck },
+    { id: 4, label: "Delivered", desc: "Fulfilled & Received", icon: CheckCircle },
+  ];
+
+  if (isCancelled) {
+    return (
+      <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 text-red-400 text-xs flex items-center gap-3 no-print">
+        <XCircle className="w-5 h-5 text-red-400 shrink-0" />
+        <div>
+          <p className="font-bold uppercase tracking-wide text-xs">Order Status: Cancelled</p>
+          <p className="text-[11px] text-red-400/80 mt-0.5">This transaction was cancelled or payment failed.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const progressPercent = Math.min(100, Math.max(0, ((currentStep - 1) / 3) * 100));
+
+  return (
+    <div className="bg-[#0A0A0A] border border-white/10 rounded-2xl p-4 sm:p-5 no-print shadow-xl mb-4">
+      <div className="flex justify-between items-center mb-4 pb-3 border-b border-white/5">
+        <div className="flex items-center gap-2">
+          <Truck className="w-4 h-4 text-[#C5A059]" />
+          <span className="font-sans font-bold text-xs text-white uppercase tracking-wider">
+            Order Progress Tracker
+          </span>
+        </div>
+        <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/20 font-bold uppercase">
+          Status: {shippingStatus || "Pending"}
+        </span>
+      </div>
+
+      <div className="relative my-4 px-2">
+        <div className="absolute top-1/2 left-6 right-6 -translate-y-1/2 h-1 bg-white/10 rounded-full z-0" />
+        <div 
+          className="absolute top-1/2 left-6 -translate-y-1/2 h-1 bg-gradient-to-r from-[#C5A059] to-emerald-400 rounded-full z-0 transition-all duration-500"
+          style={{ width: `calc(${progressPercent}% * 0.84)` }}
+        />
+
+        <div className="relative z-10 flex justify-between items-center">
+          {steps.map((step) => {
+            const Icon = step.icon;
+            const isCompleted = step.id < currentStep;
+            const isCurrent = step.id === currentStep;
+
+            return (
+              <div key={step.id} className="flex flex-col items-center text-center">
+                <div 
+                  className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-all border ${
+                    isCompleted
+                      ? "bg-emerald-500 text-black border-emerald-400 font-bold shadow-md shadow-emerald-500/20"
+                      : isCurrent
+                      ? "bg-[#C5A059] text-black border-[#C5A059] font-bold shadow-lg shadow-[#C5A059]/30 scale-105 ring-2 ring-[#C5A059]/40"
+                      : "bg-[#141414] text-white/30 border-white/10"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                </div>
+                <span className={`text-[10px] sm:text-[11px] font-bold mt-2 font-sans ${
+                  isCurrent ? "text-[#C5A059]" : isCompleted ? "text-emerald-400" : "text-white/40"
+                }`}>
+                  {step.label}
+                </span>
+                <span className="text-[9px] font-mono text-white/30 mt-0.5 hidden sm:block">
+                  {step.desc}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ClientDashboard() {
   const { 
     user, 
@@ -490,11 +588,20 @@ export default function ClientDashboard() {
     doc.text("• VOID CLAUSE: Physically damaged, cracked, burnt, altered, or liquid-damaged elements are strictly NOT covered under any circumstances.", 20, warrantyY + 26);
     doc.text("• DIGITAL CLEARANCE: Certified transaction verified under digital audit index registries.", 20, warrantyY + 30);
 
-    // 8. Signature Bottom row
+    // 8. Official Clearance Stamp Bottom row
+    doc.setFont("Helvetica", "bold");
+    if (order.paymentStatus === "Paid" || (order.paymentStatus || "").toUpperCase() === "SUCCESS" || (order.paymentStatus || "").toUpperCase() === "COMPLETED") {
+      doc.setTextColor(4, 120, 87);
+      doc.setFontSize(9);
+      doc.text("✓ OFFICIAL PAID & VERIFIED STORE STAMP", 105, 275, { align: "center" });
+    } else {
+      doc.setTextColor(220, 38, 38);
+      doc.setFontSize(9);
+      doc.text("⚠ OFFICIAL PENDING PAYMENT STORE STAMP", 105, 275, { align: "center" });
+    }
     doc.setFont("Helvetica", "normal");
     doc.setTextColor(140, 140, 140);
     doc.setFontSize(7.5);
-    doc.text("This transaction copy has been verified electronically. No physical stamp required.", 105, 275, { align: "center" });
     doc.text("Tech Sokoni Kenya | East Africa Premium Electronics Importers", 105, 279, { align: "center" });
 
     doc.save(`Tech_Sokoni_Kenya_Invoice_${order.id.substring(0, 8)}.pdf`);
@@ -1372,6 +1479,12 @@ export default function ClientDashboard() {
             {activeOrder ? (
               <div className="space-y-4">
                 
+                {/* Visual Order Progress Tracker */}
+                <OrderProgressTracker 
+                  shippingStatus={activeOrder.shippingStatus} 
+                  paymentStatus={activeOrder.paymentStatus} 
+                />
+
                 {/* Print and Email action strip (no-print) */}
                 <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 no-print sm:mx-0">
                   <div className="text-xs">
@@ -1692,6 +1805,30 @@ export default function ClientDashboard() {
                         <li>• <strong>RETURN & TESTING:</strong> Clients are granted a strict 3-day testing window from date of receipt/delivery. No returns are accepted after 3 days.</li>
                         <li>• <strong>VOID CLAUSE:</strong> Physically damaged, cracked, burnt, altered, or liquid-damaged elements are strictly NOT covered under any circumstances.</li>
                       </ul>
+                    </div>
+
+                    {/* Official Store Clearance Stamp (No signature) */}
+                    <div className="mt-6 pt-4 border-t border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs">
+                      <div className="text-left text-white/50 text-[10px] font-mono">
+                        <p className="font-bold text-white/80">Tech Sokoni Kenya Limited</p>
+                        <p>Kenyatta Pioneer Building, 5th Floor Shop 514, Kenyatta Ave, Nairobi CBD</p>
+                        <p>Phone: 0792620789 / +254 792 620 789 • Email: shop@techsokoni.com</p>
+                      </div>
+
+                      <div className="stamp-box text-center shrink-0">
+                        {activeOrder.paymentStatus === "Paid" || String(activeOrder.paymentStatus || "").toUpperCase() === "SUCCESS" || String(activeOrder.paymentStatus || "").toUpperCase() === "COMPLETED" ? (
+                          <div className="paid-stamp-badge inline-block border-2 border-double border-emerald-500 text-emerald-400 bg-emerald-500/10 px-4 py-1.5 rounded-lg font-mono font-black text-xs tracking-widest uppercase -rotate-3 border-emerald-500/40">
+                            ✓ PAID & VERIFIED
+                          </div>
+                        ) : (
+                          <div className="inline-block border-2 border-double border-red-500 text-red-400 bg-red-500/10 px-4 py-1.5 rounded-lg font-mono font-black text-xs tracking-widest uppercase -rotate-3 border-red-500/40">
+                            ⚠ PENDING PAYMENT
+                          </div>
+                        )}
+                        <p className="text-[9px] uppercase tracking-wider text-white/50 print:text-black/60 font-extrabold font-mono text-center mt-1">
+                          Official Store Clearance Stamp
+                        </p>
+                      </div>
                     </div>
                   </div>
 
