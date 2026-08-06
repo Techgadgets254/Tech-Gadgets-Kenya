@@ -284,7 +284,21 @@ export default function Footer() {
               <span className="font-mono text-[10px] font-bold uppercase tracking-wider">Admin Console</span>
             </button>
             <span className="text-white/20 hidden sm:inline">|</span>
-            <a href="#" className="hover:text-[#C5A059] text-white/60 transition-colors">Warranties & Refunds</a>
+            <button
+              type="button"
+              onClick={() => setActiveView("return-policy")}
+              className="hover:text-[#C5A059] text-[#C5A059] font-bold transition-colors cursor-pointer"
+            >
+              30-Day Return &amp; Refund Policy
+            </button>
+            <span className="text-white/20 hidden sm:inline">|</span>
+            <button
+              type="button"
+              onClick={() => setActiveView("return-policy")}
+              className="hover:text-[#C5A059] text-white/60 transition-colors cursor-pointer"
+            >
+              Warranties &amp; Guarantees
+            </button>
             <a href="#" className="hover:text-[#C5A059] text-white/60 transition-colors">Privacy Shield</a>
             <a href="#" className="hover:text-[#C5A059] text-white/60 transition-colors">Safaricom Paybill</a>
           </div>

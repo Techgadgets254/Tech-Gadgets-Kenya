@@ -280,6 +280,119 @@ export async function sendReceiptEmail(email: string, orderId: string, order: Or
 }
 
 /**
+ * Sends dispatch & waybill tracking email notification to the customer when an order status changes to "Shipped".
+ */
+export async function sendShippingTrackingEmail(email: string, orderId: string, order: any): Promise<{ success: boolean; message: string; simulated?: boolean }> {
+  const fromName = "Tech Sokoni Kenya Dispatch";
+  const smtpUser = process.env.SMTP_USER;
+  
+  let cleanFrom = `"${fromName}" <support@techsokoni.com>`;
+  if (smtpUser && smtpUser.includes("@")) {
+    cleanFrom = `"${fromName}" <${smtpUser}>`;
+  } else if (process.env.SMTP_FROM) {
+    cleanFrom = process.env.SMTP_FROM;
+  }
+
+  const courierName = order.courierName || "Fargo Courier / G4S";
+  const courierWaybill = order.courierWaybill || "Pending Assignment";
+  const courierPhone = order.courierPhone || "+254 703 077 000";
+
+  const emailHtmlContent = `
+    <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #dddddd; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+      <div style="background-color: #111111; padding: 25px; text-align: center; border-bottom: 3px solid #C5A059;">
+        <h1 style="color: #ffffff; margin: 0; font-size: 22px; text-transform: uppercase; letter-spacing: 2px;">Tech Sokoni Kenya</h1>
+        <p style="color: #C5A059; margin: 5px 0 0 0; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Express Order Dispatch &amp; Tracking Notice</p>
+      </div>
+      <div style="padding: 30px; background-color: #ffffff;">
+        <h2 style="color: #111111; margin-top: 0; font-size: 18px; border-bottom: 1px solid #eeeeee; padding-bottom: 10px;">📦 Your Order Has Been Shipped!</h2>
+        
+        <p style="font-size: 14px; color: #555555; line-height: 1.6;">Great news! Order <strong>#${orderId.substring(0, 8).toUpperCase()}</strong> has been processed, packed with protective security seals, and handed over to our transit partner for delivery.</p>
+        
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="margin: 0 0 12px 0; font-size: 14px; text-transform: uppercase; color: #0f172a; letter-spacing: 0.5px;">Dispatch Details</h3>
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <tr>
+              <td style="padding: 6px 0; color: #64748b;">Waybill / Tracking No:</td>
+              <td style="padding: 6px 0; text-align: right; font-family: monospace; font-size: 16px; font-weight: bold; color: #C5A059;">${courierWaybill}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #64748b;">Logistics Partner:</td>
+              <td style="padding: 6px 0; text-align: right; font-weight: bold; color: #0f172a;">${courierName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #64748b;">Courier Helpline:</td>
+              <td style="padding: 6px 0; text-align: right; font-weight: bold; color: #059669;">${courierPhone}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #64748b;">Destination Address:</td>
+              <td style="padding: 6px 0; text-align: right; color: #0f172a;">${order.shippingAddress || "Client Delivery Location"}</td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="margin-top: 25px; padding: 15px; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; font-size: 12px; color: #166534; line-height: 1.5;">
+          <p style="margin: 0;"><strong>💡 Live Delivery Tracking:</strong> You can track your shipment status in real-time anytime from your Tech Sokoni account or order lookup view using Waybill No <strong>${courierWaybill}</strong>.</p>
+        </div>
+
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eeeeee; font-size: 11px; color: #777777; text-align: center; line-height: 1.6;">
+          <p>Tech Sokoni Kenya | Pioneer Building 5th Flr, Shop 514, Kenyatta Ave, Nairobi CBD</p>
+          <p>Support Hotline: <strong>0792620789</strong> | Email: <a href="mailto:shop@techsokoni.com" style="color: #C5A059; text-decoration: none;">shop@techsokoni.com</a></p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const transporter = getTransporter();
+  if (transporter) {
+    try {
+      const mailOptions = {
+        from: cleanFrom,
+        to: email,
+        subject: `📦 Tech Sokoni Order #${orderId.substring(0, 8).toUpperCase()} Dispatched - Tracking #${courierWaybill}`,
+        html: emailHtmlContent,
+      };
+
+      await transporter.sendMail(mailOptions);
+      console.log(`[EmailService] Shipping notification sent successfully to ${email}`);
+
+      await logFunctionActivity({
+        functionName: "order-shipped-email",
+        status: "success",
+        message: `Shipping dispatch & tracking email sent via SMTP to ${email} (Tracking #${courierWaybill})`,
+        orderId,
+        recipient: email
+      });
+
+      return { success: true, message: `Shipping notification sent via SMTP to ${email}.` };
+    } catch (error: any) {
+      console.error("[EmailService] Error sending shipping notification:", error);
+      await logFunctionActivity({
+        functionName: "order-shipped-email",
+        status: "error",
+        message: `SMTP dispatch failed for shipping email: ${error.message || String(error)}`,
+        orderId,
+        recipient: email,
+        errorDetails: { code: error.code, command: error.command, response: error.response }
+      });
+      throw error;
+    }
+  } else {
+    await logFunctionActivity({
+      functionName: "order-shipped-email",
+      status: "warning",
+      message: `SMTP credentials unconfigured. Simulated shipping notification for ${email}`,
+      orderId,
+      recipient: email
+    });
+    return {
+      success: true,
+      simulated: true,
+      message: `Simulated shipping notification dispatch to ${email}.`
+    };
+  }
+}
+
+/**
  * Sends real-time email notification to Tech Sokoni store owner/admin when an order is created or updated.
  */
 export async function sendAdminOrderNotificationEmail(order: any, updateType: string = "New Order Placed"): Promise<{ success: boolean; message: string; simulated?: boolean }> {
@@ -1217,6 +1330,21 @@ app.post("/api/order/notify-email", async (req, res) => {
   }
 });
 
+// Customer Shipping & Tracking Email Endpoint
+app.post("/api/order/send-shipping-email", async (req, res) => {
+  const { email, orderId, order } = req.body;
+  try {
+    if (!email || !orderId) {
+      return res.status(400).json({ success: false, error: "email and orderId are required parameters." });
+    }
+    const result = await sendShippingTrackingEmail(email, orderId, order || {});
+    res.json({ success: true, ...result });
+  } catch (err: any) {
+    console.error("[Shipping Email API] Failed:", err);
+    res.status(500).json({ success: false, error: err?.message || "Failed to send tracking email notification" });
+  }
+});
+
 app.get("/api/whatsapp/notifications", async (req, res) => {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   try {
@@ -1400,6 +1528,74 @@ Sitemap: https://techsokoni.com/sitemap.xml
 `);
 });
 
+// Dedicated HTML & Crawler endpoint for Google Merchant Center Return Policy Verification
+app.get("/return-policy", (req, res, next) => {
+  const isCrawler = /googlebot|bingbot|yandex|baiduspider|twitterbot|facebookexternalhit|rogerbot|linkedinbot|embedly|quora link preview|showyouhaveit|outbrain|pinterest\/0\.|pinterestbot|slackbot|vkShare|W3C_Validator|whatsapp/i.test(
+    req.headers["user-agent"] || ""
+  );
+
+  if (isCrawler) {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    return res.status(200).send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Official 30-Day Return &amp; Refund Policy | Tech Sokoni Kenya</title>
+  <meta name="description" content="Tech Sokoni Kenya official 30-day return &amp; refund policy. 100% free returns on defective items, KES 0 restocking fee, same-day M-Pesa refunds within 3-5 business days. Pioneer Building 5th Flr Shop 514, Nairobi CBD.">
+  <link rel="canonical" href="https://techsokoni.com/return-policy" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "MerchantReturnPolicy",
+    "name": "Tech Sokoni Kenya Official 30-Day Return & Refund Policy",
+    "applicableCountry": "KE",
+    "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+    "merchantReturnDays": 30,
+    "returnMethod": [
+      "https://schema.org/ReturnByMail",
+      "https://schema.org/ReturnInStore"
+    ],
+    "returnFees": "https://schema.org/FreeReturn",
+    "customerRemorseReturnFees": "https://schema.org/ReturnFeesCustomerResponsibility",
+    "itemCondition": [
+      "https://schema.org/NewCondition",
+      "https://schema.org/RefurbishedCondition"
+    ],
+    "merchantReturnLink": "https://techsokoni.com/return-policy",
+    "refundType": "https://schema.org/FullRefund",
+    "restockingFee": {
+      "@type": "MonetaryAmount",
+      "value": 0,
+      "currency": "KES"
+    },
+    "returnShippingFeesAmount": {
+      "@type": "MonetaryAmount",
+      "value": 0,
+      "currency": "KES"
+    }
+  }
+  </script>
+</head>
+<body style="font-family: system-ui, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; line-height: 1.6; background-color: #0f0f0f; color: #ffffff;">
+  <h1>Tech Sokoni Kenya - Official 30-Day Return &amp; Refund Policy</h1>
+  <p>At Tech Sokoni Kenya, we guarantee complete satisfaction on all laptops, phones, and electronics.</p>
+  <hr style="border-color: #333; margin: 20px 0;" />
+  <p><strong>Return Window:</strong> 30 Calendar Days from date of package delivery or pickup.</p>
+  <p><strong>Return Cost (Defective / Damaged Items):</strong> 100% FREE (KES 0). Tech Sokoni covers courier costs.</p>
+  <p><strong>Return Cost (Customer Remorse / Change of Mind):</strong> KES 250 flat courier rate or KES 0 for direct shop drop-off in Nairobi CBD.</p>
+  <p><strong>Restocking Fee:</strong> KES 0 (0% restocking fee).</p>
+  <p><strong>Return Methods:</strong> Courier (Fargo Courier, G4S) or In-Store Drop-off at Pioneer Building, 5th Floor, Shop 514, Kenyatta Avenue, Nairobi CBD.</p>
+  <p><strong>Refund Method &amp; Timeline:</strong> Direct Safaricom M-Pesa STK transfer / original payment method within 3 to 5 business days after inspection.</p>
+  <p><strong>Accepted Condition:</strong> New, unused, or like-new in original un-tampered box with sales receipt.</p>
+  <hr style="border-color: #333; margin: 20px 0;" />
+  <p><strong>Support Contacts:</strong> shop@techsokoni.com | Phone: +254 792 620 789</p>
+</body>
+</html>`);
+  }
+
+  next();
+});
+
 // Reusable, ultra-robust, crash-safe product fetching helper supporting multiple fallbacks
 async function fetchProductsHelper(): Promise<any[]> {
   const products: any[] = [];
@@ -1540,6 +1736,7 @@ app.get(["/sitemap.xml", "/api/sitemap.xml", "/api/index/sitemap.xml"], async (r
     // Static Routes
     const staticRoutes = [
       { path: "", priority: "1.0", changefreq: "daily" },
+      { path: "/return-policy", priority: "0.9", changefreq: "monthly" },
       { path: "/categories", priority: "0.8", changefreq: "weekly" },
       { path: "/search", priority: "0.8", changefreq: "weekly" },
       { path: "/cart", priority: "0.5", changefreq: "monthly" },

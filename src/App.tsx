@@ -16,6 +16,7 @@ import CheckoutView from "./components/CheckoutView";
 import AdminDashboard from "./components/AdminDashboard";
 import ClientDashboard from "./components/ClientDashboard";
 import NewsView from "./components/NewsView";
+import ReturnPolicyView from "./components/ReturnPolicyView";
 import NotificationCenter from "./components/NotificationCenter";
 import CartToastContainer from "./components/CartToastContainer";
 import AIAdvisor from "./components/AIAdvisor";
@@ -572,6 +573,7 @@ function StoreLayout() {
               )
             )}
             {activeView === "news" && <NewsView />}
+            {activeView === "return-policy" && <ReturnPolicyView />}
           </motion.div>
         </AnimatePresence>
       </main>

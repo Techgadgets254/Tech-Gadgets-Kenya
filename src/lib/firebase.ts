@@ -5,9 +5,24 @@
 
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, setPersistence, browserLocalPersistence } from "firebase/auth";
-import { getFirestore, enableIndexedDbPersistence, doc, getDoc } from "firebase/firestore";
+import { 
+  initializeFirestore, 
+  getFirestore, 
+  doc, 
+  getDoc,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  setLogLevel
+} from "firebase/firestore";
 
 import firebaseConfigImport from "../../firebase-applet-config.json";
+
+// Silence non-fatal connection state warnings in sandbox/iframe environments
+try {
+  setLogLevel("error");
+} catch (e) {
+  // Ignore if setLogLevel fails
+}
 
 // Dynamic configuration mapping to support build-time or runtime environment overrides on Vercel/Vite
 const firebaseConfig = {
@@ -23,20 +38,20 @@ const firebaseConfig = {
 
 // Initialize Firebase modularly
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || "(default)"); /* CRITICAL: The app will break without this line */
 
-// Enable local offline persistent cache for Firestore
+// Initialize Firestore with force/auto-detect long polling for proxy/iframe resilience and persistent multi-tab cache
+let dbInstance;
 try {
-  enableIndexedDbPersistence(db).catch((err) => {
-    if (err.code === "failed-precondition") {
-      console.warn("[Firebase Offline] Multiple tabs open. Persistence disabled.");
-    } else if (err.code === "unimplemented") {
-      console.warn("[Firebase Offline] Browser doesn't support persistent cache.");
-    }
-  });
+  dbInstance = initializeFirestore(app, {
+    experimentalAutoDetectLongPolling: true,
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+  }, firebaseConfig.firestoreDatabaseId || "(default)");
 } catch (e) {
-  console.error("[Firebase Offline] Error enabling Firestore persistent cache:", e);
+  // Fallback to standard getFirestore if initializeFirestore was already called
+  dbInstance = getFirestore(app, firebaseConfig.firestoreDatabaseId || "(default)");
 }
+
+export const db = dbInstance;
 export const auth = getAuth(app);
 
 // Explicitly set browser local persistence for resilient user authentication sessions
@@ -96,17 +111,12 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   throw new Error(JSON.stringify(errInfo));
 }
 
-// CRITICAL CONSTRAINT: Validate Connection to Firestore on initial boot
+// Non-blocking initial connection probe utilizing local cache / lazy online sync
 async function testConnection() {
   try {
-    const connectionTest = getDoc(doc(db, "test", "connection"));
-    const timeout = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error("Connection test timed out")), 3000)
-    );
-    await Promise.race([connectionTest, timeout]);
+    await getDoc(doc(db, "test", "connection"));
   } catch (error) {
-    // Gracefully fallback to offline cache or quiet connection
-    console.warn("[Firebase] Client operating in offline cache mode or initial connection deferred.");
+    // Non-fatal fallback for offline or cold start
   }
 }
 testConnection();

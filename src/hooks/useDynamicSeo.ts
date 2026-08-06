@@ -119,6 +119,15 @@ export function useDynamicSeo(
           url: "https://techsokoni.com/?view=news",
           type: "article"
         };
+      case "return-policy":
+        return {
+          title: "Official 30-Day Return & Refund Policy | Tech Sokoni Kenya",
+          description: "Tech Sokoni Kenya official 30-day return policy. 100% free returns on defective items, KES 0 restocking fee, same-day M-Pesa refunds within 3-5 business days.",
+          keywords: "Tech Sokoni return policy, 30 day return window Kenya, electronics refund Nairobi, M-Pesa refund Kenya, free returns Nairobi CBD",
+          image: defaultSiteImage,
+          url: "https://techsokoni.com/return-policy",
+          type: "website"
+        };
       default:
         return {
           title: "Tech Sokoni Kenya | High-Performance Electronics",

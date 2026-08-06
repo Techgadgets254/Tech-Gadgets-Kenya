@@ -269,6 +269,18 @@ export default function Header() {
                 <Newspaper className="w-3.5 h-3.5" />
                 <span>News</span>
               </button>
+              <button
+                onClick={() => { setActiveView("return-policy"); setSearchQuery(""); }}
+                className={`px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 border ${
+                  activeView === "return-policy"
+                    ? "bg-[#C5A059]/10 text-[#C5A059] border-[#C5A059]/35"
+                    : "text-white/60 hover:text-white hover:bg-white/[0.02] border-transparent"
+                }`}
+                title="Google Merchant Verified 30-Day Return Policy"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-[#C5A059]" />
+                <span>Returns</span>
+              </button>
             </nav>
 
             {/* Theme Toggle Button */}

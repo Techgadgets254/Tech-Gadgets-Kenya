@@ -52,14 +52,14 @@ interface StoreContextType {
   products: Product[];
   orders: Order[];
   cart: { product: Product; quantity: number }[];
-  activeView: "home" | "shop" | "product-details" | "checkout" | "client-dashboard" | "admin-dashboard" | "news";
+  activeView: "home" | "shop" | "product-details" | "checkout" | "client-dashboard" | "admin-dashboard" | "news" | "return-policy";
   selectedProductId: string | null;
   selectedOrder: Order | null;
   invoiceOrderId: string | null;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   setInvoiceOrderId: (id: string | null) => void;
-  setActiveView: (view: "home" | "shop" | "product-details" | "checkout" | "client-dashboard" | "admin-dashboard" | "news") => void;
+  setActiveView: (view: "home" | "shop" | "product-details" | "checkout" | "client-dashboard" | "admin-dashboard" | "news" | "return-policy") => void;
   setSelectedProductId: (id: string | null) => void;
   setSelectedOrder: (order: Order | null) => void;
   
@@ -227,7 +227,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [affiliates, setAffiliates] = useState<Affiliate[]>([]);
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
-  const [activeView, setActiveView] = useState<StoreContextType["activeView"]>("home");
+  const [activeView, setActiveView] = useState<StoreContextType["activeView"]>(() => {
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname.toLowerCase();
+      const params = new URLSearchParams(window.location.search);
+      if (path === "/return-policy" || path === "/returns" || params.get("view") === "return-policy") {
+        return "return-policy";
+      }
+    }
+    return "home";
+  });
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [invoiceOrderId, setInvoiceOrderId] = useState<string | null>(null);
@@ -537,7 +546,37 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     setActiveView(view);
+    if (typeof window !== "undefined" && window.history) {
+      if (view === "return-policy") {
+        window.history.pushState({}, "", "/return-policy");
+      } else if (view === "home") {
+        window.history.pushState({}, "", "/");
+      } else {
+        window.history.pushState({}, "", `/?view=${view}`);
+      }
+    }
   };
+
+  // Sync browser popstate (back/forward) and direct path updates
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname.toLowerCase();
+      const params = new URLSearchParams(window.location.search);
+      if (path === "/return-policy" || path === "/returns" || params.get("view") === "return-policy") {
+        setActiveView("return-policy");
+      } else {
+        const viewParam = params.get("view");
+        if (viewParam && ["shop", "product-details", "checkout", "client-dashboard", "admin-dashboard", "news"].includes(viewParam)) {
+          setActiveView(viewParam as any);
+        } else if (path === "/") {
+          setActiveView("home");
+        }
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   // Sync Cart to localStorage
   useEffect(() => {
@@ -1549,6 +1588,29 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           updateType: `Order #${id.substring(0, 8).toUpperCase()} Updated (Payment: ${paymentStatus}, Delivery: ${shippingStatus})`
         })
       }).catch(err => console.warn("Admin update email notification failed:", err));
+
+      // Dispatch customer shipping tracking email if order is updated to "Shipped"
+      if (shippingStatus === "Shipped") {
+        const targetOrder = orders.find(o => o.id === id);
+        const recipientEmail = targetOrder?.customerEmail || (targetOrder as any)?.guestEmail || (targetOrder as any)?.email;
+        if (recipientEmail) {
+          fetch("/api/order/send-shipping-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: recipientEmail,
+              orderId: id,
+              order: {
+                ...targetOrder,
+                ...updates,
+                courierName: updates.courierName || targetOrder?.courierName || "Fargo Courier / G4S",
+                courierWaybill: updates.courierWaybill || targetOrder?.courierWaybill || "",
+                courierPhone: updates.courierPhone || targetOrder?.courierPhone || "+254 703 077 000"
+              }
+            })
+          }).catch(err => console.warn("Customer shipping email dispatch failed:", err));
+        }
+      }
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `orders/${id}`);
     }
