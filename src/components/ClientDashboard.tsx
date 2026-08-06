@@ -167,16 +167,21 @@ export default function ClientDashboard() {
   const [paymentAttempts, setPaymentAttempts] = useState<any[]>([]);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
 
+  const userId = user?.uid;
+  const userEmail = user?.email;
+
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
     if (activeTab !== "payments" && activeTab !== "transactions") return;
 
-    setPaymentsLoading(true);
+    if (paymentAttempts.length === 0) {
+      setPaymentsLoading(true);
+    }
     const paymentsCol = collection(db, "payments");
     
     // Attempt real-time listener for user's payments
     try {
-      const q = query(paymentsCol, where("userId", "==", user.uid));
+      const q = query(paymentsCol, where("userId", "==", userId));
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const list: any[] = [];
         snapshot.forEach((docSnap) => {
@@ -196,7 +201,7 @@ export default function ClientDashboard() {
           const list: any[] = [];
           snap.forEach((docSnap) => {
             const data = docSnap.data();
-            if (data.userId === user.uid || data.customerEmail === user.email || (user.email && data.customerEmail?.toLowerCase() === user.email.toLowerCase())) {
+            if (data.userId === userId || data.customerEmail === userEmail || (userEmail && data.customerEmail?.toLowerCase() === userEmail.toLowerCase())) {
               list.push({ id: docSnap.id, ...data });
             }
           });
@@ -217,7 +222,7 @@ export default function ClientDashboard() {
       console.error(e);
       setPaymentsLoading(false);
     }
-  }, [user, activeTab]);
+  }, [userId, userEmail, activeTab]);
 
   // Invoice Preview Modal States
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
@@ -877,47 +882,13 @@ export default function ClientDashboard() {
     );
   }, [clientOrders, orderSearchQuery, statusFilter]);
 
-  // Selected Order for detailing or default to first order
-  const baseActiveOrder = useMemo(() => {
+  // Selected Order for detailing or default to first order (updates live via StoreContext orders subscription)
+  const activeOrder = useMemo(() => {
     if (invoiceOrderId) {
       return filteredOrders.find(o => o.id === invoiceOrderId) || filteredOrders[0] || null;
     }
     return filteredOrders[0] || null;
   }, [filteredOrders, invoiceOrderId]);
-
-  // Real-time active order subscription from Firestore for instant live status updates
-  const [realtimeActiveOrder, setRealtimeActiveOrder] = useState<Order | null>(null);
-
-  useEffect(() => {
-    if (!baseActiveOrder?.id) {
-      setRealtimeActiveOrder(null);
-      return;
-    }
-    setRealtimeActiveOrder(baseActiveOrder);
-
-    const unsubscribe = onSnapshot(
-      doc(db, "orders", baseActiveOrder.id),
-      (snapshot) => {
-        if (snapshot.exists()) {
-          setRealtimeActiveOrder({ id: snapshot.id, ...snapshot.data() } as Order);
-        }
-      },
-      (err) => {
-        console.warn("Realtime active order listener warning:", err);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [baseActiveOrder?.id]);
-
-  const activeOrder = realtimeActiveOrder || baseActiveOrder;
-
-  // Set active order ID whenever selected changes or on mount
-  useEffect(() => {
-    if (activeOrder && invoiceOrderId !== activeOrder.id) {
-      setInvoiceOrderId(activeOrder.id);
-    }
-  }, [activeOrder?.id, invoiceOrderId, setInvoiceOrderId]);
 
   // Trigger hidden iframe printing for isolated, clean invoice PDF output
   const handlePrintInvoice = () => {
@@ -1879,7 +1850,7 @@ export default function ClientDashboard() {
               </div>
             </div>
 
-            {paymentsLoading ? (
+            {paymentsLoading && allPaymentRecords.length === 0 ? (
               <div className="py-16 text-center space-y-3">
                 <Loader2 className="w-8 h-8 text-[#C5A059] animate-spin mx-auto" />
                 <p className="text-xs font-mono text-white/40">Querying Firestore payment history...</p>
