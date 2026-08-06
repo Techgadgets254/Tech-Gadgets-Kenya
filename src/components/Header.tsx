@@ -558,7 +558,9 @@ export default function Header() {
             </div>
           )}
         </div>
-      </div>      {/* Mobile Sliding Drawer Navigation Overlay */}
+      </div>
+
+      {/* Mobile Sliding Drawer Navigation Overlay */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <>
