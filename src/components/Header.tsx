@@ -127,6 +127,7 @@ export default function Header() {
   };
 
   return (
+    <>
     <header 
       id="storefront-header" 
       className={`sticky top-0 z-50 backdrop-blur-md border-b shadow-xl transition-all ${
@@ -728,12 +729,13 @@ export default function Header() {
         </button>
       </nav>
 
+    </header>
+
       {/* Push Notifications Drawer Overlay */}
       <PushNotificationDrawer 
         isOpen={isNotificationDrawerOpen} 
         onClose={() => setIsNotificationDrawerOpen(false)} 
       />
-
-    </header>
+    </>
   );
 }

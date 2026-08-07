@@ -98,13 +98,13 @@ export async function logFunctionActivity(entry: {
 }
 
 /**
- * Sends a professional, beautifully formatted receipt to the customer's email.
+ * Sends a professional, beautifully formatted tax receipt and invoice to the customer's email.
  */
 export async function sendReceiptEmail(email: string, orderId: string, order: Order): Promise<{ success: boolean; message: string; simulated?: boolean }> {
   const fromName = "Tech Sokoni Kenya";
   const smtpUser = process.env.SMTP_USER;
   
-  // Use SMTP_USER directly as the sender email address to comply with Zoho's strict SPF/DKIM verification rules
+  // Use SMTP_USER directly as the sender email address to comply with strict SPF/DKIM verification rules
   let cleanFrom = `"${fromName}" <support@techsokoni.com>`;
   if (smtpUser && smtpUser.includes("@")) {
     cleanFrom = `"${fromName}" <${smtpUser}>`;
@@ -112,101 +112,196 @@ export async function sendReceiptEmail(email: string, orderId: string, order: Or
     cleanFrom = process.env.SMTP_FROM;
   }
 
-  const itemsListHtml = (order.items || []).map((item) => `
-    <tr style="border-bottom: 1px solid #eeeeee;">
-      <td style="padding: 12px 0; text-align: left; font-size: 14px; font-weight: bold; color: #111111;">
-        ${item.brand || ""} ${item.name}
+  const displayOrderId = (orderId || order?.id || "ORDER").substring(0, 10).toUpperCase();
+  const dateObj = new Date(order?.createdAt || Date.now());
+  const formattedDate = dateObj.toLocaleDateString("en-KE", { 
+    timeZone: "Africa/Nairobi", 
+    day: "numeric", 
+    month: "short", 
+    year: "numeric", 
+    hour: "2-digit", 
+    minute: "2-digit" 
+  });
+
+  const totalVal = Number(order?.totalAmount || 0);
+  const subtotalVal = Math.round(totalVal / 1.16);
+  const vatVal = totalVal - subtotalVal;
+
+  const totalStr = totalVal.toLocaleString("en-KE");
+  const subtotalStr = subtotalVal.toLocaleString("en-KE");
+  const vatStr = vatVal.toLocaleString("en-KE");
+  const isNairobi = (order?.shippingAddress || "").toLowerCase().includes("nairobi");
+
+  const itemsListHtml = (order?.items || []).map((item) => `
+    <tr style="border-bottom: 1px solid #e2e8f0;">
+      <td style="padding: 12px 0; text-align: left; font-size: 13px; font-weight: 700; color: #0f172a;">
+        ${item.brand ? `<span style="color: #854d0e; font-size: 11px; font-weight: 800; text-transform: uppercase;">[${item.brand}]</span> ` : ""}${item.name}
         <br/>
-        <span style="font-size: 11px; color: #777777; font-weight: normal;">SKU: ${item.id}</span>
+        <span style="font-size: 11px; color: #64748b; font-weight: 400;">SKU: ${item.id}</span>
       </td>
-      <td style="padding: 12px 0; text-align: center; font-size: 14px; color: #555555;">${item.quantity}</td>
-      <td style="padding: 12px 0; text-align: right; font-size: 14px; color: #555555;">KES ${Number(item.price).toLocaleString()}</td>
-      <td style="padding: 12px 0; text-align: right; font-size: 14px; font-weight: bold; color: #111111;">KES ${Number(item.price * item.quantity).toLocaleString()}</td>
+      <td style="padding: 12px 0; text-align: center; font-size: 13px; font-weight: 600; color: #334155;">${item.quantity}</td>
+      <td style="padding: 12px 0; text-align: right; font-size: 13px; color: #334155;">KES ${Number(item.price).toLocaleString("en-KE")}</td>
+      <td style="padding: 12px 0; text-align: right; font-size: 13px; font-weight: 800; color: #0f172a;">KES ${(item.price * item.quantity).toLocaleString("en-KE")}</td>
     </tr>
   `).join("");
 
   const emailHtmlContent = `
-    <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #dddddd; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
-      <div style="background-color: #111111; padding: 25px; text-align: center; border-bottom: 3px solid #C5A059;">
-        <h1 style="color: #ffffff; margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 2px;">Tech Sokoni Kenya</h1>
-        <p style="color: #C5A059; margin: 5px 0 0 0; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Premium Imports &amp; Enterprise Computers</p>
-      </div>
-      <div style="padding: 30px; background-color: #ffffff;">
-        <h2 style="color: #111111; margin-top: 0; font-size: 18px; border-bottom: 1px solid #eeeeee; padding-bottom: 10px;">Official Fiscal Invoice &amp; Receipt</h2>
-        
-        <p style="font-size: 14px; color: #555555; line-height: 1.6;">Thank you for your purchase from Tech Sokoni Kenya! Your transaction for order <strong>#${orderId.substring(0, 8).toUpperCase()}</strong> has been captured successfully. Below is a detailed record of your purchase.</p>
-        
-        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 6px; margin: 20px 0; font-size: 13px;">
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-              <td style="padding: 4px 0; color: #777777;">Order Key:</td>
-              <td style="padding: 4px 0; text-align: right; font-family: monospace; font-weight: bold; color: #111111;">${orderId}</td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0; color: #777777;">Date:</td>
-              <td style="padding: 4px 0; text-align: right; color: #111111;">${new Date(order.createdAt || Date.now()).toLocaleDateString("en-KE", { timeZone: "Africa/Nairobi" })}</td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0; color: #777777;">Customer Name:</td>
-              <td style="padding: 4px 0; text-align: right; font-weight: bold; color: #111111;">${order.customerName || "Valued Client"}</td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0; color: #777777;">Payment Method:</td>
-              <td style="padding: 4px 0; text-align: right; font-weight: bold; color: #111111; text-transform: uppercase;">${order.paymentMethod || "M-Pesa"}</td>
-            </tr>
-            ${order.receiptNo ? `
-            <tr>
-              <td style="padding: 4px 0; color: #777777;">Transaction Ref:</td>
-              <td style="padding: 4px 0; text-align: right; font-family: monospace; font-weight: bold; color: #C5A059;">${order.receiptNo}</td>
-            </tr>
-            ` : ""}
-            <tr>
-              <td style="padding: 4px 0; color: #777777;">Delivery Address:</td>
-              <td style="padding: 4px 0; text-align: right; color: #111111;">${order.shippingAddress || "Nairobi Store Pickup / CBD Delivery"}</td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0; color: #777777;">Courier Dispatch Fee:</td>
-              <td style="padding: 4px 0; text-align: right; font-weight: bold; color: #111111;">
-                ${(order.shippingAddress || "").toLowerCase().includes("nairobi") 
-                  ? "KES 0 (FREE Delivery - Nairobi)" 
-                  : "Communicated by Tech Sokoni Kenya (Outside Nairobi)"}
-              </td>
-            </tr>
-          </table>
-        </div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fiscal Tax Invoice & Payment Receipt | Tech Sokoni Kenya</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0b0b0b; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #111111;">
+  <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0b0b0b; padding: 25px 10px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 620px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #222222;">
+          
+          <!-- BRAND HEADER -->
+          <tr>
+            <td style="background-color: #0E0E0E; padding: 30px 25px; text-align: center; border-bottom: 4px solid #C5A059;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; font-family: 'Times New Roman', Georgia, serif;">TECH SOKONI KENYA</h1>
+              <p style="color: #C5A059; margin: 6px 0 0 0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;">Premium Imports &amp; Enterprise Computers</p>
+            </td>
+          </tr>
 
-        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
-          <thead>
-            <tr style="border-bottom: 2px solid #111111;">
-              <th style="padding: 8px 0; text-align: left; font-size: 12px; text-transform: uppercase; color: #777777;">Product</th>
-              <th style="padding: 8px 0; text-align: center; font-size: 12px; text-transform: uppercase; color: #777777;">Qty</th>
-              <th style="padding: 8px 0; text-align: right; font-size: 12px; text-transform: uppercase; color: #777777;">Unit Price</th>
-              <th style="padding: 8px 0; text-align: right; font-size: 12px; text-transform: uppercase; color: #777777;">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsListHtml}
-          </tbody>
+          <!-- STATUS BADGE BANNER -->
+          <tr>
+            <td style="background-color: #f0fdf4; border-bottom: 1px solid #bbf7d0; padding: 12px 25px; text-align: center;">
+              <span style="display: inline-block; background-color: #166534; color: #ffffff; font-size: 12px; font-weight: 800; padding: 5px 16px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;">
+                ✓ PAID VIA SAFARICOM M-PESA
+              </span>
+            </td>
+          </tr>
+
+          <!-- INVOICE CONTENT -->
+          <tr>
+            <td style="padding: 28px 24px;">
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td>
+                    <h2 style="margin: 0; color: #0f172a; font-size: 20px; font-weight: 800;">Official Fiscal Tax Invoice &amp; Payment Receipt</h2>
+                    <p style="margin: 6px 0 0 0; color: #475569; font-size: 13px; line-height: 1.5;">
+                      Thank you for choosing <strong>Tech Sokoni Kenya</strong>. Your M-Pesa transaction has been verified successfully. Below is your official tax receipt for order <strong>#${displayOrderId}</strong>.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- TRANSACTION METADATA GRID -->
+              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+                <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="font-size: 13px; line-height: 1.8;">
+                  <tr>
+                    <td style="color: #64748b; font-weight: 600; padding: 2px 0;">Invoice Order ID:</td>
+                    <td style="text-align: right; font-family: monospace; font-weight: 800; color: #0f172a; padding: 2px 0;">#${displayOrderId}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #64748b; font-weight: 600; padding: 2px 0;">M-Pesa Transaction Ref:</td>
+                    <td style="text-align: right; font-family: monospace; font-weight: 800; color: #854d0e; background-color: #fef08a; padding: 2px 8px; border-radius: 4px;">${order?.receiptNo || "VERIFIED-MPESA"}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #64748b; font-weight: 600; padding: 2px 0;">Invoice Date &amp; Time:</td>
+                    <td style="text-align: right; color: #0f172a; padding: 2px 0;">${formattedDate} EAT</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #64748b; font-weight: 600; padding: 2px 0;">Customer Name:</td>
+                    <td style="text-align: right; font-weight: 700; color: #0f172a; padding: 2px 0;">${order?.customerName || "Valued Client"}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #64748b; font-weight: 600; padding: 2px 0;">Customer Email:</td>
+                    <td style="text-align: right; color: #0f172a; padding: 2px 0;">${email}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #64748b; font-weight: 600; padding: 2px 0;">Phone / M-Pesa Number:</td>
+                    <td style="text-align: right; font-weight: 700; color: #0f172a; padding: 2px 0;">${order?.customerPhone || order?.mpesaPhone || "N/A"}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #64748b; font-weight: 600; padding: 2px 0;">Delivery Destination:</td>
+                    <td style="text-align: right; color: #0f172a; padding: 2px 0;">${order?.shippingAddress || "Nairobi Store Pickup / CBD Delivery"}</td>
+                  </tr>
+                </table>
+              </div>
+
+              <!-- ITEMS TABLE -->
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top: 20px; border-collapse: collapse;">
+                <thead>
+                  <tr style="border-bottom: 2px solid #0f172a;">
+                    <th align="left" style="padding: 10px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">Item Description</th>
+                    <th align="center" style="padding: 10px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">Qty</th>
+                    <th align="right" style="padding: 10px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">Unit Price</th>
+                    <th align="right" style="padding: 10px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${itemsListHtml}
+                </tbody>
+              </table>
+
+              <!-- SUMMARY TOTALS -->
+              <div style="margin-top: 20px; border-top: 2px solid #0f172a; padding-top: 15px;">
+                <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="font-size: 13px;">
+                  <tr>
+                    <td style="color: #64748b; padding: 4px 0;">Subtotal (Tax Inclusive):</td>
+                    <td style="text-align: right; font-weight: 600; color: #0f172a; padding: 4px 0;">KES ${subtotalStr}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #64748b; padding: 4px 0;">VAT (16% Included):</td>
+                    <td style="text-align: right; color: #64748b; padding: 4px 0;">KES ${vatStr}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #64748b; padding: 4px 0;">Dispatch &amp; Courier Logistics:</td>
+                    <td style="text-align: right; font-weight: 700; color: #15803d; padding: 4px 0;">
+                      ${isNairobi ? "KES 0 (FREE Nairobi Dispatch)" : "Standard Regional Logistics"}
+                    </td>
+                  </tr>
+                  <tr style="border-top: 1px solid #e2e8f0;">
+                    <td style="font-size: 15px; font-weight: 800; color: #000000; padding: 12px 0 0 0;">Total Amount Paid:</td>
+                    <td style="text-align: right; font-size: 20px; font-weight: 800; color: #0f172a; padding: 12px 0 0 0;">
+                      KES ${totalStr}
+                    </td>
+                  </tr>
+                </table>
+              </div>
+
+              <!-- SECURITY & LOGISTICS BANNER -->
+              <div style="margin-top: 25px; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 15px; font-size: 12px; color: #166534; line-height: 1.6;">
+                <div style="font-weight: 800; font-size: 12px; text-transform: uppercase; margin-bottom: 4px;">
+                  🛡️ Safaricom M-Pesa Payment Confirmed &amp; Protected
+                </div>
+                Your payment of <strong>KES ${totalStr}</strong> under M-Pesa Receipt <strong>${order?.receiptNo || "VERIFIED-MPESA"}</strong> is locked and verified. Our dispatch unit is preparing your hardware package with tamper-proof security seals for immediate fulfillment.
+              </div>
+
+              <!-- WARRANTY & RETURN TERMS -->
+              <div style="margin-top: 20px; background-color: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; padding: 15px; font-size: 12px; color: #92400e; line-height: 1.6;">
+                <div style="font-weight: 800; font-size: 12px; text-transform: uppercase; margin-bottom: 6px;">
+                  📋 Official Hardware Warranty &amp; Testing Terms
+                </div>
+                <p style="margin: 0 0 4px 0;"><strong>• 3-Day Inspection Window:</strong> Clients receive a 3-day testing window from delivery date.</p>
+                <p style="margin: 0;"><strong>• Store Warranty:</strong> Standard coverage applies to internal technical hardware defects. Physical, fluid, or power surge damage voids warranty.</p>
+              </div>
+
+              <!-- STORE LOCATION FOOTER -->
+              <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #64748b; line-height: 1.6;">
+                <p style="margin: 0; font-weight: 700; color: #0f172a;">Tech Sokoni Kenya - Physical Store &amp; Service Hub</p>
+                <p style="margin: 4px 0;">Kenyatta Pioneer Building, 5th Floor, Shop 514 (Next to I&amp;M Building), Kenyatta Ave, Nairobi CBD, Kenya</p>
+                <p style="margin: 4px 0;">
+                  Helplines: <strong style="color: #0f172a;">0792620789</strong> / +254 792 620 789 | Email: <a href="mailto:shop@techsokoni.com" style="color: #854d0e; text-decoration: none; font-weight: 700;">shop@techsokoni.com</a>
+                </p>
+                <p style="margin-top: 12px; font-size: 11px; color: #94a3b8; font-family: monospace;">
+                  [Tax Invoice Ref: #${displayOrderId} | Verified via Tech Sokoni Automated SMTP Engine]
+                </p>
+              </div>
+
+            </td>
+          </tr>
         </table>
-
-        <div style="margin-top: 25px; border-top: 2px solid #111111; padding-top: 15px; text-align: right;">
-          <p style="margin: 0; font-size: 14px; color: #555555;">Gross Total:</p>
-          <p style="margin: 5px 0 0 0; font-size: 22px; font-weight: bold; color: #111111;">KES ${Number(order.totalAmount).toLocaleString()}</p>
-        </div>
-
-        <div style="margin-top: 40px; padding: 20px; background-color: #fffbeb; border: 1px solid #fef3c7; border-radius: 6px; font-size: 12px; color: #92400e; line-height: 1.6;">
-          <h4 style="margin: 0 0 8px 0; font-size: 13px; font-weight: bold; text-transform: uppercase;">Official Guarantee & Return Policies</h4>
-          <p style="margin: 0 0 6px 0;"><strong>• 3-Day Return &amp; Testing Window:</strong> Clients are granted a strict 3-day testing window from date of receipt/delivery. Returned items must be in original packaging with intact security seals.</p>
-          <p style="margin: 0;"><strong>• Hardware Warranty:</strong> Standard manufacturer/store warranty covers internal technical defects. Physical, power surge, or liquid damage voids coverage.</p>
-        </div>
-
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eeeeee; font-size: 11px; color: #777777; text-align: center; line-height: 1.6;">
-          <p><strong>Physical Store:</strong> Kenyatta Pioneer Building, 5th Floor, Shop 514 (Next to I&amp;M Building), Kenyatta Ave, Nairobi CBD, Kenya.</p>
-          <p>Phone: <strong>0792620789</strong> / +254 792 620 789 | Email: <a href="mailto:shop@techsokoni.com" style="color: #C5A059; text-decoration: none; font-weight: bold;">shop@techsokoni.com</a></p>
-          <p style="margin-top: 10px; font-weight: bold; color: #333333;">This tax receipt is verified electronically. Thank you for your business!</p>
-        </div>
-      </div>
-    </div>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
   `;
 
   const transporter = getTransporter();
@@ -217,12 +312,12 @@ export async function sendReceiptEmail(email: string, orderId: string, order: Or
         from: cleanFrom,
         to: email,
         bcc: "techgadgetsk@gmail.com, shop@techsokoni.com",
-        subject: `[Receipt] Tech Sokoni Kenya - Order #${orderId.substring(0, 8).toUpperCase()}`,
+        subject: `[Tax Invoice & Receipt] Tech Sokoni Kenya - Order #${displayOrderId}`,
         html: emailHtmlContent,
       };
 
       await transporter.sendMail(mailOptions);
-      console.log(`[EmailService] Receipt sent successfully to ${email}`);
+      console.log(`[EmailService] Fiscal tax receipt sent successfully to ${email}`);
       
       await logFunctionActivity({
         functionName: "order-paid-email",
@@ -2775,6 +2870,26 @@ app.all(["/api/megapay/verify/:reference", "/api/paystack/verify/:reference", "/
             updatedAt: new Date().toISOString()
           });
         }
+
+        // Automatically dispatch tax receipt email to customer upon successful M-Pesa verification
+        try {
+          let fetchedOrder: any = null;
+          if (adminDb && isAdminDbAuthorized) {
+            const docSnap = await adminDb.collection("orders").doc(targetOrderId).get();
+            if (docSnap.exists) fetchedOrder = { id: docSnap.id, ...docSnap.data() };
+          } else if (serverDb) {
+            const docSnap = await serverGetDoc(serverDoc(serverDb, "orders", targetOrderId));
+            if (docSnap.exists()) fetchedOrder = { id: docSnap.id, ...docSnap.data() };
+          }
+          if (fetchedOrder) {
+            const cEmail = fetchedOrder.customerEmail || fetchedOrder.email || payment?.email;
+            if (cEmail) {
+              await sendReceiptEmail(cEmail, fetchedOrder.id || targetOrderId, { ...fetchedOrder, receiptNo });
+            }
+          }
+        } catch (emailErr: any) {
+          console.warn(`[M-Pesa Verification Email Warning] Automatic receipt dispatch failed for #${targetOrderId}:`, emailErr?.message);
+        }
       } catch (dbErr: any) {
         console.warn("[MegaPay Status Check] Could not update order in DB:", dbErr.message);
       }
@@ -2909,11 +3024,11 @@ app.all(["/api/megapay/webhook", "/api/megapay/callback", "/api/paystack/webhook
               if (docSnap.exists) fetchedOrder = { id: docSnap.id, ...docSnap.data() };
             }
             if (fetchedOrder) {
-              if (fetchedOrder.customerEmail) {
-                await sendReceiptEmail(fetchedOrder.customerEmail, fetchedOrder, fetchedOrder.id);
-              } else {
-                await sendAdminOrderNotificationEmail(fetchedOrder, "Payment Verified via MegaPay Webhook");
+              if (fetchedOrder.customerEmail || fetchedOrder.email) {
+                const recipientEmail = fetchedOrder.customerEmail || fetchedOrder.email;
+                await sendReceiptEmail(recipientEmail, fetchedOrder.id || targetOrderId, { ...fetchedOrder, receiptNo: callbackReceipt });
               }
+              await sendAdminOrderNotificationEmail(fetchedOrder, "Payment Verified via MegaPay Webhook");
             }
           } catch (emailErr: any) {
             console.warn(`[MegaPay Webhook Email Warning] Automatic email trigger failed for #${targetOrderId}:`, emailErr?.message);

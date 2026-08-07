@@ -1437,7 +1437,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         // Update local state immediately for instant UI reflection in fulfillment queue
         setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...updateData } : o));
 
-        // Trigger instant admin email alert
+        // Trigger instant customer receipt email & admin email alert
+        const matchedOrder = orders.find(o => o.id === orderId);
+        const customerEmail = matchedOrder?.customerEmail || matchedOrder?.email;
+
+        if (customerEmail) {
+          fetch("/api/email/send-receipt", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              orderId,
+              email: customerEmail,
+              order: { ...(matchedOrder || {}), id: orderId, paymentStatus: "Paid", receiptNo: receipt }
+            })
+          }).catch(err => console.warn("Customer receipt email dispatch warning:", err));
+        }
+
         fetch("/api/order/notify-email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
