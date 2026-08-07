@@ -17,9 +17,9 @@ import {
 
 import firebaseConfigImport from "../../firebase-applet-config.json";
 
-// Silence non-fatal connection state warnings in sandbox/iframe environments
+// Silence internal non-fatal connection state warnings in sandbox/iframe environments
 try {
-  setLogLevel("error");
+  setLogLevel("silent");
 } catch (e) {
   // Ignore if setLogLevel fails
 }
@@ -39,7 +39,7 @@ const firebaseConfig = {
 // Initialize Firebase modularly
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with force long polling for proxy/iframe resilience and persistent multi-tab cache
+// Initialize Firestore with long polling optimizations for proxy/iframe resilience
 let dbInstance;
 try {
   dbInstance = initializeFirestore(app, {
