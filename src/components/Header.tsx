@@ -895,6 +895,94 @@ export default function Header() {
         )}
       </AnimatePresence>
 
+      {/* Mobile Sticky Bottom Navigation Dock */}
+      <nav 
+        id="mobile-bottom-nav-dock"
+        aria-label="Mobile Navigation"
+        className={`fixed bottom-0 left-0 right-0 z-40 md:hidden border-t backdrop-blur-xl px-2 py-1.5 flex items-center justify-around transition-all ${
+          isLight
+            ? "bg-white/95 border-zinc-200 text-zinc-700 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
+            : "bg-[#0A0A0A]/95 border-white/10 text-white/70 shadow-[0_-4px_20px_rgba(0,0,0,0.6)]"
+        }`}
+      >
+        <button
+          onClick={() => { setActiveView("home"); setSearchQuery(""); setMobileMenuOpen(false); }}
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all cursor-pointer ${
+            activeView === "home"
+              ? "text-[#C5A059] font-bold"
+              : isLight ? "text-zinc-600 hover:text-zinc-900" : "text-white/60 hover:text-white"
+          }`}
+        >
+          <Home className="w-5 h-5" />
+          <span className="text-[10px] font-sans mt-0.5 font-bold tracking-tight">Home</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveView("shop"); setSearchQuery(""); setMobileMenuOpen(false); }}
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all cursor-pointer ${
+            activeView === "shop"
+              ? "text-[#C5A059] font-bold"
+              : isLight ? "text-zinc-600 hover:text-zinc-900" : "text-white/60 hover:text-white"
+          }`}
+        >
+          <ShoppingBag className="w-5 h-5" />
+          <span className="text-[10px] font-sans mt-0.5 font-bold tracking-tight">Shop</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveView("checkout"); setMobileMenuOpen(false); }}
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all relative cursor-pointer ${
+            activeView === "checkout"
+              ? "text-[#C5A059] font-bold"
+              : isLight ? "text-zinc-600 hover:text-zinc-900" : "text-white/60 hover:text-white"
+          }`}
+        >
+          <div className="relative">
+            <ShoppingBag className="w-5 h-5" />
+            {cartItemCount > 0 && (
+              <span className="absolute -top-1.5 -right-2 bg-[#C5A059] text-black font-sans text-[9px] font-black w-4 h-4 flex items-center justify-center rounded-full shadow-md animate-pulse">
+                {cartItemCount > 99 ? "99+" : cartItemCount}
+              </span>
+            )}
+          </div>
+          <span className="text-[10px] font-sans mt-0.5 font-bold tracking-tight">Cart</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveView("news"); setSearchQuery(""); setMobileMenuOpen(false); }}
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all cursor-pointer ${
+            activeView === "news"
+              ? "text-[#C5A059] font-bold"
+              : isLight ? "text-zinc-600 hover:text-zinc-900" : "text-white/60 hover:text-white"
+          }`}
+        >
+          <Newspaper className="w-5 h-5" />
+          <span className="text-[10px] font-sans mt-0.5 font-bold tracking-tight">News</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setMobileMenuOpen(false);
+            if (user) {
+              setActiveView("client-dashboard");
+            } else {
+              setAuthModalMode("login");
+              setIsAuthModalOpen(true);
+            }
+          }}
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all cursor-pointer ${
+            activeView === "client-dashboard"
+              ? "text-[#C5A059] font-bold"
+              : isLight ? "text-zinc-600 hover:text-zinc-900" : "text-white/60 hover:text-white"
+          }`}
+        >
+          <UserIcon className="w-5 h-5" />
+          <span className="text-[10px] font-sans mt-0.5 font-bold tracking-tight">
+            {user ? "Account" : "Sign In"}
+          </span>
+        </button>
+      </nav>
+
     </header>
   );
 }

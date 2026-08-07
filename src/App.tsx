@@ -590,7 +590,7 @@ function StoreLayout() {
       {activeView !== "admin-dashboard" && activeView !== "client-dashboard" && (
         <div 
           ref={menuRef}
-          className="fixed bottom-6 left-6 z-50 flex items-center gap-3"
+          className="fixed bottom-20 sm:bottom-6 left-6 z-50 flex items-center gap-3"
           style={{ pointerEvents: isWhatsAppVisible ? "auto" : "none" }}
         >
           {/* Main Trigger Button Container for micro-menu absolute positioning */}

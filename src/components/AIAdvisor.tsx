@@ -488,7 +488,7 @@ Where "id_1, id_2" are the raw matching IDs of the products from the live databa
       <button
         id="ai-floating-bubble"
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 z-40 bg-gradient-to-br from-[#C5A059] to-[#9E8043] text-black hover:scale-105 active:scale-95 shadow-lg shadow-[#C5A059]/20 w-12 h-12 rounded-full flex items-center justify-center cursor-pointer transition-all border border-[#C5A059]"
+        className="fixed bottom-20 sm:bottom-6 right-6 z-40 bg-gradient-to-br from-[#C5A059] to-[#9E8043] text-black hover:scale-105 active:scale-95 shadow-lg shadow-[#C5A059]/20 w-12 h-12 rounded-full flex items-center justify-center cursor-pointer transition-all border border-[#C5A059]"
         title="Consult AI Assistant Advisor"
       >
         {isOpen ? <X className="w-5 h-5 font-bold" /> : <Bot className="w-5 h-5" />}
