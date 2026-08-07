@@ -13,7 +13,7 @@ export default function FloatingCompareBar() {
   if (compareList.length === 0) return null;
 
   return (
-    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 w-11/12 max-w-xl bg-[#0A0A0A]/95 backdrop-blur-md border border-[#C5A059]/40 rounded-2xl p-3 sm:p-4 shadow-2xl animate-slideUp font-sans text-white flex items-center justify-between gap-3">
+    <div className="fixed bottom-20 sm:bottom-5 left-1/2 -translate-x-1/2 z-40 w-11/12 max-w-xl bg-[#0A0A0A]/95 backdrop-blur-md border border-[#C5A059]/40 rounded-2xl p-3 sm:p-4 shadow-2xl animate-slideUp font-sans text-white flex items-center justify-between gap-3">
       <div className="flex items-center gap-3 min-w-0">
         <div className="w-9 h-9 rounded-xl bg-[#C5A059]/15 border border-[#C5A059]/30 flex items-center justify-center text-[#C5A059] shrink-0">
           <GitCompare className="w-4 h-4" />

@@ -1168,7 +1168,7 @@ export default function CheckoutView() {
 
       {/* Mobile-optimized Floating 'Quick Pay' Action Button with bounce & pulse indicator */}
       {!showMpesaQrScreen && !paymentSuccess && !isSTKProcessing && cart.length > 0 && getSafaricomValidation(customerPhone).isValid && (
-        <div className="fixed bottom-6 right-6 z-40 md:hidden animate-bounce">
+        <div className="fixed bottom-20 right-4 sm:right-6 z-40 md:hidden animate-bounce">
           <button
             type="button"
             onClick={handleQuickPayTrigger}

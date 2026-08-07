@@ -1736,7 +1736,7 @@ export default function ShopView() {
 
       {/* Product Comparison Persistent Floating Bar */}
       {compareList.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-2xl bg-[#0F0F0F]/95 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-fadeIn font-sans">
+        <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-2xl bg-[#0F0F0F]/95 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-fadeIn font-sans">
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <div className="bg-[#C5A059]/20 p-2 rounded-lg border border-[#C5A059]/30">
               <Scale className="w-5 h-5 text-[#C5A059]" />

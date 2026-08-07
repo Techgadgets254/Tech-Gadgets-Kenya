@@ -624,7 +624,7 @@ export default function Header() {
               </div>
 
               {/* Scrollable Drawer Content Body */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-5">
+              <div className="flex-1 overflow-y-auto p-4 pb-8 space-y-5">
                 
                 {/* Search Bar inside Drawer */}
                 <div className="relative flex items-center group">
@@ -899,7 +899,9 @@ export default function Header() {
       <nav 
         id="mobile-bottom-nav-dock"
         aria-label="Mobile Navigation"
-        className={`fixed bottom-0 left-0 right-0 z-40 md:hidden border-t backdrop-blur-xl px-2 py-1.5 flex items-center justify-around transition-all ${
+        className={`fixed bottom-0 left-0 right-0 z-40 md:hidden border-t backdrop-blur-xl px-2 py-1.5 flex items-center justify-around transition-all duration-300 ${
+          mobileMenuOpen ? "translate-y-full opacity-0 pointer-events-none" : "translate-y-0 opacity-100"
+        } ${
           isLight
             ? "bg-white/95 border-zinc-200 text-zinc-700 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
             : "bg-[#0A0A0A]/95 border-white/10 text-white/70 shadow-[0_-4px_20px_rgba(0,0,0,0.6)]"

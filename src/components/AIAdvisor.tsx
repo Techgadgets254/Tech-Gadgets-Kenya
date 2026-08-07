@@ -442,7 +442,7 @@ Where "id_1, id_2" are the raw matching IDs of the products from the live databa
     <>
       {/* 1. COMPARING BOTTOM SLIDE BAR (Fits any active layout) */}
       {compareList.length > 0 && (
-        <div id="compare-bar" className="fixed bottom-4 left-4 right-4 md:left-auto md:right-24 z-40 bg-[#0F0F0F] border border-[#C5A059]/40 rounded-2xl p-4 shadow-xl max-w-md w-full animate-fadeIn">
+        <div id="compare-bar" className="fixed bottom-20 sm:bottom-4 left-4 right-4 md:left-auto md:right-24 z-40 bg-[#0F0F0F] border border-[#C5A059]/40 rounded-2xl p-4 shadow-xl max-w-md w-full animate-fadeIn">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <div className="bg-[#C5A059]/20 text-[#C5A059] p-2 rounded-lg border border-[#C5A059]/30">
@@ -498,8 +498,8 @@ Where "id_1, id_2" are the raw matching IDs of the products from the live databa
       {isOpen && (
         <div 
           id="ai-advisor-panel"
-          className={`fixed bottom-20 right-4 sm:right-6 z-50 bg-[#0F0F0F] border border-white/10 rounded-2xl h-[550px] shadow-2xl flex overflow-hidden animate-fadeIn transition-all duration-300 ${
-            showHistorySidebar ? "w-[92vw] sm:w-[650px]" : "w-[92vw] sm:w-[400px]"
+          className={`fixed bottom-20 right-2 sm:right-6 z-50 bg-[#0F0F0F] border border-white/10 rounded-2xl h-[calc(100vh-100px)] max-h-[550px] shadow-2xl flex overflow-hidden animate-fadeIn transition-all duration-300 ${
+            showHistorySidebar ? "w-[95vw] sm:w-[650px]" : "w-[95vw] sm:w-[400px]"
           }`}
         >
           {/* Chat History Sidebar */}
