@@ -39,11 +39,11 @@ const firebaseConfig = {
 // Initialize Firebase modularly
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with force/auto-detect long polling for proxy/iframe resilience and persistent multi-tab cache
+// Initialize Firestore with force long polling for proxy/iframe resilience and persistent multi-tab cache
 let dbInstance;
 try {
   dbInstance = initializeFirestore(app, {
-    experimentalAutoDetectLongPolling: true,
+    experimentalForceLongPolling: true,
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
   }, firebaseConfig.firestoreDatabaseId || "(default)");
 } catch (e) {

@@ -19,13 +19,16 @@ export interface Order {
   id: string;
   items: OrderItem[];
   totalAmount: number;
-  paymentMethod: string;
-  paymentStatus: string;
+  paymentMethod?: string;
+  paymentStatus?: string;
   shippingAddress?: string;
   customerName?: string;
+  customerEmail?: string;
+  email?: string;
   customerPhone?: string;
+  mpesaPhone?: string;
   receiptNo?: string;
-  createdAt: string;
+  createdAt?: string;
 }
 
 /**

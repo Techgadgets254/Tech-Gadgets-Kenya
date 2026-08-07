@@ -1474,25 +1474,25 @@ export default function ShopView() {
                         </div>
 
                         {/* Inventory price and CTA action section */}
-                        <div className="mt-4 pt-3 border-t border-white/5 min-w-0">
+                        <div className="mt-4 pt-3 border-t border-white/5">
 
-                          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 min-w-0">
-                            <div className="min-w-0">
-                              <span className="text-[9.5px] text-white/30 font-mono block leading-none uppercase truncate">
+                          <div className="flex items-center justify-between gap-1.5 min-w-0">
+                            <div className="shrink-0">
+                              <span className="text-[9px] font-mono block leading-none uppercase font-bold text-white/40 tracking-wider">
                                 {isCampaignOfferActive(p) ? "FLASH DEAL" : "STORE PRICE"}
                               </span>
-                              <div className="flex items-baseline gap-1.5 mt-0.5 flex-wrap">
+                              <div className="flex items-baseline gap-1 mt-1">
                                 {isCampaignOfferActive(p) ? (
-                                  <>
-                                    <span className="font-sans font-extrabold text-red-400 text-xs sm:text-sm truncate">
+                                  <div className="flex flex-col">
+                                    <span className="font-sans font-black text-red-400 text-xs sm:text-sm whitespace-nowrap">
                                       KES {p.flashPrice!.toLocaleString()}
                                     </span>
-                                    <span className="font-mono text-[9.5px] text-white/40 line-through truncate">
+                                    <span className="font-mono text-[9px] text-white/40 line-through whitespace-nowrap">
                                       KES {p.price.toLocaleString()}
                                     </span>
-                                  </>
+                                  </div>
                                 ) : (
-                                  <span className="font-sans font-extrabold text-white text-xs sm:text-sm truncate">
+                                  <span className="font-sans font-black text-[#C5A059] text-xs sm:text-sm md:text-base whitespace-nowrap tracking-tight">
                                     KES {p.price.toLocaleString()}
                                   </span>
                                 )}
@@ -1513,7 +1513,7 @@ export default function ShopView() {
                                   }
                                 }
                               }}
-                              className={`min-h-[44px] font-sans text-xs font-extrabold px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0 ${
+                              className={`min-h-[38px] font-sans text-[11px] sm:text-xs font-bold px-2.5 sm:px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 shrink-0 ${
                                 isOutOfStock 
                                   ? "bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25" 
                                   : "bg-[#C5A059] hover:bg-[#C5A059]/90 text-black shadow-md"
@@ -1522,7 +1522,7 @@ export default function ShopView() {
                               {isOutOfStock ? (
                                 <>
                                   <Bell className="w-3.5 h-3.5" />
-                                  <span>Notify Me</span>
+                                  <span>Notify</span>
                                 </>
                               ) : (
                                 "Add to Bag"

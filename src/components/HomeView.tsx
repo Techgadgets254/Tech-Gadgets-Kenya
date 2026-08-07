@@ -682,13 +682,13 @@ export default function HomeView() {
                   <div className="mt-4 pt-3 border-t border-white/5">
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
-                        <span className="text-[9px] text-white/30 font-mono block leading-none">PRICE</span>
-                        <div className="flex items-baseline gap-1.5 mt-0.5 flex-wrap">
-                          <span className="font-sans font-extrabold text-white text-xs sm:text-sm truncate">
+                        <span className="text-[9px] text-white/40 font-mono block leading-none font-bold">PRICE</span>
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                          <span className="font-sans font-black text-[#C5A059] text-xs sm:text-sm whitespace-nowrap">
                             KES {displayPrice?.toLocaleString()}
                           </span>
                           {isCampaign && (
-                            <span className="font-mono text-[9px] text-white/40 line-through truncate">
+                            <span className="font-mono text-[9px] text-white/40 line-through whitespace-nowrap">
                               KES {p.price.toLocaleString()}
                             </span>
                           )}
