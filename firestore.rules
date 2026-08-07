@@ -227,6 +227,15 @@ service cloud.firestore {
         && data.createdAt is string && data.createdAt.size() <= 100;
     }
 
+    function isValidBrowsingHistory(data) {
+      return data.userId is string && data.userId.size() <= 128
+        && data.productId is string && data.productId.size() > 0 && data.productId.size() <= 128
+        && (!data.keys().hasAll(['productName']) || (data.productName is string && data.productName.size() <= 300))
+        && (!data.keys().hasAll(['category']) || (data.category is string && data.category.size() <= 100))
+        && (!data.keys().hasAll(['brand']) || (data.brand is string && data.brand.size() <= 100))
+        && data.viewedAt is string && data.viewedAt.size() <= 100;
+    }
+
     // --- Collection Routes ---
 
     // Products collection: anybody can browse (read/list), only admins can edit products
@@ -538,6 +547,21 @@ service cloud.firestore {
     match /product_restock_requests/{requestId} {
       allow create: if isValidProductRestockRequest(incoming());
       allow read, list, get, update, delete: if isAdmin();
+    }
+
+    // Browsing History collection:
+    // - Authenticated users and guests can log product views and read/delete their own browsing history
+    // - Administrators have full access
+    match /browsing_history/{historyId} {
+      allow create: if (isSignedIn() && isValidBrowsingHistory(incoming()) && incoming().userId == request.auth.uid) || (
+        isValidBrowsingHistory(incoming()) && (incoming().userId.startsWith('cust_') || incoming().userId.startsWith('guest_'))
+      );
+      allow read, get, list: if (isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin())) || (
+        resource.data.userId.startsWith('cust_') || resource.data.userId.startsWith('guest_')
+      );
+      allow delete: if (isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin())) || (
+        resource.data.userId.startsWith('cust_') || resource.data.userId.startsWith('guest_')
+      );
     }
   }
 }

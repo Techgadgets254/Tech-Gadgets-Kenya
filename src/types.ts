@@ -152,5 +152,15 @@ export interface CartToast {
   price: number;
 }
 
+export interface BrowsingHistoryItem {
+  id?: string;
+  userId: string;
+  productId: string;
+  productName?: string;
+  category?: string;
+  brand?: string;
+  viewedAt: string;
+}
+
 
 

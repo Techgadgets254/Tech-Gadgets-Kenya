@@ -246,9 +246,27 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["orderId", "recipient", "message", "status", "createdAt"]
+    },
+    "browsing_history": {
+      "title": "Browsing History",
+      "description": "User product view history for personalized recommendations",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The Firebase Auth UID or guest user identifier" },
+        "productId": { "type": "string", "description": "The ID of the viewed product" },
+        "productName": { "type": "string", "description": "The name of the viewed product" },
+        "category": { "type": "string", "description": "The product category" },
+        "brand": { "type": "string", "description": "The product brand name" },
+        "viewedAt": { "type": "string", "format": "date-time", "description": "ISO timestamp of product view" }
+      },
+      "required": ["userId", "productId", "viewedAt"]
     }
   },
   "firestore": {
+    "/browsing_history/{historyId}": {
+      "schema": "browsing_history",
+      "description": "User browsing and product view records used for personalized recommendations"
+    },
     "/products/{productId}": {
       "schema": "product",
       "description": "The list of premium electronic store items"

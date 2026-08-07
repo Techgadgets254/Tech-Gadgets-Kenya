@@ -203,7 +203,8 @@ export default function ProductDetailsView() {
     user,
     registerPriceAlert,
     registerProductRestockRequest,
-    productReviews
+    productReviews,
+    recordProductView
   } = useStore();
 
   const [quantity, setQuantity] = useState(1);
@@ -321,6 +322,13 @@ export default function ProductDetailsView() {
   const product = useMemo(() => {
     return products.find(p => p.id === selectedProductId) || null;
   }, [products, selectedProductId]);
+
+  // Record product view in browsing history
+  React.useEffect(() => {
+    if (product) {
+      recordProductView(product);
+    }
+  }, [product, recordProductView]);
 
   const isRefurbished = useMemo(() => {
     if (!product) return false;

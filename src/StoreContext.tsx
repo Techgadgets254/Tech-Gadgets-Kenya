@@ -29,7 +29,7 @@ import {
   or
 } from "firebase/firestore";
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from "./firebase";
-import { Product, Order, OrderItem, UserProfile, Affiliate, ProductReview, TransactionFeedback, CompanyProfile, CartToast } from "./types";
+import { Product, Order, OrderItem, UserProfile, Affiliate, ProductReview, TransactionFeedback, CompanyProfile, CartToast, BrowsingHistoryItem } from "./types";
 import { DEFAULT_PRODUCTS } from "./data";
 import { normalizeBrandName } from "./lib/brandUtils";
 
@@ -152,6 +152,9 @@ interface StoreContextType {
   setIsAuthModalOpen: (open: boolean) => void;
   authModalMode: "login" | "signup" | "reset";
   setAuthModalMode: (mode: "login" | "signup" | "reset") => void;
+  browsingHistory: BrowsingHistoryItem[];
+  recordProductView: (product: Product) => Promise<void>;
+  clearBrowsingHistory: () => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -536,6 +539,108 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       timestamp: Date.now()
     };
     setNotifications((prev) => [newNotif, ...prev]);
+  };
+
+  // Browsing History State and Firestore Synchronization
+  const [browsingHistory, setBrowsingHistory] = useState<BrowsingHistoryItem[]>(() => {
+    try {
+      const cached = localStorage.getItem("tsk_browsing_history_cache");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
+
+  const getActiveUserId = React.useCallback(() => {
+    if (auth.currentUser?.uid) return auth.currentUser.uid;
+    if (userProfile?.uid) return userProfile.uid;
+    let guestId = localStorage.getItem("tsk_guest_id");
+    if (!guestId) {
+      guestId = "guest_" + Math.random().toString(36).substring(2, 11);
+      localStorage.setItem("tsk_guest_id", guestId);
+    }
+    return guestId;
+  }, [userProfile]);
+
+  useEffect(() => {
+    const currentUid = getActiveUserId();
+    const historyColRef = collection(db, "browsing_history");
+    const q = query(historyColRef, where("userId", "==", currentUid));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const items: BrowsingHistoryItem[] = [];
+      snapshot.forEach((doc) => {
+        items.push({ id: doc.id, ...doc.data() } as BrowsingHistoryItem);
+      });
+      items.sort((a, b) => new Date(b.viewedAt).getTime() - new Date(a.viewedAt).getTime());
+      setBrowsingHistory(items);
+      try {
+        localStorage.setItem("tsk_browsing_history_cache", JSON.stringify(items));
+      } catch (e) {}
+    }, (error) => {
+      console.warn("Browsing history snapshot listener warning:", error);
+    });
+
+    return () => unsubscribe();
+  }, [user, userProfile, getActiveUserId]);
+
+  const recordProductView = async (product: Product) => {
+    if (!product || !product.id) return;
+    const currentUid = getActiveUserId();
+    const nowIso = new Date().toISOString();
+
+    const newItem: BrowsingHistoryItem = {
+      userId: currentUid,
+      productId: product.id,
+      productName: product.name,
+      category: product.category,
+      brand: product.brand,
+      viewedAt: nowIso
+    };
+
+    // Optimistic local state update
+    setBrowsingHistory((prev) => {
+      const filtered = prev.filter(item => item.productId !== product.id);
+      const updated = [newItem, ...filtered];
+      try {
+        localStorage.setItem("tsk_browsing_history_cache", JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    try {
+      const historyColRef = collection(db, "browsing_history");
+      await addDoc(historyColRef, newItem);
+    } catch (err) {
+      console.warn("Soft non-blocking warning saving browsing history item:", err);
+    }
+  };
+
+  const clearBrowsingHistory = async () => {
+    const currentUid = getActiveUserId();
+    setBrowsingHistory([]);
+    try {
+      localStorage.removeItem("tsk_browsing_history_cache");
+      const historyColRef = collection(db, "browsing_history");
+      const q = query(historyColRef, where("userId", "==", currentUid));
+      const snapshot = await getDocs(q);
+      const deletePromises = snapshot.docs.map((d) => deleteDoc(d.ref));
+      await Promise.all(deletePromises);
+    } catch (err) {
+      console.warn("Error clearing browsing history in Firestore:", err);
+    }
+  };
+
+  const handleSetSelectedProductId = (id: string | null) => {
+    setSelectedProductId(id);
+    if (id) {
+      const p = products.find(prod => prod.id === id);
+      if (p) {
+        recordProductView(p);
+      }
+    }
   };
 
   const handleSetActiveView = (view: StoreContextType["activeView"]) => {
@@ -2112,7 +2217,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setSearchQuery,
         setInvoiceOrderId,
         setActiveView: handleSetActiveView,
-        setSelectedProductId,
+        setSelectedProductId: handleSetSelectedProductId,
         setSelectedOrder,
         wishlist,
         toggleWishlist,
@@ -2171,6 +2276,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setIsAuthModalOpen,
         authModalMode,
         setAuthModalMode,
+        browsingHistory,
+        recordProductView,
+        clearBrowsingHistory,
       }}
     >
       {children}

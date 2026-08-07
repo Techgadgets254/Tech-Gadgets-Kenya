@@ -44,11 +44,90 @@ export default function HomeView() {
     setSearchQuery,
     userProfile,
     removeFlashOffer,
-    clearAllFlashOffers
+    clearAllFlashOffers,
+    browsingHistory,
+    recordProductView,
+    clearBrowsingHistory
   } = useStore();
 
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [homeSortBy, setHomeSortBy] = useState<string>("featured");
+
+  // Personalized Recommendation Engine based on user browsing history stored in Firestore
+  const personalizedRecommendations = useMemo(() => {
+    if (!products || products.length === 0) return [];
+
+    // Collect user browsing metrics
+    const categoryCounts: Record<string, number> = {};
+    const brandCounts: Record<string, number> = {};
+
+    browsingHistory.forEach(item => {
+      if (item.category) {
+        categoryCounts[item.category] = (categoryCounts[item.category] || 0) + 1;
+      }
+      if (item.brand) {
+        brandCounts[item.brand] = (brandCounts[item.brand] || 0) + 1;
+      }
+    });
+
+    const topCategories = Object.keys(categoryCounts).sort((a, b) => categoryCounts[b] - categoryCounts[a]);
+    const topBrands = Object.keys(brandCounts).sort((a, b) => brandCounts[b] - brandCounts[a]);
+
+    // If user has browsing history in Firestore
+    if (browsingHistory.length > 0) {
+      const recs: { product: any; reason: string; badgeColor: string }[] = [];
+      const addedProductIds = new Set<string>();
+
+      // 1. Same category recommendations
+      topCategories.forEach(cat => {
+        products.forEach(p => {
+          if (!addedProductIds.has(p.id) && p.category === cat) {
+            recs.push({
+              product: p,
+              reason: `Based on interest in ${cat}`,
+              badgeColor: "bg-[#C5A059]/15 text-[#C5A059] border-[#C5A059]/30"
+            });
+            addedProductIds.add(p.id);
+          }
+        });
+      });
+
+      // 2. Same brand affinity recommendations
+      topBrands.forEach(brand => {
+        products.forEach(p => {
+          if (!addedProductIds.has(p.id) && p.brand.toLowerCase() === brand.toLowerCase()) {
+            recs.push({
+              product: p,
+              reason: `Matching your ${brand} preference`,
+              badgeColor: "bg-blue-500/15 text-blue-400 border-blue-500/30"
+            });
+            addedProductIds.add(p.id);
+          }
+        });
+      });
+
+      // 3. Fill remaining slots if needed with popular products
+      products.forEach(p => {
+        if (!addedProductIds.has(p.id)) {
+          recs.push({
+            product: p,
+            reason: "Popular in Storefront",
+            badgeColor: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+          });
+          addedProductIds.add(p.id);
+        }
+      });
+
+      return recs.slice(0, 4);
+    } else {
+      // Default state for new visitors before browsing history is populated
+      return products.slice(0, 4).map((p, idx) => ({
+        product: p,
+        reason: idx === 0 ? "🔥 Popular Pick" : idx === 1 ? "⭐ Top Rated" : "✨ Store Recommendation",
+        badgeColor: "bg-[#C5A059]/10 text-[#C5A059] border-[#C5A059]/20"
+      }));
+    }
+  }, [products, browsingHistory]);
 
   // States & memoized logic for dynamic cycling promo banners
   const [activePromoIndex, setActivePromoIndex] = useState(0);
@@ -446,6 +525,194 @@ export default function HomeView() {
           </div>
         </section>
       )}
+
+      {/* Personalized Product Recommendation Section */}
+      <motion.section
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-50px" }}
+        variants={sectionVariants}
+        className="mb-14 relative"
+        id="personalized-recommendations-section"
+      >
+        <div className="bg-gradient-to-br from-[#121212] via-[#0F0F0F] to-[#0A0A0A] border border-[#C5A059]/25 rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-2xl">
+          {/* Subtle ambient background glow */}
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#C5A059]/5 rounded-full blur-[100px] pointer-events-none" />
+
+          {/* Section Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 relative z-10 border-b border-white/5 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 bg-[#C5A059]/15 border border-[#C5A059]/30 rounded-lg text-[#C5A059]">
+                  <Sparkles className="w-4 h-4" />
+                </span>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#C5A059]">
+                  Firestore Real-Time Data Engine
+                </span>
+              </div>
+              <h2 className="font-sans font-bold text-xl sm:text-2xl tracking-tight text-white mt-1">
+                Recommended For You
+              </h2>
+              <p className="text-white/50 text-xs mt-1 max-w-2xl leading-relaxed">
+                {browsingHistory.length > 0 
+                  ? `Dynamically generated from your ${browsingHistory.length} recorded item view${browsingHistory.length === 1 ? '' : 's'} stored in your Firestore history.`
+                  : "Personalized suggestions tailored to your preferences. Select products to refine your Firestore recommendations!"}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {browsingHistory.length > 0 && (
+                <button
+                  onClick={async () => {
+                    if (confirm("Reset your Firestore browsing history profile?")) {
+                      await clearBrowsingHistory();
+                    }
+                  }}
+                  className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 font-sans font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Clear recorded browsing history in Firestore"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Clear History ({browsingHistory.length})</span>
+                </button>
+              )}
+              <button
+                onClick={() => setActiveView("shop")}
+                className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-black font-sans font-bold text-xs px-4 py-2 rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>View Full Storefront</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Recently Viewed Items Bar if browsing history exists */}
+          {browsingHistory.length > 0 && (
+            <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-2 text-xs">
+              <span className="text-[10px] font-mono text-white/40 uppercase tracking-wider shrink-0 flex items-center gap-1">
+                <Clock className="w-3 h-3 text-[#C5A059]" /> Recently Viewed:
+              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                {browsingHistory.slice(0, 5).map((item, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      setSelectedProductId(item.productId);
+                      setActiveView("product-details");
+                    }}
+                    className="bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-[#C5A059]/40 text-white/80 hover:text-white px-2.5 py-1 rounded-lg transition-all text-[11px] truncate max-w-[180px] cursor-pointer flex items-center gap-1"
+                  >
+                    <span className="text-[#C5A059] font-mono font-bold">•</span>
+                    <span className="truncate">{item.productName || item.productId}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recommendations Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 relative z-10">
+            {personalizedRecommendations.map(({ product: p, reason, badgeColor }, i) => {
+              const isSavedInWish = wishlist.includes(p.id);
+              const isCampaign = p.flashPrice && p.stock > 0 && (!p.flashExpiry || new Date() < new Date(p.flashExpiry));
+              const displayPrice = isCampaign ? p.flashPrice : p.price;
+
+              return (
+                <div
+                  key={p.id || i}
+                  style={{ backgroundColor: "var(--theme-bg-0f0f0f)" }}
+                  className="border border-white/10 hover:border-[#C5A059]/60 rounded-2xl p-4 flex flex-col justify-between transition-all group/card shadow-lg hover:shadow-2xl relative min-w-0"
+                >
+                  <div>
+                    {/* Personalized Reason Badge */}
+                    <div className="mb-3 flex items-center justify-between gap-1 min-w-0">
+                      <span className={`text-[9px] font-mono font-extrabold px-2 py-0.5 rounded-md border uppercase tracking-wider truncate max-w-[80%] ${badgeColor}`}>
+                        {reason}
+                      </span>
+                      <button
+                        onClick={() => toggleWishlist(p.id)}
+                        className={`p-1.5 rounded-lg border transition-all cursor-pointer shrink-0 ${
+                          isSavedInWish 
+                            ? "bg-red-500/20 border-red-500/40 text-red-400" 
+                            : "bg-white/5 border-white/10 text-white/40 hover:text-white"
+                        }`}
+                        title={isSavedInWish ? "Saved in Wishlist" : "Save to Wishlist"}
+                      >
+                        <Heart className={`w-3.5 h-3.5 ${isSavedInWish ? "fill-red-400" : ""}`} />
+                      </button>
+                    </div>
+
+                    {/* Product Image & Trigger */}
+                    <div
+                      onClick={() => {
+                        setSelectedProductId(p.id);
+                        recordProductView(p);
+                        setActiveView("product-details");
+                      }}
+                      className="relative overflow-hidden rounded-xl bg-black/40 aspect-4/3 cursor-pointer group-hover/card:opacity-90 transition-opacity mb-3"
+                    >
+                      <img
+                        src={p.image}
+                        alt={p.name}
+                        className="w-full h-full object-cover transform transition-transform duration-500 group-hover/card:scale-105"
+                        referrerPolicy="no-referrer"
+                      />
+                      {isCampaign && (
+                        <div className="absolute top-2 left-2 bg-red-600 text-white font-mono text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider animate-pulse shadow-md">
+                          FLASH DEAL
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Product Info */}
+                    <span className="text-[9px] font-mono text-[#C5A059] uppercase font-bold tracking-wider block truncate">
+                      {p.category}
+                    </span>
+                    <h3
+                      onClick={() => {
+                        setSelectedProductId(p.id);
+                        recordProductView(p);
+                        setActiveView("product-details");
+                      }}
+                      className="font-sans font-semibold text-xs sm:text-sm text-white mt-1 cursor-pointer hover:text-[#C5A059] line-clamp-2 leading-snug break-words"
+                    >
+                      {p.name}
+                    </h3>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-white/5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="text-[9px] text-white/30 font-mono block leading-none">PRICE</span>
+                        <div className="flex items-baseline gap-1.5 mt-0.5 flex-wrap">
+                          <span className="font-sans font-extrabold text-white text-xs sm:text-sm truncate">
+                            KES {displayPrice?.toLocaleString()}
+                          </span>
+                          {isCampaign && (
+                            <span className="font-mono text-[9px] text-white/40 line-through truncate">
+                              KES {p.price.toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          recordProductView(p);
+                          addToCart(p, 1);
+                        }}
+                        className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-black font-sans font-extrabold text-[11px] px-3 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1 shadow-md shrink-0"
+                      >
+                        <span>Add</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </motion.section>
 
       {/* 2. Structured Category Selection Grid */}
       <motion.section

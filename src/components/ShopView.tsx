@@ -770,10 +770,10 @@ export default function ShopView() {
       
       {/* Search Indicator & Title */}
       <div className="mb-8">
-        <h1 className="font-sans font-medium text-2xl sm:text-3xl tracking-tight text-white">
+        <h1 className="font-sans font-medium text-xl sm:text-3xl tracking-tight text-white break-words">
           Hardware Storefront
         </h1>
-        <p className="text-white/50 text-xs sm:text-sm mt-1">
+        <p className="text-white/50 text-xs sm:text-sm mt-1 leading-relaxed break-words">
           Explore and filter our premium live inventory pool with prompt M-Pesa clearing.
         </p>
 
@@ -793,8 +793,8 @@ export default function ShopView() {
               }
             }}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search specific products or brands (e.g., HP, Dell, Lenovo)..."
-            className="block w-full pl-10 pr-20 py-3 bg-[#0F0F0F] border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:outline-hidden focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] transition-all font-sans shadow-inner"
+            placeholder="Search products or brands (e.g., HP, Dell)..."
+            className="block w-full pl-10 pr-20 py-3 bg-[#0F0F0F] border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:outline-hidden focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] transition-all font-sans shadow-inner truncate"
           />
           <div className="absolute inset-y-0 right-0 pr-3 flex items-center gap-1.5 z-10">
             {/* Voice Search Button */}
@@ -1399,14 +1399,14 @@ export default function ShopView() {
                       </div>
 
                       {/* Info Panel */}
-                      <div className="p-4 flex-1 flex flex-col justify-between">
-                        <div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-[#C5A059] font-mono text-[9px] uppercase font-bold tracking-wider">
+                      <div className="p-4 flex-1 flex flex-col justify-between min-w-0">
+                        <div className="min-w-0">
+                          <div className="flex justify-between items-center gap-2 min-w-0">
+                            <span className="text-[#C5A059] font-mono text-[9px] uppercase font-bold tracking-wider truncate min-w-0">
                               {p.category}
                             </span>
                             {/* Stars rating count summary */}
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 shrink-0">
                               <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
                               <span className="text-white/80 font-bold font-mono text-[10px]">
                                 {p.rating || 4.8}
@@ -1422,34 +1422,34 @@ export default function ShopView() {
                               setSelectedProductId(p.id);
                               setActiveView("product-details");
                             }}
-                            className="font-sans font-semibold text-sm text-white mt-1 cursor-pointer hover:text-[#C5A059] line-clamp-2 leading-tight"
+                            className="font-sans font-semibold text-xs sm:text-sm text-white mt-1 cursor-pointer hover:text-[#C5A059] line-clamp-2 leading-snug break-words"
                           >
                             {highlightText(p.name, searchQuery)}
                           </h3>
 
                           {/* Flash Deal Promo Banner & Timer */}
                           {isCampaignOfferActive(p) && (
-                            <div className="mt-2.5 flex flex-wrap gap-2 items-center">
-                              <span className="text-[9px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded-md font-sans font-bold flex items-center gap-1 border border-red-500/20 uppercase tracking-wider animate-pulse">
-                                <Flame className="w-3 h-3 text-red-500" />
-                                {p.flashBanner || "FLASH OFFER!"}
+                            <div className="mt-2.5 flex flex-wrap gap-1.5 items-center min-w-0">
+                              <span className="text-[9px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded-md font-sans font-bold flex items-center gap-1 border border-red-500/20 uppercase tracking-wider animate-pulse max-w-full truncate">
+                                <Flame className="w-3 h-3 text-red-500 shrink-0" />
+                                <span className="truncate">{p.flashBanner || "FLASH OFFER!"}</span>
                               </span>
                               <FlashCountdown expiry={p.flashExpiry!} />
                             </div>
                           )}
                           {isCampaignOfferUpcoming(p) && (
-                            <div className="mt-2.5 flex flex-wrap gap-2 items-center">
-                              <span className="text-[9px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-md font-sans font-bold flex items-center gap-1 border border-amber-500/20 uppercase tracking-wider">
+                            <div className="mt-2.5 flex flex-wrap gap-1.5 items-center min-w-0">
+                              <span className="text-[9px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-md font-sans font-bold flex items-center gap-1 border border-amber-500/20 uppercase tracking-wider max-w-full truncate">
                                 ⏳ {p.flashBanner || "UPCOMING DEAL"}
                               </span>
-                              <span className="text-[9.5px] text-amber-300/80 font-mono">
+                              <span className="text-[9.5px] text-amber-300/80 font-mono truncate">
                                 Starts: {new Date(p.flashStart!).toLocaleDateString()} {new Date(p.flashStart!).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                               </span>
                             </div>
                           )}
 
                           {/* Complimentary Product Tag Badges */}
-                          <div className="flex flex-wrap gap-1 mt-2">
+                          <div className="flex flex-wrap gap-1 mt-2 min-w-0">
                             {(p.tags && p.tags.length > 0 ? p.tags : (
                               p.category.toLowerCase().includes("laptop") ? ["Elite Speed", "SME Pick"] :
                               p.category.toLowerCase().includes("phone") ? ["Super Retina", "5G Built"] :
@@ -1460,39 +1460,39 @@ export default function ShopView() {
                             )).map((t, idx) => (
                               <span 
                                 key={idx} 
-                                className="text-[9px] bg-[#C5A059]/10 text-[#C5A059] px-2 py-0.5 rounded-md font-sans font-medium hover:scale-102 transform transition-all tracking-wide flex items-center gap-1 border border-[#C5A059]/20"
+                                className="text-[9px] bg-[#C5A059]/10 text-[#C5A059] px-2 py-0.5 rounded-md font-sans font-medium hover:scale-102 transform transition-all tracking-wide flex items-center gap-1 border border-[#C5A059]/20 max-w-full truncate"
                               >
                                 <Tag className="w-2.5 h-2.5 shrink-0" />
-                                {t}
+                                <span className="truncate">{t}</span>
                               </span>
                             ))}
                           </div>
 
-                          <p className="text-white/50 text-[11px] mt-2.5 line-clamp-3 leading-relaxed">
+                          <p className="text-white/50 text-[11px] mt-2.5 line-clamp-3 leading-relaxed break-words">
                             {highlightText(p.description, searchQuery)}
                           </p>
                         </div>
 
                         {/* Inventory price and CTA action section */}
-                        <div className="mt-4 pt-3 border-t border-white/5">
+                        <div className="mt-4 pt-3 border-t border-white/5 min-w-0">
 
-                          <div className="flex items-center justify-between gap-2">
-                            <div>
-                              <span className="text-[10px] text-white/30 font-mono block leading-none">
+                          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 min-w-0">
+                            <div className="min-w-0">
+                              <span className="text-[9.5px] text-white/30 font-mono block leading-none uppercase truncate">
                                 {isCampaignOfferActive(p) ? "FLASH DEAL" : "STORE PRICE"}
                               </span>
-                              <div className="flex items-baseline gap-1.5 mt-0.5">
+                              <div className="flex items-baseline gap-1.5 mt-0.5 flex-wrap">
                                 {isCampaignOfferActive(p) ? (
                                   <>
-                                    <span className="font-sans font-extrabold text-red-400 text-sm">
+                                    <span className="font-sans font-extrabold text-red-400 text-xs sm:text-sm truncate">
                                       KES {p.flashPrice!.toLocaleString()}
                                     </span>
-                                    <span className="font-mono text-[10px] text-white/40 line-through">
+                                    <span className="font-mono text-[9.5px] text-white/40 line-through truncate">
                                       KES {p.price.toLocaleString()}
                                     </span>
                                   </>
                                 ) : (
-                                  <span className="font-sans font-extrabold text-white text-sm">
+                                  <span className="font-sans font-extrabold text-white text-xs sm:text-sm truncate">
                                     KES {p.price.toLocaleString()}
                                   </span>
                                 )}
@@ -1513,7 +1513,7 @@ export default function ShopView() {
                                   }
                                 }
                               }}
-                              className={`min-h-[44px] font-sans text-xs font-extrabold px-4 py-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                              className={`min-h-[44px] font-sans text-xs font-extrabold px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0 ${
                                 isOutOfStock 
                                   ? "bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25" 
                                   : "bg-[#C5A059] hover:bg-[#C5A059]/90 text-black shadow-md"
