@@ -541,7 +541,7 @@ function StoreLayout() {
       <Header />
       
       {/* 2. Main Tabbed Layout viewports */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8 overflow-x-hidden">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8 pb-20 md:pb-8 sm:px-6 lg:px-8 overflow-x-hidden">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeView}
