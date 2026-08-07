@@ -324,8 +324,10 @@ export default function ProductDetailsView() {
   }, [products, selectedProductId]);
 
   // Record product view in browsing history
+  const lastRecordedIdRef = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (product) {
+    if (product && product.id && product.id !== lastRecordedIdRef.current) {
+      lastRecordedIdRef.current = product.id;
       recordProductView(product);
     }
   }, [product, recordProductView]);

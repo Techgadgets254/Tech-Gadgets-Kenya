@@ -586,7 +586,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, [user, userProfile, getActiveUserId]);
 
-  const recordProductView = async (product: Product) => {
+  const recordProductView = React.useCallback(async (product: Product) => {
     if (!product || !product.id) return;
     const currentUid = getActiveUserId();
     const nowIso = new Date().toISOString();
@@ -600,8 +600,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       viewedAt: nowIso
     };
 
-    // Optimistic local state update
+    // Optimistic local state update with duplicate guard
     setBrowsingHistory((prev) => {
+      if (prev.length > 0 && prev[0].productId === product.id) {
+        return prev;
+      }
       const filtered = prev.filter(item => item.productId !== product.id);
       const updated = [newItem, ...filtered];
       try {
@@ -616,9 +619,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.warn("Soft non-blocking warning saving browsing history item:", err);
     }
-  };
+  }, [getActiveUserId]);
 
-  const clearBrowsingHistory = async () => {
+  const clearBrowsingHistory = React.useCallback(async () => {
     const currentUid = getActiveUserId();
     setBrowsingHistory([]);
     try {
@@ -631,17 +634,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.warn("Error clearing browsing history in Firestore:", err);
     }
-  };
+  }, [getActiveUserId]);
 
-  const handleSetSelectedProductId = (id: string | null) => {
+  const handleSetSelectedProductId = React.useCallback((id: string | null) => {
     setSelectedProductId(id);
-    if (id) {
-      const p = products.find(prod => prod.id === id);
-      if (p) {
-        recordProductView(p);
-      }
-    }
-  };
+  }, []);
 
   const handleSetActiveView = (view: StoreContextType["activeView"]) => {
     if (view === "checkout" && !user) {

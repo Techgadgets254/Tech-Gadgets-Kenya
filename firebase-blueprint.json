@@ -247,6 +247,33 @@
       },
       "required": ["orderId", "recipient", "message", "status", "createdAt"]
     },
+    "fcm_token": {
+      "title": "FCM Device Token",
+      "description": "Firebase Cloud Messaging web push registration tokens for push notifications",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The Firebase Auth UID or guest identifier" },
+        "token": { "type": "string", "description": "FCM registration web push token" },
+        "platform": { "type": "string", "description": "Platform identifier (web)" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "token", "updatedAt"]
+    },
+    "push_notification": {
+      "title": "Push Notification",
+      "description": "Push notification messages for order updates, price drops, and new product arrivals",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The recipient user ID or 'all' for broadcasts" },
+        "title": { "type": "string", "description": "Push notification title" },
+        "body": { "type": "string", "description": "Push notification body text" },
+        "type": { "type": "string", "description": "Category: order_update, price_drop, product_arrival, general" },
+        "read": { "type": "boolean", "description": "Whether the notification has been read by user" },
+        "link": { "type": "string", "description": "Optional deep link URL or view action" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "body", "type", "createdAt"]
+    },
     "browsing_history": {
       "title": "Browsing History",
       "description": "User product view history for personalized recommendations",
@@ -338,6 +365,14 @@
     "/product_restock_requests/{requestId}": {
       "schema": "product_restock_request",
       "description": "User requests for notification when an out-of-stock product is restocked"
+    },
+    "/fcm_tokens/{tokenId}": {
+      "schema": "fcm_token",
+      "description": "Registered FCM web push tokens for client devices"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "push_notification",
+      "description": "Push notification history for order updates, price drops, and new product arrivals"
     }
   }
 }

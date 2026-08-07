@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from "react";
 import { useStore } from "../StoreContext";
 import brandLogo from "../assets/images/tech_soko_logo_1783960703453.jpg";
+import PushNotificationDrawer from "./PushNotificationDrawer";
 import { 
   ShoppingBag, 
   User as UserIcon, 
@@ -22,7 +23,13 @@ import {
   Moon,
   X,
   RotateCcw,
-  GitCompare
+  GitCompare,
+  Bell,
+  BellRing,
+  Sparkles,
+  ArrowRight,
+  Tag,
+  Package
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -51,6 +58,7 @@ export default function Header() {
 
   const [desktopFocused, setDesktopFocused] = useState(false);
   const [mobileFocused, setMobileFocused] = useState(false);
+  const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
 
   const [localSearch, setLocalSearch] = useState(searchQuery);
 
@@ -59,34 +67,52 @@ export default function Header() {
     setLocalSearch(searchQuery);
   }, [searchQuery]);
 
-  // Debounce the search query update to 250ms
+  // Debounce the search query update to 150ms for instant feel
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearchQuery(localSearch);
-    }, 250);
+    }, 150);
     return () => clearTimeout(timer);
   }, [localSearch, setSearchQuery]);
 
   const trimmedQuery = localSearch.trim().toLowerCase();
+
+  // Enhanced Predictive Search Calculations
   const suggestions = React.useMemo(() => {
-    if (!trimmedQuery) return { categories: [], products: [] };
+    if (!trimmedQuery) {
+      // Default popular quick suggestions when focused but query is empty
+      const popularCats = Array.from(new Set(products.map(p => p.category))).slice(0, 4);
+      const featuredProds = products.filter(p => p.stock > 0).slice(0, 3);
+      return {
+        categories: popularCats.map(c => ({
+          name: c,
+          count: products.filter(p => p.category === c).length
+        })),
+        products: featuredProds,
+        isDefault: true
+      };
+    }
 
-    const uniqueCategories = Array.from(
-      new Set(products.map(p => p.category))
-    );
-    const matchingCategories = uniqueCategories.filter(cat => 
-      cat.toLowerCase().includes(trimmedQuery)
-    );
+    // 1. Categories matching query
+    const categoriesWithCounts = Array.from(new Set(products.map(p => p.category)))
+      .filter(cat => cat.toLowerCase().includes(trimmedQuery))
+      .map(cat => ({
+        name: cat,
+        count: products.filter(p => p.category === cat).length
+      }));
 
+    // 2. Products matching query in name, brand, category, specifications or tags
     const matchingProducts = products.filter(p => 
       p.name.toLowerCase().includes(trimmedQuery) ||
       p.brand.toLowerCase().includes(trimmedQuery) ||
-      p.category.toLowerCase().includes(trimmedQuery)
-    ).slice(0, 5);
+      p.category.toLowerCase().includes(trimmedQuery) ||
+      (p.sku && p.sku.toLowerCase().includes(trimmedQuery))
+    ).slice(0, 6);
 
     return {
-      categories: matchingCategories,
-      products: matchingProducts
+      categories: categoriesWithCounts,
+      products: matchingProducts,
+      isDefault: false
     };
   }, [trimmedQuery, products]);
 
@@ -165,29 +191,41 @@ export default function Header() {
               </button>
             )}
 
-            {/* Desktop Real-time suggestions dropdown */}
-            {desktopFocused && trimmedQuery && (suggestions.categories.length > 0 || suggestions.products.length > 0) && (
+            {/* Desktop Real-time predictive search suggestions dropdown */}
+            {desktopFocused && (suggestions.categories.length > 0 || suggestions.products.length > 0) && (
               <div 
-                className="absolute top-full left-0 right-0 mt-2 bg-[#0E0E0E]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 text-left py-2 max-h-96 overflow-y-auto"
+                className="absolute top-full left-0 right-0 mt-2 bg-[#0E0E0E]/98 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl overflow-hidden z-50 text-left py-2.5 max-h-[32rem] overflow-y-auto"
                 onMouseDown={(e) => e.preventDefault()}
               >
+                {/* Header label */}
+                <div className="px-3.5 pb-2 border-b border-white/5 flex items-center justify-between text-[10px] font-mono text-white/40 uppercase tracking-wider">
+                  <span>{suggestions.isDefault ? "Popular Suggestions" : `Predictive Results (${suggestions.products.length + suggestions.categories.length})`}</span>
+                  <span className="text-[#C5A059]">Instant Search</span>
+                </div>
+
+                {/* Categories */}
                 {suggestions.categories.length > 0 && (
-                  <div className="px-3 py-1.5">
-                    <span className="text-[9px] font-mono font-bold tracking-wider text-[#C5A059]/80 uppercase">Matching Categories</span>
-                    <div className="mt-1 space-y-0.5">
+                  <div className="px-3 py-2">
+                    <span className="text-[9px] font-mono font-bold tracking-wider text-[#C5A059] uppercase flex items-center gap-1">
+                      <Tag className="w-3 h-3" />
+                      <span>{suggestions.isDefault ? "Explore Categories" : "Top Categories"}</span>
+                    </span>
+                    <div className="mt-1.5 grid grid-cols-2 gap-1">
                       {suggestions.categories.map((cat, idx) => (
                         <button
                           key={idx}
-                        onClick={() => {
-                          setLocalSearch(cat);
-                          setSearchQuery(cat);
-                          setActiveView("shop");
-                          setDesktopFocused(false);
-                        }}
-                          className="w-full text-left px-2 py-1.5 rounded-lg text-xs text-white/80 hover:bg-white/[0.04] hover:text-[#C5A059] transition-colors flex items-center justify-between font-medium cursor-pointer"
+                          onClick={() => {
+                            setLocalSearch(cat.name);
+                            setSearchQuery(cat.name);
+                            setActiveView("shop");
+                            setDesktopFocused(false);
+                          }}
+                          className="w-full text-left px-2.5 py-1.5 rounded-xl text-xs bg-white/[0.03] hover:bg-white/[0.08] hover:text-[#C5A059] transition-all flex items-center justify-between font-medium cursor-pointer border border-white/5"
                         >
-                          <span>{cat}</span>
-                          <span className="text-[10px] font-mono text-white/30">Category</span>
+                          <span className="truncate">{cat.name}</span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-white/10 text-white/60 shrink-0 ml-1">
+                            {cat.count}
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -198,9 +236,13 @@ export default function Header() {
                   <div className="border-t border-white/5 my-1" />
                 )}
 
+                {/* Matching Products */}
                 {suggestions.products.length > 0 && (
                   <div className="px-3 py-1.5">
-                    <span className="text-[9px] font-mono font-bold tracking-wider text-[#C5A059]/80 uppercase">Matching Products</span>
+                    <span className="text-[9px] font-mono font-bold tracking-wider text-[#C5A059] uppercase flex items-center gap-1">
+                      <Package className="w-3 h-3" />
+                      <span>{suggestions.isDefault ? "Top Products" : "Matching Product Names"}</span>
+                    </span>
                     <div className="mt-1.5 space-y-1">
                       {suggestions.products.map((prod) => (
                         <button
@@ -210,21 +252,47 @@ export default function Header() {
                             setActiveView("product-details");
                             setDesktopFocused(false);
                           }}
-                          className="w-full text-left p-1.5 rounded-lg text-xs hover:bg-white/[0.04] transition-colors flex items-center gap-2.5 cursor-pointer"
+                          className="w-full text-left p-2 rounded-xl text-xs hover:bg-white/[0.06] transition-all flex items-center gap-3 cursor-pointer border border-transparent hover:border-white/10 group/item"
                         >
                           <img 
                             src={prod.image} 
                             alt={prod.name} 
-                            className="w-8 h-8 rounded-md object-cover bg-white/5 shrink-0"
+                            className="w-10 h-10 rounded-lg object-cover bg-white/5 shrink-0 border border-white/10 group-hover/item:scale-105 transition-transform"
                             referrerPolicy="no-referrer"
                           />
                           <div className="min-w-0 flex-1">
-                            <p className="font-semibold text-white/95 truncate leading-none">{prod.name}</p>
-                            <p className="text-[9px] font-mono text-[#C5A059] mt-1">KES {prod.price.toLocaleString()}</p>
+                            <div className="flex items-center justify-between gap-1">
+                              <p className="font-bold text-white/95 truncate leading-snug group-hover/item:text-[#C5A059] transition-colors">{prod.name}</p>
+                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/20 font-bold shrink-0">
+                                {prod.brand}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between mt-1 text-[10px] font-mono">
+                              <span className="text-[#C5A059] font-bold">KES {prod.price.toLocaleString()}</span>
+                              <span className={prod.stock > 0 ? "text-emerald-400" : "text-rose-400"}>
+                                {prod.stock > 0 ? `${prod.stock} in stock` : "Out of stock"}
+                              </span>
+                            </div>
                           </div>
                         </button>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {/* View all search CTA */}
+                {trimmedQuery && (
+                  <div className="px-3 pt-2 pb-1 border-t border-white/5">
+                    <button
+                      onClick={() => {
+                        setActiveView("shop");
+                        setDesktopFocused(false);
+                      }}
+                      className="w-full py-2 px-3 rounded-xl bg-[#C5A059]/15 hover:bg-[#C5A059] text-[#C5A059] hover:text-black font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-[#C5A059]/30"
+                    >
+                      <span>See all matching results for "{trimmedQuery}"</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 )}
               </div>
@@ -276,6 +344,20 @@ export default function Header() {
                 <span>News</span>
               </button>
             </nav>
+
+            {/* Push Notifications Trigger */}
+            <button
+              onClick={() => setIsNotificationDrawerOpen(true)}
+              className={`relative p-2 sm:p-2.5 rounded-xl transition-all border focus:outline-none cursor-pointer group ${
+                isLight
+                  ? "text-zinc-700 hover:text-[#C5A059] border-zinc-200 hover:bg-zinc-100"
+                  : "text-white/70 hover:text-[#C5A059] border-white/10 hover:bg-[#1A1A1A]"
+              }`}
+              title="Open Push Notifications & Alert Settings"
+            >
+              <Bell className="w-4 h-4 transition-transform group-hover:scale-110" />
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#C5A059] animate-pulse" />
+            </button>
 
             {/* Theme Toggle Button */}
             <button
@@ -485,28 +567,33 @@ export default function Header() {
           )}
 
           {/* Mobile Real-time suggestions dropdown */}
-          {mobileFocused && trimmedQuery && (suggestions.categories.length > 0 || suggestions.products.length > 0) && (
+          {mobileFocused && (suggestions.categories.length > 0 || suggestions.products.length > 0) && (
             <div 
-              className="absolute top-full left-0 right-0 mt-2 bg-[#0E0E0E]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 text-left py-2 max-h-80 overflow-y-auto"
+              className="absolute top-full left-0 right-0 mt-2 bg-[#0E0E0E]/98 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl overflow-hidden z-50 text-left py-2.5 max-h-80 overflow-y-auto"
               onMouseDown={(e) => e.preventDefault()}
             >
               {suggestions.categories.length > 0 && (
                 <div className="px-3 py-1.5">
-                  <span className="text-[9px] font-mono font-bold tracking-wider text-[#C5A059]/80 uppercase">Matching Categories</span>
-                  <div className="mt-1 space-y-0.5">
+                  <span className="text-[9px] font-mono font-bold tracking-wider text-[#C5A059] uppercase flex items-center gap-1">
+                    <Tag className="w-3 h-3" />
+                    <span>{suggestions.isDefault ? "Explore Categories" : "Top Categories"}</span>
+                  </span>
+                  <div className="mt-1 space-y-1">
                     {suggestions.categories.map((cat, idx) => (
                       <button
                         key={idx}
                         onClick={() => {
-                          setLocalSearch(cat);
-                          setSearchQuery(cat);
+                          setLocalSearch(cat.name);
+                          setSearchQuery(cat.name);
                           setActiveView("shop");
                           setMobileFocused(false);
                         }}
-                        className="w-full text-left px-2 py-1.5 rounded-lg text-xs text-white/80 hover:bg-white/[0.04] hover:text-[#C5A059] transition-colors flex items-center justify-between font-medium cursor-pointer"
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-white/80 hover:bg-white/[0.06] hover:text-[#C5A059] transition-colors flex items-center justify-between font-medium cursor-pointer border border-white/5"
                       >
-                        <span>{cat}</span>
-                        <span className="text-[10px] font-mono text-white/30">Category</span>
+                        <span className="truncate">{cat.name}</span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-white/10 text-white/60 shrink-0 ml-1">
+                          {cat.count}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -519,7 +606,10 @@ export default function Header() {
 
               {suggestions.products.length > 0 && (
                 <div className="px-3 py-1.5">
-                  <span className="text-[9px] font-mono font-bold tracking-wider text-[#C5A059]/80 uppercase">Matching Products</span>
+                  <span className="text-[9px] font-mono font-bold tracking-wider text-[#C5A059] uppercase flex items-center gap-1">
+                    <Package className="w-3 h-3" />
+                    <span>{suggestions.isDefault ? "Top Products" : "Matching Product Names"}</span>
+                  </span>
                   <div className="mt-1.5 space-y-1">
                     {suggestions.products.map((prod) => (
                       <button
@@ -529,12 +619,12 @@ export default function Header() {
                           setActiveView("product-details");
                           setMobileFocused(false);
                         }}
-                        className="w-full text-left p-1.5 rounded-lg text-xs hover:bg-white/[0.04] transition-colors flex items-center gap-2.5 cursor-pointer"
+                        className="w-full text-left p-1.5 rounded-lg text-xs hover:bg-white/[0.06] transition-colors flex items-center gap-2.5 cursor-pointer border border-transparent hover:border-white/10"
                       >
                         <img 
                           src={prod.image} 
                           alt={prod.name} 
-                          className="w-8 h-8 rounded-md object-cover bg-white/5 shrink-0"
+                          className="w-8 h-8 rounded-md object-cover bg-white/5 shrink-0 border border-white/10"
                           referrerPolicy="no-referrer"
                         />
                         <div className="min-w-0 flex-1">
@@ -637,6 +727,12 @@ export default function Header() {
           </span>
         </button>
       </nav>
+
+      {/* Push Notifications Drawer Overlay */}
+      <PushNotificationDrawer 
+        isOpen={isNotificationDrawerOpen} 
+        onClose={() => setIsNotificationDrawerOpen(false)} 
+      />
 
     </header>
   );

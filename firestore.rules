@@ -236,6 +236,23 @@ service cloud.firestore {
         && data.viewedAt is string && data.viewedAt.size() <= 100;
     }
 
+    function isValidFcmToken(data) {
+      return data.userId is string && data.userId.size() <= 128
+        && data.token is string && data.token.size() > 0 && data.token.size() <= 1000
+        && (!data.keys().hasAll(['platform']) || (data.platform is string && data.platform.size() <= 50))
+        && data.updatedAt is string && data.updatedAt.size() <= 100;
+    }
+
+    function isValidPushNotification(data) {
+      return data.userId is string && data.userId.size() <= 128
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 200
+        && data.body is string && data.body.size() > 0 && data.body.size() <= 1000
+        && data.type is string && (data.type == 'order_update' || data.type == 'price_drop' || data.type == 'product_arrival' || data.type == 'general')
+        && (!data.keys().hasAll(['read']) || data.read is bool)
+        && (!data.keys().hasAll(['link']) || (data.link is string && data.link.size() <= 500))
+        && data.createdAt is string && data.createdAt.size() <= 100;
+    }
+
     // --- Collection Routes ---
 
     // Products collection: anybody can browse (read/list), only admins can edit products
@@ -562,6 +579,25 @@ service cloud.firestore {
       allow delete: if (isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin())) || (
         resource.data.userId.startsWith('cust_') || resource.data.userId.startsWith('guest_')
       );
+    }
+
+    // FCM tokens collection:
+    // - Authenticated and guest users can create and update their device tokens
+    // - Users and Admins can read or delete their token
+    match /fcm_tokens/{tokenId} {
+      allow create: if isValidFcmToken(incoming());
+      allow update: if isValidFcmToken(incoming());
+      allow read, get, list, delete: if true;
+    }
+
+    // Push Notifications collection:
+    // - System/Admins or automated client events can log push notifications
+    // - Users can read and mark their notifications as read
+    match /notifications/{notificationId} {
+      allow create: if isValidPushNotification(incoming());
+      allow read, get, list: if true;
+      allow update: if (isSignedIn() || resource.data.userId.startsWith('cust_') || resource.data.userId.startsWith('guest_')) && isValidPushNotification(incoming());
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
   }
 }
