@@ -6,6 +6,8 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useStore } from "../StoreContext";
 import { motion, AnimatePresence } from "motion/react";
+import CustomerTestimonials from "./CustomerTestimonials";
+import { formatKES } from "../utils/formatCurrency";
 import { 
   Laptop, 
   Smartphone, 
@@ -426,11 +428,11 @@ export default function HomeView() {
                           <span className="text-[9px] text-white/35 font-mono uppercase tracking-wider block">PROMO CAMPAIGN PRICE</span>
                           <div className="flex items-baseline gap-2.5">
                             <span className="text-2xl sm:text-3xl font-extrabold text-[#C5A059] font-mono tracking-tight">
-                              KES {promoPrice.toLocaleString()}
+                              {formatKES(promoPrice)}
                             </span>
                             {discountPercent > 0 && (
                               <span className="text-xs sm:text-sm text-white/30 line-through font-mono">
-                                KES {originalPrice.toLocaleString()}
+                                {formatKES(originalPrice)}
                               </span>
                             )}
                           </div>
@@ -1069,7 +1071,7 @@ export default function HomeView() {
                         <div>
                           <span className="text-[10px] text-white/30 font-mono block">STORE PRICE</span>
                           <span className="font-sans font-black text-[#C5A059] text-md">
-                            KES {product.price.toLocaleString()}
+                            {formatKES(product.price)}
                           </span>
                         </div>
 
@@ -1092,6 +1094,9 @@ export default function HomeView() {
           </div>
         )}
       </motion.section>
+
+      {/* Customer Testimonials Section */}
+      <CustomerTestimonials />
 
       {/* 3. Interactive FAQ Section */}
       <motion.section

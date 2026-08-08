@@ -8,7 +8,7 @@ import { useStore } from "../StoreContext";
 import LazyImage from "./LazyImage";
 import { Helmet } from "./Helmet";
 import { SocialShareManager } from "../services/SocialShareManager";
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
+import { formatKES } from "../utils/formatCurrency";
 import { 
   ArrowLeft, 
   ShoppingBag, 
@@ -31,164 +31,6 @@ import {
   TrendingUp,
   X
 } from "lucide-react";
-
-function Product90DayPriceChart({ 
-  currentPrice, 
-  originalPrice, 
-  productId, 
-  productName 
-}: { 
-  currentPrice: number; 
-  originalPrice?: number; 
-  productId: string; 
-  productName: string 
-}) {
-  const chartData = useMemo(() => {
-    const data = [];
-    const baseHigh = originalPrice && originalPrice > currentPrice ? originalPrice : currentPrice * 1.09;
-    const now = new Date();
-    
-    let seed = 0;
-    for (let i = 0; i < productId.length; i++) {
-      seed = (seed << 5) - seed + productId.charCodeAt(i);
-      seed |= 0;
-    }
-    const pseudoRandom = (index: number) => {
-      const x = Math.sin(seed + index) * 10000;
-      return x - Math.floor(x);
-    };
-
-    for (let i = 90; i >= 0; i -= 3) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      const displayDate = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      const progress = (90 - i) / 90;
-      const noise = (pseudoRandom(i) - 0.5) * 0.03 * currentPrice;
-      let price = baseHigh - progress * (baseHigh - currentPrice) + noise;
-
-      if (i === 0) {
-        price = currentPrice;
-      }
-
-      data.push({
-        day: displayDate,
-        price: Math.round(price),
-      });
-    }
-    return data;
-  }, [currentPrice, originalPrice, productId]);
-
-  const priceStats = useMemo(() => {
-    let min = Infinity;
-    let max = -Infinity;
-    let sum = 0;
-    chartData.forEach((d) => {
-      if (d.price < min) min = d.price;
-      if (d.price > max) max = d.price;
-      sum += d.price;
-    });
-    const avg = Math.round(sum / chartData.length);
-    const isGoodDeal = currentPrice <= min + (max - min) * 0.3;
-    return { min, max, avg, isGoodDeal };
-  }, [chartData, currentPrice]);
-
-  return (
-    <div className="bg-[#0F0F0F] border border-[#C5A059]/30 rounded-3xl p-6 shadow-2xl space-y-4 my-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-white/10 pb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-[10px] font-mono font-bold text-[#C5A059] uppercase tracking-wider">
-              90-Day Market Price History Telemetry
-            </span>
-          </div>
-          <h3 className="text-base sm:text-lg font-bold font-sans text-white mt-0.5">
-            Price Fluctuations & Purchase Timing
-          </h3>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {priceStats.isGoodDeal ? (
-            <span className="text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
-              <span>🟢 Optimal Purchase Window (90-Day Low)</span>
-            </span>
-          ) : (
-            <span className="text-[10px] font-mono font-bold bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/30 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
-              <span>🟡 Market Standard Price</span>
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
-        <div className="bg-black/50 p-3 rounded-2xl border border-white/5">
-          <span className="text-white/40 text-[9px] uppercase block">Current Price</span>
-          <span className="text-emerald-400 font-black text-sm block mt-0.5">KES {currentPrice.toLocaleString()}</span>
-        </div>
-        <div className="bg-black/50 p-3 rounded-2xl border border-white/5">
-          <span className="text-white/40 text-[9px] uppercase block">90-Day Lowest</span>
-          <span className="text-emerald-400 font-bold text-sm block mt-0.5">KES {priceStats.min.toLocaleString()}</span>
-        </div>
-        <div className="bg-black/50 p-3 rounded-2xl border border-white/5">
-          <span className="text-white/40 text-[9px] uppercase block">90-Day Highest</span>
-          <span className="text-[#C5A059] font-bold text-sm block mt-0.5">KES {priceStats.max.toLocaleString()}</span>
-        </div>
-        <div className="bg-black/50 p-3 rounded-2xl border border-white/5">
-          <span className="text-white/40 text-[9px] uppercase block">90-Day Average</span>
-          <span className="text-sky-400 font-bold text-sm block mt-0.5">KES {priceStats.avg.toLocaleString()}</span>
-        </div>
-      </div>
-
-      <div className="h-60 w-full pt-2">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
-            <defs>
-              <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#C5A059" stopOpacity={0.6} />
-                <stop offset="95%" stopColor="#C5A059" stopOpacity={0.0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-            <XAxis dataKey="day" stroke="#ffffff40" fontSize={10} tickLine={false} axisLine={{ stroke: "#ffffff15" }} />
-            <YAxis 
-              stroke="#ffffff40" 
-              fontSize={10} 
-              tickLine={false} 
-              axisLine={false} 
-              domain={['auto', 'auto']}
-              tickFormatter={(v) => `K${(v / 1000).toFixed(0)}k`} 
-            />
-            <Tooltip
-              content={({ active, payload, label }) => {
-                if (active && payload && payload.length) {
-                  const val = payload[0].value as number;
-                  return (
-                    <div className="bg-[#0A0A0A] border border-[#C5A059]/50 p-3 rounded-2xl shadow-2xl text-xs font-mono text-white">
-                      <div className="font-bold text-[#C5A059] border-b border-white/10 pb-1 mb-1">{label}</div>
-                      <div>Historical Price: <span className="text-emerald-400 font-bold">KES {val.toLocaleString()}</span></div>
-                    </div>
-                  );
-                }
-                return null;
-              }}
-            />
-            <Area 
-              type="monotone" 
-              dataKey="price" 
-              stroke="#C5A059" 
-              strokeWidth={2.5} 
-              fillOpacity={1} 
-              fill="url(#priceGradient)" 
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-      <p className="text-[10px] text-white/40 font-mono text-center">
-        Data points reflect 90-day historic retail price logs for {productName} at Tech Sokoni Kenya. Updated daily.
-      </p>
-    </div>
-  );
-}
 
 export default function ProductDetailsView() {
   const { 
@@ -751,6 +593,20 @@ export default function ProductDetailsView() {
     }
   };
 
+  if (!product) {
+    return (
+      <div className="p-8 text-center text-white/50 space-y-4 font-sans">
+        <p className="text-sm">Selected commodity profile was not found in active inventory catalog.</p>
+        <button
+          onClick={() => setActiveView("shop")}
+          className="bg-[#C5A059] hover:bg-[#C5A059]/90 text-black font-bold px-4 py-2 rounded-xl text-xs transition-all cursor-pointer"
+        >
+          Return to Shop
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div id="product-details-container" className="animate-fadeIn">
       <Helmet 
@@ -1086,7 +942,7 @@ export default function ProductDetailsView() {
             <div>
               <span className="text-[10px] text-gray-300 font-mono block leading-none mb-1">UNIT RETAIL PRICE</span>
               <span className="font-sans font-black text-2xl tracking-tight text-white block leading-none">
-                KES {currentPrice.toLocaleString()}
+                {formatKES(currentPrice)}
               </span>
             </div>
 
@@ -1279,77 +1135,8 @@ export default function ProductDetailsView() {
               Instant checkouts are powered by secure live M-Pesa Express authorization. Authenticate to sync invoices within 5 seconds of confirmation.
             </p>
           </div>
-
-          {/* Dynamic Price Drop Alert Panel */}
-          <div className="bg-[#111] border border-white/5 rounded-2xl p-5 space-y-4 shadow-lg">
-            <div className="flex items-center gap-2 text-white">
-              <span className="p-1.5 rounded-lg bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/10">
-                <Bell className="w-4 h-4 text-[#C5A059]" />
-              </span>
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider font-sans text-white">Set Price Drop Alert</h4>
-                <p className="text-[10px] text-white/50 leading-none mt-1">Get instant updates if the price drops below your target</p>
-              </div>
-            </div>
-
-            {priceAlertSuccess ? (
-              <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3 rounded-xl text-xs space-y-1">
-                <p className="font-bold font-sans">✓ Price Alert Activated!</p>
-                <p className="text-white/60 text-[10px]">We will notify your WhatsApp at <strong>{priceAlertWhatsapp}</strong> when the price of this gadget drops to KES {Number(priceAlertTarget).toLocaleString()} or lower.</p>
-              </div>
-            ) : (
-              <form onSubmit={handlePriceAlertSubmit} className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="block text-[9px] font-mono font-bold text-white/40 uppercase mb-1">
-                      WHATSAPP NUMBER
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={priceAlertWhatsapp}
-                      onChange={(e) => setPriceAlertWhatsapp(e.target.value)}
-                      placeholder="e.g. +254700000000"
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs focus:outline-hidden focus:border-[#C5A059] text-white font-sans"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[9px] font-mono font-bold text-white/40 uppercase mb-1">
-                      TARGET PRICE (KES)
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      max={product.price - 1}
-                      min={1}
-                      value={priceAlertTarget}
-                      onChange={(e) => setPriceAlertTarget(e.target.value)}
-                      placeholder={`e.g. ${(product.price - 5000).toLocaleString()}`}
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs focus:outline-hidden focus:border-[#C5A059] text-white font-mono font-bold text-[#C5A059]"
-                    />
-                  </div>
-                </div>
-                <button
-                  type="submit"
-                  className="w-full bg-[#C5A059]/10 hover:bg-[#C5A059]/20 border border-[#C5A059]/30 text-[#C5A059] font-sans font-bold py-2 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
-                >
-                  <span>Submit Price Alert Request</span>
-                </button>
-              </form>
-            )}
-          </div>
-
         </div>
-
       </div>
-
-      {/* 90-Day Historical Price Chart */}
-      <Product90DayPriceChart 
-        currentPrice={currentPrice} 
-        originalPrice={(product as any).originalPrice} 
-        productId={product.id} 
-        productName={product.name} 
-      />
 
       {/* Structured Technical Specifications Block */}
       <section className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 sm:p-8 mb-12">
@@ -1634,80 +1421,6 @@ export default function ProductDetailsView() {
         </div>
       </section>
 
-      {/* 30-Day Price Trend & Market Insights Section */}
-      <section className="mb-12 bg-[#0F0F0F] border border-white/10 rounded-3xl p-6 shadow-xl animate-fadeIn">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/10 pb-4 mb-6">
-          <div>
-            <h2 className="font-sans font-semibold text-lg tracking-tight text-white flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-[#C5A059]" />
-              <span>Verified 30-Day Price Trend & Analytics</span>
-            </h2>
-            <p className="text-white/40 text-xs mt-1">
-              Analyze public market rate history fluctuation vectors for {product.name} to optimize your purchase choice timing.
-            </p>
-          </div>
-
-          <div className="bg-[#1A1A1A] border border-white/5 py-2 px-3.5 rounded-2xl flex items-center gap-2 text-xs font-mono">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-white/60">Best Purchase Opportunity Index: Stable</span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-center">
-          
-          <div className="lg:col-span-3 h-64 font-mono pr-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={priceHistoryData} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
-                <defs>
-                  <linearGradient id="priceColor" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#C5A059" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#C5A059" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
-                <XAxis dataKey="date" stroke="#555" fontSize={8} tickLine={false} />
-                <YAxis 
-                  stroke="#555" 
-                  fontSize={9} 
-                  tickLine={false} 
-                  domain={['dataMin - 5000', 'dataMax + 2000']}
-                  allowDecimals={false}
-                  tickFormatter={(val) => `KES ${Math.round(val / 1000)}k`} 
-                />
-                <Tooltip
-                  contentStyle={{ backgroundColor: "#0F0F0F", borderColor: "#333", borderRadius: "12px" }}
-                  labelStyle={{ color: "rgba(255,255,255,0.4)", fontSize: 9 }}
-                  itemStyle={{ fontSize: 11, color: "#fff" }}
-                  formatter={(val: any) => [`KES ${Number(val).toLocaleString()}`, "Retail Value"]}
-                />
-                <Area type="monotone" dataKey="price" stroke="#C5A059" strokeWidth={2} fillOpacity={1} fill="url(#priceColor)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="bg-white/[0.02] border border-white/5 p-4 rounded-2xl space-y-4 font-sans text-xs">
-            <div>
-              <span className="text-[10px] text-white/40 font-mono block uppercase">Optimal Entry Target</span>
-              <span className="text-emerald-400 text-lg font-black font-mono">
-                KES {Math.round(product.price * 0.95).toLocaleString()}
-              </span>
-            </div>
-            <div>
-              <span className="text-[10px] text-white/40 font-mono block uppercase">Last 30-Day Peak</span>
-              <span className="text-white font-mono font-bold">
-                KES {Math.round(product.price * 1.05).toLocaleString()}
-              </span>
-            </div>
-            <div className="pt-2 border-t border-white/5">
-              <p className="text-[10px] text-white/50 leading-relaxed font-sans">
-                💡 Current live configurations are backed by comprehensive local validation guarantees. Secure our low pricing by locking down M-Pesa or Card orders instantly.
-              </p>
-            </div>
-          </div>
-
-        </div>
-      </section>
-
       {/* Related items shelf */}
       {relatedItems.length > 0 && (
         <section className="mb-12">
@@ -1740,7 +1453,7 @@ export default function ProductDetailsView() {
                     {item.name}
                   </h3>
                   <span className="font-extrabold text-xs text-white block mt-1">
-                    KES {item.price.toLocaleString()}
+                    {formatKES(item.price)}
                   </span>
                 </div>
               </div>

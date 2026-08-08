@@ -34,6 +34,8 @@ import {
   Bell
 } from "lucide-react";
 import { Product } from "../types";
+import { SUBCATEGORIES_BY_MAIN_CATEGORY, matchesSubcategory } from "../utils/categories";
+import { formatKES } from "../utils/formatCurrency";
 
 const isCampaignOfferActive = (p: any) => {
   if (!p.flashPrice || !p.flashExpiry) return false;
@@ -298,7 +300,13 @@ export default function ShopView() {
   };
 
   const [selectedMainCategory, setSelectedMainCategory] = useState<string>("All");
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string>("All");
   const [selectedCondition, setSelectedCondition] = useState<"All" | "New" | "Refurbished">("All");
+
+  const availableSubcategories = useMemo(() => {
+    if (selectedMainCategory === "All") return [];
+    return SUBCATEGORIES_BY_MAIN_CATEGORY[selectedMainCategory] || [];
+  }, [selectedMainCategory]);
   const [selectedBrand, setSelectedBrand] = useState<string>("All");
   const [minPrice, setMinPrice] = useState<number | "">("");
   const [maxPrice, setMaxPrice] = useState<number | "">("");
@@ -681,6 +689,7 @@ export default function ShopView() {
   // Reset filters
   const resetFilters = () => {
     setSelectedMainCategory("All");
+    setSelectedSubcategory("All");
     setSelectedCondition("All");
     setSelectedBrand("All");
     setMinPrice("");
@@ -713,6 +722,11 @@ export default function ShopView() {
       } else {
         result = result.filter(p => getProductMainCategory(p.category) === selectedMainCategory);
       }
+    }
+
+    // Subcategory Filter
+    if (selectedSubcategory !== "All") {
+      result = result.filter(p => matchesSubcategory(p, selectedSubcategory));
     }
 
     // Condition Filter
@@ -756,7 +770,7 @@ export default function ShopView() {
     }
 
     return result;
-  }, [products, searchQuery, selectedMainCategory, selectedCondition, selectedBrand, minPrice, maxPrice, sortBy, onlyShowWishlist, wishlist]);
+  }, [products, searchQuery, selectedMainCategory, selectedSubcategory, selectedCondition, selectedBrand, minPrice, maxPrice, sortBy, onlyShowWishlist, wishlist]);
 
   const ITEMS_PER_PAGE = 12;
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
@@ -931,6 +945,7 @@ export default function ShopView() {
                     key={cat}
                     onClick={() => {
                       setSelectedMainCategory(cat);
+                      setSelectedSubcategory("All"); // Reset subcategory when category changes
                       setSelectedBrand("All"); // Reset brand selection when category changes
                     }}
                     className={`w-full min-h-[44px] text-left px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all flex items-center justify-between cursor-pointer ${
@@ -950,6 +965,40 @@ export default function ShopView() {
                 ))}
               </div>
             </div>
+
+            {/* Subcategory Filter (Sidebar) */}
+            {availableSubcategories.length > 0 && (
+              <div className="mb-5 bg-white/[0.02] border border-white/5 rounded-2xl p-3.5 space-y-2">
+                <span className="font-mono text-[10px] font-bold text-[#C5A059] block tracking-wider uppercase">
+                  {selectedMainCategory} Types
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    onClick={() => setSelectedSubcategory("All")}
+                    className={`min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition-all cursor-pointer ${
+                      selectedSubcategory === "All"
+                        ? "bg-[#C5A059] text-black font-bold shadow-md"
+                        : "bg-white/5 text-white/60 hover:text-white hover:bg-white/10"
+                    }`}
+                  >
+                    All {selectedMainCategory}
+                  </button>
+                  {availableSubcategories.map((subcat) => (
+                    <button
+                      key={subcat}
+                      onClick={() => setSelectedSubcategory(subcat)}
+                      className={`min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition-all cursor-pointer ${
+                        selectedSubcategory === subcat
+                          ? "bg-[#C5A059] text-black font-bold shadow-md"
+                          : "bg-white/5 text-white/60 hover:text-white hover:bg-white/10"
+                      }`}
+                    >
+                      {subcat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Hardware Condition + Extra Switch Button */}
             <div className="mb-5 border-t border-white/5 pt-5">
@@ -1091,9 +1140,10 @@ export default function ShopView() {
                     value={selectedMainCategory}
                     onChange={(e) => {
                       setSelectedMainCategory(e.target.value);
+                      setSelectedSubcategory("All");
                       setSelectedBrand("All");
                     }}
-                    className="bg-white/[0.03] border border-white/10 text-xs py-2 pl-3 pr-8 rounded-lg focus:outline-hidden focus:border-[#C5A059] text-white font-sans cursor-pointer appearance-none w-full sm:w-48"
+                    className="bg-white/[0.03] border border-white/10 text-xs py-2 pl-3 pr-8 rounded-lg focus:outline-hidden focus:border-[#C5A059] text-white font-sans cursor-pointer appearance-none w-full sm:w-44 h-[38px]"
                   >
                     {mainCategoriesList.map(cat => (
                       <option key={cat} value={cat} className="bg-[#0F0F0F] text-white">
@@ -1106,6 +1156,29 @@ export default function ShopView() {
                   </div>
                 </div>
               </div>
+
+              {availableSubcategories.length > 0 && (
+                <div className="flex flex-col gap-1 w-full sm:w-auto">
+                  <label className="text-[10px] font-mono font-bold text-[#C5A059] uppercase tracking-wider">Subcategory</label>
+                  <div className="relative">
+                    <select
+                      value={selectedSubcategory}
+                      onChange={(e) => setSelectedSubcategory(e.target.value)}
+                      className="bg-[#C5A059]/10 border border-[#C5A059]/30 text-xs py-2 pl-3 pr-8 rounded-lg focus:outline-hidden focus:border-[#C5A059] text-[#C5A059] font-sans font-bold cursor-pointer appearance-none w-full sm:w-44 h-[38px]"
+                    >
+                      <option value="All" className="bg-[#0F0F0F] text-white">All {selectedMainCategory}</option>
+                      {availableSubcategories.map(subcat => (
+                        <option key={subcat} value={subcat} className="bg-[#0F0F0F] text-white">
+                          {subcat}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#C5A059]">
+                      <ArrowUpDown className="w-3 h-3" />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex flex-col gap-1 w-full sm:w-auto">
                 <label className="text-[10px] font-mono font-bold text-white/40 uppercase tracking-wider">Manufacturer Brand</label>
@@ -1485,15 +1558,15 @@ export default function ShopView() {
                                 {isCampaignOfferActive(p) ? (
                                   <div className="flex flex-col">
                                     <span className="font-sans font-black text-red-400 text-xs sm:text-sm whitespace-nowrap">
-                                      KES {p.flashPrice!.toLocaleString()}
+                                      {formatKES(p.flashPrice!)}
                                     </span>
                                     <span className="font-mono text-[9px] text-white/40 line-through whitespace-nowrap">
-                                      KES {p.price.toLocaleString()}
+                                      {formatKES(p.price)}
                                     </span>
                                   </div>
                                 ) : (
                                   <span className="font-sans font-black text-[#C5A059] text-xs sm:text-sm md:text-base whitespace-nowrap tracking-tight">
-                                    KES {p.price.toLocaleString()}
+                                    {formatKES(p.price)}
                                   </span>
                                 )}
                               </div>
@@ -1695,10 +1768,10 @@ export default function ShopView() {
               <div>
                 <span className="text-[9px] text-white/30 font-mono block uppercase">ACCUMULATED BUY TOTAL</span>
                 <span className="text-xl font-extrabold text-white tracking-tight">
-                  KES {(() => {
+                  {(() => {
                     if (quickBuyProduct.variants && quickBuyProduct.variants.length > 0) {
                       const price = matchedQuickBuyVariant ? matchedQuickBuyVariant.price : quickBuyProduct.price;
-                      return (price * quickBuyQuantity).toLocaleString();
+                      return formatKES(price * quickBuyQuantity);
                     }
                     let price = quickBuyProduct.price;
                     const priceMatch = selectedVariant.match(/\+\s*KES\s*([\d,]+)/i);
@@ -1710,7 +1783,7 @@ export default function ShopView() {
                       const discount = parseInt(minusMatch[1].replace(/,/g, ""), 10);
                       price -= discount;
                     }
-                    return (price * quickBuyQuantity).toLocaleString();
+                    return formatKES(price * quickBuyQuantity);
                   })()}
                 </span>
               </div>
@@ -1755,7 +1828,7 @@ export default function ShopView() {
                 </div>
                 <div className="max-w-[85px] sm:max-w-[100px]">
                   <p className="text-[10px] text-white font-medium truncate">{p.name}</p>
-                  <p className="text-[8px] text-[#C5A059] font-mono">KES {p.price.toLocaleString()}</p>
+                  <p className="text-[8px] text-[#C5A059] font-mono">{formatKES(p.price)}</p>
                 </div>
                 <button
                   onClick={() => toggleCompare(p)}
@@ -1862,7 +1935,7 @@ export default function ShopView() {
                                   <div className="space-y-1">
                                     <span className="text-[9px] font-mono text-[#C5A059] uppercase tracking-wider block">{normalizeBrandName(p.brand)}</span>
                                     <h4 className="text-xs text-white font-bold line-clamp-2 min-h-[32px] leading-tight">{p.name}</h4>
-                                    <p className="text-sm font-sans font-extrabold text-[#C5A059]">KSh {p.price.toLocaleString()}</p>
+                                    <p className="text-sm font-sans font-extrabold text-[#C5A059]">{formatKES(p.price)}</p>
                                   </div>
 
                                   {/* Add to Cart button */}

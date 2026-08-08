@@ -8,6 +8,7 @@ export interface Product {
   name: string;
   brand: string;
   category: "Laptops" | "New Laptops" | "Refurbished Laptops" | "Phones" | "New Phones" | "Refurbished Phones" | "Printers" | "Accessories" | "All-in-One PCs" | "Desktops" | "New Desktops" | "Refurbished Desktops";
+  subcategory?: string;
   price: number;
   stock: number;
   description: string;
