@@ -121,8 +121,8 @@ export default function CheckoutView() {
   const [isGuest, setIsGuest] = useState(false);
   const [guestEmail, setGuestEmail] = useState("");
 
-  // Payment Selection: "megapay" or "mpesa_qr"
-  const [paymentMethod, setPaymentMethod] = useState<"megapay" | "mpesa_qr" | "paystack">("megapay");
+  // Payment Selection: "pay_on_delivery", "megapay" or "mpesa_qr"
+  const [paymentMethod, setPaymentMethod] = useState<"pay_on_delivery" | "megapay" | "mpesa_qr" | "paystack">("pay_on_delivery");
 
   // Dynamic M-Pesa QR checkout states
   const [showMpesaQrScreen, setShowMpesaQrScreen] = useState(false);
@@ -535,6 +535,38 @@ export default function CheckoutView() {
     try {
       const shippingFullAddress = `${deliveryDetails}, ${selectedCounty} County, Kenya (Free Delivery)`;
       
+      if (paymentMethod === "pay_on_delivery") {
+        setIsSTKProcessing(true);
+        setStkLogs([]);
+        updateSTKLog(`Registering Payment on Delivery Order for ${selectedCounty} County...`, 100);
+        updateSTKLog(`Dispatching fulfillment alert to Tech Sokoni Kenya warehouse...`, 400);
+
+        const orderObj = await createCheckoutOrder({
+          customerName,
+          customerEmail: activeEmail,
+          customerPhone,
+          shippingAddress: shippingFullAddress,
+          mpesaPhone: customerPhone,
+          totalAmount: Math.max(0, getCartTotal() + deliveryFee - discount),
+          referralCode: appliedPromo || undefined,
+          paymentProvider: "Payment on Delivery (Cash/M-Pesa)"
+        });
+
+        if (!orderObj) {
+          setIsSTKProcessing(false);
+          alert("Could not create database record for order. Please try again.");
+          return;
+        }
+
+        setCurrentCreatedOrder(orderObj);
+        setIsSTKProcessing(false);
+        setGeneratedOrderId(orderObj.id);
+        setGeneratedReceipt("POD-CONFIRMED");
+        setPaymentSuccess(true);
+        clearCart();
+        return;
+      }
+
       setIsSTKProcessing(true);
       setStkLogs([]);
       updateSTKLog(`Initiating M-Pesa Express Checkout for ${selectedCounty} County...`, 100);
@@ -1006,33 +1038,130 @@ export default function CheckoutView() {
 
                   {/* PAYMENT TAB METHODS */}
                   <div className="border-t border-white/5 pt-5 mt-6 space-y-4">
-                    <span className="font-mono text-[10px] text-emerald-400 font-bold uppercase tracking-wider">SELECT PAYMENT METHOD</span>
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
+                        SELECT PAYMENT METHOD
+                      </span>
+                      <span className="text-[10px] text-[#C5A059] font-mono font-bold flex items-center gap-1">
+                        ✓ 100% Secure & Verified
+                      </span>
+                    </div>
+
                     <div className="grid grid-cols-1 gap-3">
-                      {/* Option 1: M-Pesa Express */}
-                      <div className="flex items-start gap-3 p-4 rounded-2xl border bg-emerald-950/20 border-emerald-500/40 text-white">
-                        <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0 text-black font-extrabold text-sm shadow-md shadow-emerald-500/20">
-                          M
+                      {/* Option 1: Payment on Delivery */}
+                      <div 
+                        onClick={() => setPaymentMethod("pay_on_delivery")}
+                        className={`flex items-start gap-3 p-4 rounded-2xl border transition-all cursor-pointer ${
+                          paymentMethod === "pay_on_delivery"
+                            ? "bg-emerald-950/30 border-emerald-500 text-white shadow-lg shadow-emerald-500/10"
+                            : "bg-white/[0.02] border-white/10 text-white/70 hover:border-white/20"
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-extrabold text-sm shadow-md transition-all ${
+                          paymentMethod === "pay_on_delivery"
+                            ? "bg-emerald-500 text-black shadow-emerald-500/20"
+                            : "bg-white/10 text-white"
+                        }`}>
+                          <Truck className="w-5 h-5" />
                         </div>
                         <div className="flex-1">
-                          <h4 className="text-xs font-bold font-sans text-emerald-400 flex items-center gap-2">
-                            M-Pesa Express Checkout
-                            <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-mono px-2 py-0.5 rounded-full border border-emerald-500/30 font-semibold">STK Push</span>
+                          <h4 className="text-xs font-bold font-sans text-white flex items-center gap-2 flex-wrap">
+                            <span>Payment on Delivery (Cash or M-Pesa)</span>
+                            <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-mono px-2 py-0.5 rounded-full border border-emerald-500/30 font-semibold">
+                              MOST POPULAR • INSPECT FIRST
+                            </span>
                           </h4>
                           <p className="text-[10.5px] text-white/60 mt-1 leading-normal font-sans">
-                            Receive an instant M-Pesa payment prompt on your phone screen to enter your PIN.
+                            Pay cash or M-Pesa after receiving and inspecting your package at your doorstep or courier branch. Zero risk!
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Option 2: M-Pesa Express */}
+                      <div 
+                        onClick={() => setPaymentMethod("megapay")}
+                        className={`flex items-start gap-3 p-4 rounded-2xl border transition-all cursor-pointer ${
+                          paymentMethod === "megapay"
+                            ? "bg-[#C5A059]/15 border-[#C5A059] text-white shadow-lg shadow-[#C5A059]/10"
+                            : "bg-white/[0.02] border-white/10 text-white/70 hover:border-white/20"
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-extrabold text-sm shadow-md transition-all ${
+                          paymentMethod === "megapay"
+                            ? "bg-[#C5A059] text-black shadow-[#C5A059]/20"
+                            : "bg-white/10 text-white"
+                        }`}>
+                          <Smartphone className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-xs font-bold font-sans text-white flex items-center gap-2 flex-wrap">
+                            <span>M-Pesa Express Checkout</span>
+                            <span className="text-[9px] bg-[#C5A059]/20 text-[#C5A059] font-mono px-2 py-0.5 rounded-full border border-[#C5A059]/30 font-semibold">
+                              STK PUSH
+                            </span>
+                          </h4>
+                          <p className="text-[10.5px] text-white/60 mt-1 leading-normal font-sans">
+                            Receive an instant M-Pesa payment prompt on your phone screen to enter your PIN directly.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Option 3: Manual Buy Goods Till */}
+                      <div 
+                        onClick={() => setPaymentMethod("mpesa_qr")}
+                        className={`flex items-start gap-3 p-4 rounded-2xl border transition-all cursor-pointer ${
+                          paymentMethod === "mpesa_qr"
+                            ? "bg-blue-950/30 border-blue-500 text-white shadow-lg shadow-blue-500/10"
+                            : "bg-white/[0.02] border-white/10 text-white/70 hover:border-white/20"
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-extrabold text-sm shadow-md transition-all ${
+                          paymentMethod === "mpesa_qr"
+                            ? "bg-blue-500 text-white shadow-blue-500/20"
+                            : "bg-white/10 text-white"
+                        }`}>
+                          <QrCode className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-xs font-bold font-sans text-white flex items-center gap-2 flex-wrap">
+                            <span>Buy Goods Till No: 9309020</span>
+                            <span className="text-[9px] bg-blue-500/20 text-blue-300 font-mono px-2 py-0.5 rounded-full border border-blue-500/30 font-semibold">
+                              MANUAL TILL TRANSFER
+                            </span>
+                          </h4>
+                          <p className="text-[10.5px] text-white/60 mt-1 leading-normal font-sans">
+                            Pay manually via Lipa Na M-Pesa Buy Goods Till 9309020 and input receipt code.
                           </p>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <button
-                    type="submit"
-                    className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-sans font-extrabold py-3.5 px-4 rounded-xl shadow-lg transition-all mt-6 flex items-center justify-center gap-2 cursor-pointer text-sm transform hover:scale-[1.01] duration-200"
-                  >
-                    <Smartphone className="w-5 h-5 text-black shrink-0" />
-                    <span>Proceed to Pay via M-Pesa Express</span>
-                  </button>
+                  {paymentMethod === "pay_on_delivery" ? (
+                    <button
+                      type="submit"
+                      className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-sans font-extrabold py-3.5 px-4 rounded-xl shadow-lg transition-all mt-6 flex items-center justify-center gap-2 cursor-pointer text-sm transform hover:scale-[1.01] duration-200"
+                    >
+                      <Truck className="w-5 h-5 text-black shrink-0" />
+                      <span>Place Order (Pay on Delivery)</span>
+                    </button>
+                  ) : paymentMethod === "megapay" ? (
+                    <button
+                      type="submit"
+                      className="w-full bg-[#C5A059] hover:bg-[#C5A059]/90 text-black font-sans font-extrabold py-3.5 px-4 rounded-xl shadow-lg transition-all mt-6 flex items-center justify-center gap-2 cursor-pointer text-sm transform hover:scale-[1.01] duration-200"
+                    >
+                      <Smartphone className="w-5 h-5 text-black shrink-0" />
+                      <span>Proceed to Pay via M-Pesa Express</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      className="w-full bg-blue-500 hover:bg-blue-400 text-white font-sans font-extrabold py-3.5 px-4 rounded-xl shadow-lg transition-all mt-6 flex items-center justify-center gap-2 cursor-pointer text-sm transform hover:scale-[1.01] duration-200"
+                    >
+                      <QrCode className="w-5 h-5 text-white shrink-0" />
+                      <span>Continue with M-Pesa Till Payment</span>
+                    </button>
+                  )}
                 </form>
               </div>
 

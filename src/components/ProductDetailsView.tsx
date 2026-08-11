@@ -29,7 +29,8 @@ import {
   ChevronLeft,
   ChevronRight,
   TrendingUp,
-  X
+  X,
+  Truck
 } from "lucide-react";
 
 export default function ProductDetailsView() {
@@ -1126,14 +1127,31 @@ export default function ProductDetailsView() {
             </div>
           )}
 
-          {/* M-Pesa Info badge */}
-          <div className="bg-[#C5A059]/10 border border-[#C5A059]/20 rounded-xl p-4 flex items-start gap-3">
-            <span className="p-1 px-2 border border-[#C5A059]/30 bg-white/[0.04] rounded-md text-[10px] font-mono font-bold shrink-0 text-[#C5A059] mt-0.5">
-              M-PESA
-            </span>
-            <p className="text-[11px] text-[#C5A059] leading-normal font-sans">
-              Instant checkouts are powered by secure live M-Pesa Express authorization. Authenticate to sync invoices within 5 seconds of confirmation.
-            </p>
+          {/* M-Pesa & Payment on Delivery Info badges */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="bg-emerald-950/20 border border-emerald-500/30 rounded-xl p-3.5 flex items-start gap-3">
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shrink-0">
+                <Truck className="w-4 h-4" />
+              </div>
+              <div>
+                <h5 className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 flex-wrap">
+                  <span>Pay on Delivery</span>
+                  <span className="text-[8.5px] bg-emerald-500/20 text-emerald-300 font-mono px-1.5 py-0.5 rounded uppercase">Inspect First</span>
+                </h5>
+                <p className="text-[10.5px] text-white/70 leading-normal font-sans mt-0.5">
+                  Inspect item before paying via Cash or M-Pesa.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-[#C5A059]/10 border border-[#C5A059]/20 rounded-xl p-3.5 flex items-start gap-3">
+              <span className="p-1 px-2 border border-[#C5A059]/30 bg-white/[0.04] rounded-md text-[10px] font-mono font-bold shrink-0 text-[#C5A059] mt-0.5">
+                M-PESA
+              </span>
+              <p className="text-[10.5px] text-[#C5A059] leading-normal font-sans">
+                Instant STK push authorization with real-time invoices.
+              </p>
+            </div>
           </div>
         </div>
       </div>

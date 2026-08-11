@@ -146,34 +146,47 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
         
         {/* Core Value Proposition Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 border-b border-white/10 pb-10 mb-10">
-          <div className="flex gap-4 items-start">
-            <div className="bg-white/[0.03] border border-white/5 p-3 rounded-lg text-[#C5A059] shrink-0">
-              <Truck className="w-6 h-6" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 border-b border-white/10 pb-10 mb-10">
+          <div className="flex gap-3.5 items-start">
+            <div className="bg-white/[0.03] border border-white/5 p-3 rounded-xl text-[#C5A059] shrink-0">
+              <Truck className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="text-white font-medium text-sm">Same-Day Delivery</h4>
-              <p className="text-xs text-white/40 mt-1">Prompt courier dispatch across Nairobi, Kiambu, Machakos & Nakuru counties.</p>
+              <h4 className="text-white font-medium text-xs sm:text-sm">Same-Day Delivery</h4>
+              <p className="text-[11px] text-white/40 mt-0.5 leading-normal">Express courier dispatch across Nairobi & major towns nationwide.</p>
             </div>
           </div>
 
-          <div className="flex gap-4 items-start">
-            <div className="bg-white/[0.03] border border-white/5 p-3 rounded-lg text-[#C5A059] shrink-0">
-              <CreditCard className="w-6 h-6" />
+          <div className="flex gap-3.5 items-start">
+            <div className="bg-white/[0.03] border border-emerald-500/20 p-3 rounded-xl text-emerald-400 shrink-0">
+              <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="text-white font-medium text-sm">Safaricom M-Pesa Integrated</h4>
-              <p className="text-xs text-white/40 mt-1">Instant STK push validation with dynamic tracking numbers on invoice generation.</p>
+              <h4 className="text-white font-medium text-xs sm:text-sm flex items-center gap-1.5">
+                <span>Payment on Delivery</span>
+                <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-mono px-1 rounded font-bold">COD</span>
+              </h4>
+              <p className="text-[11px] text-white/40 mt-0.5 leading-normal">Inspect your item upon arrival before paying cash or M-Pesa.</p>
             </div>
           </div>
 
-          <div className="flex gap-4 items-start">
-            <div className="bg-white/[0.03] border border-white/5 p-3 rounded-lg text-[#C5A059] shrink-0">
-              <ShieldCheck className="w-6 h-6" />
+          <div className="flex gap-3.5 items-start">
+            <div className="bg-white/[0.03] border border-white/5 p-3 rounded-xl text-[#C5A059] shrink-0">
+              <CreditCard className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="text-white font-medium text-sm">Official Kenya Warranties</h4>
-              <p className="text-xs text-white/40 mt-1">100% genuine products sourced directly from authorized manufacturers in East Africa.</p>
+              <h4 className="text-white font-medium text-xs sm:text-sm">M-Pesa Express</h4>
+              <p className="text-[11px] text-white/40 mt-0.5 leading-normal">Instant STK push PIN validation with real-time digital invoice logs.</p>
+            </div>
+          </div>
+
+          <div className="flex gap-3.5 items-start">
+            <div className="bg-white/[0.03] border border-white/5 p-3 rounded-xl text-[#C5A059] shrink-0">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-white font-medium text-xs sm:text-sm">Official Warranties</h4>
+              <p className="text-[11px] text-white/40 mt-0.5 leading-normal">100% genuine products directly from authorized East Africa distributors.</p>
             </div>
           </div>
         </div>

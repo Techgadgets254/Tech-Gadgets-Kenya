@@ -188,8 +188,8 @@ export default function HomeView() {
       a: "Yes! We currently offer 100% Free Shipping nationwide with absolutely no delivery surcharge, including Nairobi addresses."
     },
     {
-      q: "How does Pay-on-Delivery (Cash on Delivery) work?",
-      a: "For upcountry addresses located outside Nairobi county, we bypass pre-payment entirely. You are permitted to fully inspect the physical hardware (screens, seals, test prints) at your courier collection office before authorizing cash release."
+      q: "How does Payment on Delivery (Cash or M-Pesa on Delivery) work?",
+      a: "We offer Payment on Delivery across Nairobi County and major towns nationwide in Kenya! When you select 'Payment on Delivery' at checkout, your order is packed and dispatched immediately. You are permitted to inspect the physical package and hardware (laptops, phones, printers) upon arrival before paying via Cash or M-Pesa to the courier."
     },
     {
       q: "Are the products genuine and covered by warranty?",
