@@ -272,10 +272,10 @@ service cloud.firestore {
       allow create: if (isSignedIn() && isValidOrder(incoming()) && incoming().userId == request.auth.uid) || (
         incoming().userId.startsWith('cust_') && isValidOrder(incoming())
       );
-      allow get: if (isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin())) || (
+      allow get: if (isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.customerEmail == request.auth.token.email || resource.data.customerEmail == request.auth.email || isAdmin())) || (
         resource.data.userId.startsWith('cust_')
       );
-      allow list: if (isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin())) || (
+      allow list: if (isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.customerEmail == request.auth.token.email || resource.data.customerEmail == request.auth.email || isAdmin())) || (
         resource.data.userId.startsWith('cust_')
       );
       allow update: if (isSignedIn() && (

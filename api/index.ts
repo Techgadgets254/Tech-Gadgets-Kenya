@@ -969,7 +969,7 @@ Where "id_1, id_2" are the raw matching IDs of the products from the live databa
     });
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-3.6-flash",
       contents,
       config: {
         systemInstruction,
@@ -1015,7 +1015,7 @@ CRITICAL FORMATTING RULES:
 - Write clean, professional, human-readable text.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-3.6-flash",
       contents: prompt,
       config: {
         temperature: 0.3,
@@ -1068,7 +1068,7 @@ Return a strictly valid JSON object with the following structure:
 }`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-3.6-flash",
       contents: prompt,
       config: {
         temperature: 0.7,
@@ -1176,7 +1176,7 @@ Return a strictly valid JSON object structured exactly like this:
 `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-3.6-flash",
       contents: prompt,
       config: {
         temperature: 0.2,
@@ -3485,7 +3485,7 @@ Return a strictly valid JSON array of objects, with no markdown styling asterisk
 ]
 `;
           const response = await ai.models.generateContent({
-            model: "gemini-3.5-flash",
+            model: "gemini-3.6-flash",
             contents: prompt,
             config: {
               temperature: 0.8,

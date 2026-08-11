@@ -335,7 +335,7 @@ Where "id_1, id_2" are the raw matching IDs of the products from the live databa
           }));
 
           const response = await clientAi.models.generateContent({
-            model: "gemini-3.5-flash",
+            model: "gemini-3.6-flash",
             contents: formattedContents,
             config: {
               systemInstruction,

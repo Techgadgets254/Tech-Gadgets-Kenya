@@ -1088,16 +1088,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (saved) guestIds = JSON.parse(saved);
         } catch (e) {}
 
-        const ordersCol = collection(db, "orders");
-        const snap = await getDocs(ordersCol);
+        // Query orders matching user's email
+        const emailQuery = query(collection(db, "orders"), where("customerEmail", "==", uEmail));
+        const emailSnap = await getDocs(emailQuery);
 
-        snap.forEach(async (docSnap) => {
+        emailSnap.forEach(async (docSnap) => {
           const data = docSnap.data();
-          const ordEmail = (data.customerEmail || "").trim().toLowerCase();
-          const isGuestMatch = guestIds.includes(docSnap.id);
-          const isEmailMatch = Boolean(ordEmail && ordEmail === uEmail);
-
-          if ((isGuestMatch || isEmailMatch) && data.userId !== user.uid) {
+          if (data.userId !== user.uid) {
             console.log(`[StoreContext Claimer] Claiming order #${docSnap.id} for user ${user.uid} (${uEmail})`);
             await updateDoc(doc(db, "orders", docSnap.id), {
               userId: user.uid,
@@ -1106,6 +1103,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             });
           }
         });
+
+        // Query orders matching stored guest IDs
+        if (guestIds.length > 0) {
+          const guestQuery = query(collection(db, "orders"), where(documentId(), "in", guestIds));
+          const guestSnap = await getDocs(guestQuery);
+
+          guestSnap.forEach(async (docSnap) => {
+            const data = docSnap.data();
+            if (data.userId !== user.uid) {
+              console.log(`[StoreContext Claimer] Claiming guest order #${docSnap.id} for user ${user.uid}`);
+              await updateDoc(doc(db, "orders", docSnap.id), {
+                userId: user.uid,
+                customerEmail: uEmail,
+                updatedAt: new Date().toISOString()
+              });
+            }
+          });
+        }
       } catch (err) {
         console.warn("[StoreContext Claimer] Error claiming user orders:", err);
       }

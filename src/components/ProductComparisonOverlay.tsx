@@ -130,7 +130,7 @@ Provide a concise, professional comparison with:
 3. Final purchasing recommendation.`;
 
       const result = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.6-flash",
         contents: prompt
       });
 

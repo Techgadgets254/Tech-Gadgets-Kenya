@@ -2059,7 +2059,7 @@ Return a strictly valid JSON object structured exactly like this:
 `;
 
           const response = await clientAi.models.generateContent({
-            model: "gemini-3.5-flash",
+            model: "gemini-3.6-flash",
             contents: prompt,
             config: {
               temperature: 0.2,
@@ -2233,7 +2233,7 @@ Storage: 512GB NVMe SSD
 Do not include any Markdown like asterisks, list markers, or bullet points. Just return the specifications directly. Max 6 lines.
 `;
         const response = await clientAi.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: "gemini-3.6-flash",
           contents: prompt
         });
         specStr = response.text || "";
